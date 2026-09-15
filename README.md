@@ -1,0 +1,1 @@
+# mobile-auto-stock-synchronize
