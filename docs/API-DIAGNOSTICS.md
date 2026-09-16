@@ -76,3 +76,8 @@ HTTPS host validation, disabled redirects and automatic connection retries,
 A 60s call timeout also bounds DNSE calls. Retrofit error-body buffering is capped
 by a separate response-size interceptor in debug and release builds.
 The existing DNSE signing algorithm and endpoint/query behavior are unchanged.
+
+If Samsung suppresses DEBUG before Logcat can read it, enable only this tag:
+`adb shell setprop log.tag.PlanningApi DEBUG`
+Then trigger a new sync. This is a device-local diagnostic setting and may reset
+on reboot. It does not enable verbose logs for other apps or framework tags.
