@@ -61,6 +61,22 @@ class ContractTest {
         assertEquals(1, batch.getJSONArray("positions").length())
         assertEquals(1, batch.getJSONArray("balances").length())
     }
+    @Test fun stockBalanceUsesNestedCashNotTotalOrDerivativeAndNotPriceUnits() {
+        val raw = JSONObject("""{"stock":{"availableCash":123456,"totalCash":999999},
+            "derivative":{"remainSecure":888888},"cash":777777}""")
+        val out = DnseApi.normalizeBalance("test", raw, BigDecimal("1000"), java.time.Instant.EPOCH)
+        assertEquals("123456", out.getString("cash_vnd"))
+        assertTrue(out.isNull("buying_power_vnd"))
+    }
+    @Test fun missingStockCashCannotBecomeZeroOrTotalCash() {
+        for (raw in listOf("""{"stock":{"totalCash":123}}""", """{"stock":null,"cash":123}""")) {
+            assertTrue(runCatching { DnseApi.normalizeBalance("test", JSONObject(raw),
+                BigDecimal.ONE, java.time.Instant.EPOCH) }.isFailure)
+        }
+        val zero = DnseApi.normalizeBalance("test", JSONObject("""{"stock":{"availableCash":0}}"""),
+            BigDecimal.ONE, java.time.Instant.EPOCH)
+        assertEquals("0", zero.getString("cash_vnd"))
+    }
     @Test fun executionWithoutFeeUsesExplicitNull() {
         val execution = JSONObject("""{"id":"fill-1","quantity":"1","price":"10",
             "executedAt":"2026-09-15T09:05:00+07:00"}""")

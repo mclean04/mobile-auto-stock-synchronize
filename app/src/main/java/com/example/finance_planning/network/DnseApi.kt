@@ -154,10 +154,23 @@ class DnseApi(private val transport: Transport, private val key: String,
 
         fun normalizeBalance(account: String, raw: JSONObject, priceMultiplier: BigDecimal,
                              observedAt: Instant): JSONObject {
-            val cash = decimal(raw, "cash", "cashBalance", "availableCash", "accountBalance")
-                .multiply(priceMultiplier)
-            val buying = optionalDecimal(raw, "buyingPower", "purchasingPower", "ppse", "availableCash")
-                ?.multiply(priceMultiplier)
+            // Current OpenAPI separates stock, derivative, bond and egg assets.
+            // Stock cash is a VND amount, not a security price in configurable quote units.
+            val stock = if (raw.has("stock")) raw.optJSONObject("stock")
+                ?: throw AppFailure("DNSE balances.stock không phải object; chưa gửi số dư.") else null
+            val source = stock ?: raw
+            val cashFields = if (stock != null) arrayOf("availableCash")
+                else arrayOf("cash", "cashBalance", "availableCash", "accountBalance")
+            if (cashFields.none { source.has(it) && !source.isNull(it) }) {
+                if (com.example.finance_planning.BuildConfig.DEBUG)
+                    android.util.Log.w("PlanningApi", "SCHEMA_ERROR route=/accounts/{id}/balances field=stock.availableCash reason=missing_cash")
+                throw AppFailure("DNSE: chưa đọc được tiền mặt từ balances.stock.availableCash; chưa gửi số dư lên backend.")
+            }
+            val units = if (stock != null) BigDecimal.ONE else priceMultiplier
+            val cash = decimal(source, *cashFields).multiply(units)
+            // availableCash is cash, not purchasing power. Missing power remains unknown.
+            val buying = optionalDecimal(source, "buyingPower", "purchasingPower", "ppse")
+                ?.multiply(units)
             return JSONObject().put("account", account).put("updated_at", observedAt.toString())
                 .put("cash_vnd", cash.stripTrailingZeros().toPlainString())
                 .put("buying_power_vnd", buying?.stripTrailingZeros()?.toPlainString() ?: JSONObject.NULL)

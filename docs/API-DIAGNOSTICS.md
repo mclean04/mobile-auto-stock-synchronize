@@ -45,3 +45,15 @@ current requests include the sanitized service, route and error classification.
 
 Upstream fix:
 https://android.googlesource.com/platform/frameworks/support/+/59e21467962fe232cad57ca257cd1715b86ba9b4
+
+## Stock balance response
+
+DNSE /accounts/{accountNo}/balances returns separate stock/derivative/bond/egg
+objects. Cash maps from stock.availableCash (VND), not stock.totalCash (which also
+includes interest and unsettled amounts). The configurable security price unit
+must not multiply this nested VND cash amount. Missing purchasing power is null;
+availableCash is not substituted for purchasing power. Missing/malformed stock
+cash stops the batch instead of inventing a zero balance.
+
+Reference: https://developers.dnse.com.vn/docs/dnse/get-account-balances/
+Verified using the official response schema and value-free device field types.
