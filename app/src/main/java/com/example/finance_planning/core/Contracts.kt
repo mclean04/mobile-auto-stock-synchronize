@@ -14,11 +14,12 @@ object Contracts {
         require(Regex("^[A-Za-z0-9_:.-]{1,100}$").matches(value)) { "Invalid identifier" }
         return value
     }
-    fun batch(device: String, records: List<JSONObject>, batchId: String): JSONObject {
-        require(records.size <= 100)
+    fun batch(device: String, orders: List<JSONObject>, executions: List<JSONObject>,
+              positions: List<JSONObject>, balances: List<JSONObject>, batchId: String): JSONObject {
+        require(orders.size + executions.size + positions.size + balances.size <= 100)
         return JSONObject().put("batch_id", batchId).put("device_id", device)
-            .put("orders", JSONArray(records)).put("executions", JSONArray())
-            .put("positions", JSONArray()).put("balances", JSONArray())
+            .put("orders", JSONArray(orders)).put("executions", JSONArray(executions))
+            .put("positions", JSONArray(positions)).put("balances", JSONArray(balances))
     }
     fun mayReview(event: JSONObject): Boolean =
         event.optBoolean("requires_review") && event.optBoolean("is_current") &&

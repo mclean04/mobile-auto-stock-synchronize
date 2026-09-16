@@ -73,14 +73,18 @@ class PlanningRepository(val identity: MobileIdentity, private val vault: Vault,
         val dnse = DnseApi(Transport(), config.getString("key"), config.getString("secret"), production)
         val now = LocalDate.now(ZoneId.of("Asia/Ho_Chi_Minh"))
         val orders = linkedMapOf<String, JSONObject>()
+        val executions = linkedMapOf<String, JSONObject>()
+        val positions = linkedMapOf<String, JSONObject>()
+        val balances = linkedMapOf<String, JSONObject>()
         val accounts = dnse.accounts()
         val overview = JSONArray()
+        val multiplier = BigDecimal(config.getString("vndPerUnit"))
         for (account in accounts) {
             val id = DnseApi.text(account, "id", "accountNo")
             val rawOrders = dnse.history(id, now.minusDays(29), now) +
                 dnse.today(id, "NORMAL") + dnse.today(id, "STOP")
             for (raw in rawOrders) {
-                val item = DnseApi.normalizeOrder(id, raw, BigDecimal(config.getString("vndPerUnit")))
+                val item = DnseApi.normalizeOrder(id, raw, multiplier)
                 val key = id + ":" + item.getString("order_id")
                 val previous = orders[key]
                 if (previous == null || java.time.Instant.parse(item.getString("updated_at")) >
@@ -88,33 +92,83 @@ class PlanningRepository(val identity: MobileIdentity, private val vault: Vault,
                 else if (item.getString("updated_at") == previous.getString("updated_at") &&
                     item.toString() != previous.toString()) throw AppFailure("DNSE trả hai bản ghi khác nhau cùng thời điểm.")
             }
-            // Raw broker account responses stay encrypted on device; never sent to backend.
-            overview.put(JSONObject().put("account", id).put("balances", dnse.balances(id))
-                .put("positions", dnse.positions(id)))
+
+            for (order in orders.values.filter { it.getString("account") == id &&
+                it.optString("category", "NORMAL") == "NORMAL" &&
+                BigDecimal(it.getString("filled_quantity")).signum() > 0 }) {
+                val orderId = order.getString("order_id")
+                val rawExecutions = dnse.executions(id, orderId)
+                for (raw in DnseApi.rowsOrSingle(rawExecutions, "data", "executions", "items")) {
+                    val item = DnseApi.normalizeExecution(id, orderId, raw, multiplier)
+                    executions[id + ":" + item.getString("execution_id")] = item
+                }
+            }
+
+            val observedAt = java.time.Instant.now()
+            val rawBalance = dnse.balances(id)
+            val balanceSource = when (rawBalance) {
+                is JSONObject -> rawBalance.optJSONObject("data")
+                    ?: rawBalance.optJSONObject("balance") ?: rawBalance
+                else -> throw AppFailure("Định dạng số dư DNSE chưa được hỗ trợ.")
+            }
+            balances[id] = DnseApi.normalizeBalance(id, balanceSource, multiplier, observedAt)
+            val rawPositions = dnse.positions(id)
+            for (raw in DnseApi.rowsOrSingle(rawPositions, "data", "positions", "items")) {
+                if (!raw.has("symbol") && !raw.has("instrument") && !raw.has("stockSymbol")) continue
+                val item = DnseApi.normalizePosition(id, raw, multiplier, observedAt)
+                positions[id + ":" + item.getString("position_id")] = item
+            }
+            // Preserve raw broker responses only inside the encrypted local cache.
+            overview.put(JSONObject().put("account", id).put("balances", rawBalance)
+                .put("positions", rawPositions))
         }
         if (owner() != uid) throw AppFailure("Phiên đăng nhập đã thay đổi.")
-        val list = orders.values.toList()
-        val snapshot = JSONObject().put("orders", JSONArray(list)).put("accounts", overview)
+        val orderList = orders.values.toList()
+        val executionList = executions.values.toList()
+        val positionList = positions.values.toList()
+        val balanceList = balances.values.toList()
+        val snapshot = JSONObject().put("orders", JSONArray(orderList))
+            .put("executions", JSONArray(executionList)).put("positions", JSONArray(positionList))
+            .put("balances", JSONArray(balanceList)).put("accounts", overview)
             .put("saved_at", java.time.Instant.now().toString()).put("production", production)
         val previous = cached("dnse")?.takeIf { it.optBoolean("production") == production }
-            ?.objects("orders")?.associateBy { it.getString("account") + ":" + it.getString("order_id") } ?: emptyMap()
-        val changed = list.filter { item ->
-            previous[item.getString("account") + ":" + item.getString("order_id")]?.toString() != item.toString()
-        }
+        fun previousMap(kind: String, key: (JSONObject) -> String): Map<String, JSONObject> =
+            previous?.objects(kind)?.associateBy(key) ?: emptyMap()
+        fun comparable(item: JSONObject, observedSnapshot: Boolean): String =
+            JSONObject(item.toString()).apply { if (observedSnapshot) remove("updated_at") }.toString()
+        val oldOrders = previousMap("orders") { it.getString("account") + ":" + it.getString("order_id") }
+        val oldExecutions = previousMap("executions") { it.getString("account") + ":" + it.getString("execution_id") }
+        val oldPositions = previousMap("positions") { it.getString("account") + ":" + it.getString("position_id") }
+        val oldBalances = previousMap("balances") { it.getString("account") }
+        val changed = mutableListOf<Pair<String, JSONObject>>()
+        orderList.filter { oldOrders[it.getString("account") + ":" + it.getString("order_id")]?.toString() != it.toString() }
+            .forEach { changed += "order" to it }
+        executionList.filter { oldExecutions[it.getString("account") + ":" + it.getString("execution_id")]?.toString() != it.toString() }
+            .forEach { changed += "execution" to it }
+        positionList.filter { item -> oldPositions[item.getString("account") + ":" + item.getString("position_id")]
+            ?.let { comparable(it, true) } != comparable(item, true) }.forEach { changed += "position" to it }
+        balanceList.filter { item -> oldBalances[item.getString("account")]
+            ?.let { comparable(it, true) } != comparable(item, true) }.forEach { changed += "balance" to it }
         val pending = if (production) changed.chunked(100).map { records ->
             val batchId = UUID.randomUUID().toString()
-            PendingBatch(uid, batchId, vault.seal(Contracts.batch(device(), records, batchId).toString()),
-                System.currentTimeMillis())
+            val payload = Contracts.batch(device(),
+                records.filter { it.first == "order" }.map { it.second },
+                records.filter { it.first == "execution" }.map { it.second },
+                records.filter { it.first == "position" }.map { it.second },
+                records.filter { it.first == "balance" }.map { it.second }, batchId)
+            PendingBatch(uid, batchId, vault.seal(payload.toString()), System.currentTimeMillis())
         } else emptyList()
         db.withTransaction {
             save("dnse", snapshot)
             dao.enqueue(pending)
         }
-        if (!production) return@withLock "Đã đọc ${list.size} lệnh sandbox trên máy; không gửi vào planning thật."
+        if (!production) return@withLock "Đã đọc ${orderList.size} lệnh, ${executionList.size} khớp lệnh, " +
+            "${positionList.size} vị thế sandbox trên máy; không gửi vào planning thật."
         flush(uid)
         val sheet = api.reconcile()
         vault.put("last_sync:$uid", java.time.Instant.now().toString())
-        "Đã đồng bộ ${list.size} lệnh. Sheet: ${sheet.optString("state")}"
+        "Đã đồng bộ ${orderList.size} lệnh, ${executionList.size} khớp lệnh, " +
+            "${positionList.size} vị thế và ${balanceList.size} số dư. Sheet: ${sheet.optString("state")}"
     }
     suspend fun retryPending(): String = lock.withLock {
         if (!approved()) throw AppFailure("Backend chưa cấp quyền mobile.")

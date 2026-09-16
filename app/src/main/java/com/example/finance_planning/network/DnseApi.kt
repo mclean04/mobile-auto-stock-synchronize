@@ -91,6 +91,73 @@ class DnseApi(private val transport: Transport, private val key: String,
             }
             return (0 until a.length()).map { a.getJSONObject(it) }
         }
+        fun rowsOrSingle(payload: Any, vararg keys: String): List<JSONObject> = when (payload) {
+            is JSONArray -> (0 until payload.length()).map { payload.getJSONObject(it) }
+            is JSONObject -> keys.firstNotNullOfOrNull { payload.optJSONArray(it) }?.let { array ->
+                (0 until array.length()).map { array.getJSONObject(it) }
+            } ?: keys.firstNotNullOfOrNull { payload.optJSONObject(it) }?.let { listOf(it) }
+                ?: listOf(payload)
+            else -> throw AppFailure("Phản hồi DNSE không hợp lệ.")
+        }
+        private fun decimal(raw: JSONObject, vararg names: String): BigDecimal {
+            val value = BigDecimal(text(raw, *names))
+            require(value.signum() >= 0 && value.scale() <= 8 && value.precision() <= 24)
+            return value
+        }
+        private fun optionalDecimal(raw: JSONObject, vararg names: String): BigDecimal? {
+            val field = names.firstOrNull { raw.has(it) && !raw.isNull(it) && raw.optString(it).isNotBlank() }
+                ?: return null
+            return decimal(raw, field)
+        }
+        private fun instant(raw: JSONObject, vararg names: String): Instant =
+            OffsetDateTime.parse(text(raw, *names)).toInstant()
+
+        fun normalizeExecution(account: String, orderId: String, raw: JSONObject,
+                               priceMultiplier: BigDecimal): JSONObject {
+            val executed = instant(raw, "executedAt", "tradeDate", "createdDate", "createdAt", "matchTime")
+            val updated = runCatching {
+                instant(raw, "modifiedDate", "updatedAt", "executedAt", "tradeDate", "createdDate", "createdAt", "matchTime")
+            }.getOrElse { executed }
+            require(updated >= executed)
+            val price = decimal(raw, "price", "fillPrice", "matchPrice") * priceMultiplier
+            val fee = optionalDecimal(raw, "fee", "feeAmount", "tradingFee", "commission")
+                ?.multiply(priceMultiplier)
+            return JSONObject().put("account", account)
+                .put("execution_id", text(raw, "id", "executionId", "fillId", "matchId"))
+                .put("order_id", raw.optString("orderId", orderId))
+                .put("updated_at", updated.toString()).put("executed_at", executed.toString())
+                .put("quantity", decimal(raw, "quantity", "fillQuantity", "matchQuantity")
+                    .stripTrailingZeros().toPlainString())
+                .put("price_vnd", price.stripTrailingZeros().toPlainString())
+                .put("fee_vnd", fee?.stripTrailingZeros()?.toPlainString() ?: JSONObject.NULL)
+        }
+
+        fun normalizePosition(account: String, raw: JSONObject, priceMultiplier: BigDecimal,
+                              observedAt: Instant): JSONObject {
+            val symbol = text(raw, "symbol", "instrument", "stockSymbol")
+            val average = optionalDecimal(raw, "averagePrice", "avgPrice", "costPrice")
+                ?.multiply(priceMultiplier)
+            return JSONObject().put("account", account)
+                .put("position_id", raw.optString("id", raw.optString("positionId", symbol)))
+                .put("updated_at", observedAt.toString()).put("symbol", symbol)
+                .put("quantity", decimal(raw, "quantity", "totalQuantity", "openQuantity")
+                    .stripTrailingZeros().toPlainString())
+                .put("available_quantity", decimal(raw, "availableQuantity", "tradeQuantity", "qmaxSell", "quantity")
+                    .stripTrailingZeros().toPlainString())
+                .put("average_price_vnd", average?.stripTrailingZeros()?.toPlainString() ?: JSONObject.NULL)
+        }
+
+        fun normalizeBalance(account: String, raw: JSONObject, priceMultiplier: BigDecimal,
+                             observedAt: Instant): JSONObject {
+            val cash = decimal(raw, "cash", "cashBalance", "availableCash", "accountBalance")
+                .multiply(priceMultiplier)
+            val buying = optionalDecimal(raw, "buyingPower", "purchasingPower", "ppse", "availableCash")
+                ?.multiply(priceMultiplier)
+            return JSONObject().put("account", account).put("updated_at", observedAt.toString())
+                .put("cash_vnd", cash.stripTrailingZeros().toPlainString())
+                .put("buying_power_vnd", buying?.stripTrailingZeros()?.toPlainString() ?: JSONObject.NULL)
+        }
+
         fun normalizeOrder(account: String, raw: JSONObject, priceMultiplier: BigDecimal): JSONObject {
             fun amount(vararg names: String) = BigDecimal(text(raw, *names)).also {
                 require(it.signum() >= 0 && it.scale() <= 8 && it.precision() <= 24)

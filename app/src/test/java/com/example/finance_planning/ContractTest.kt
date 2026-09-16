@@ -38,7 +38,34 @@ class ContractTest {
         assertTrue(runCatching { DnseApi.normalizeOrder("account", order().put("fillQuantity", 101), BigDecimal.ONE) }.isFailure)
     }
     @Test fun batchNeverExceedsFirestoreLimit() {
-        assertTrue(runCatching { Contracts.batch("device", List(101) { order() }, "batch") }.isFailure)
+        assertTrue(runCatching { Contracts.batch("device", List(101) { order() }, emptyList(), emptyList(), emptyList(), "batch") }.isFailure)
+    }
+    @Test fun executionPositionAndBalanceMapToBackendContract() {
+        val execution = JSONObject("""{"id":"fill-1","orderId":"42","quantity":"20",
+            "price":"12.34","fee":"0.02","executedAt":"2026-09-15T09:05:00+07:00"}""")
+        val fill = DnseApi.normalizeExecution("account", "42", execution, BigDecimal("1000"))
+        assertEquals("12340", fill.getString("price_vnd"))
+        assertEquals("20", fill.getString("fee_vnd"))
+        val observed = java.time.Instant.parse("2026-09-15T02:10:00Z")
+        val position = DnseApi.normalizePosition("account", JSONObject(
+            """{"symbol":"TEST","quantity":"100","tradeQuantity":"80","costPrice":"12.3"}"""),
+            BigDecimal("1000"), observed)
+        assertEquals("TEST", position.getString("position_id"))
+        assertEquals("12300", position.getString("average_price_vnd"))
+        val balance = DnseApi.normalizeBalance("account", JSONObject(
+            """{"cash":"1000","buyingPower":"900"}"""), BigDecimal.ONE, observed)
+        assertEquals("1000", balance.getString("cash_vnd"))
+        val batch = Contracts.batch("00000000-0000-4000-8000-000000000001", emptyList(),
+            listOf(fill), listOf(position), listOf(balance), "00000000-0000-4000-8000-000000000002")
+        assertEquals(1, batch.getJSONArray("executions").length())
+        assertEquals(1, batch.getJSONArray("positions").length())
+        assertEquals(1, batch.getJSONArray("balances").length())
+    }
+    @Test fun executionWithoutFeeUsesExplicitNull() {
+        val execution = JSONObject("""{"id":"fill-1","quantity":"1","price":"10",
+            "executedAt":"2026-09-15T09:05:00+07:00"}""")
+        val fill = DnseApi.normalizeExecution("account", "42", execution, BigDecimal.ONE)
+        assertTrue(fill.isNull("fee_vnd"))
     }
     @Test fun reminderNeedsEveryCanonicalValidityFlag() {
         val event = JSONObject().put("requires_review", true).put("is_current", true)
@@ -50,7 +77,7 @@ class ContractTest {
         assertFalse(Contracts.mayReview(event))
     }
     @Test fun changingPayloadDoesNotMutatePreviouslySerializedBatch() {
-        val original = Contracts.batch("device", listOf(order()), "batch").toString()
+        val original = Contracts.batch("device", listOf(order()), emptyList(), emptyList(), emptyList(), "batch").toString()
         val retry = JSONObject(original).toString()
         assertEquals(JSONObject(original).getString("batch_id"), JSONObject(retry).getString("batch_id"))
         assertEquals(original, retry)
