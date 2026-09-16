@@ -28,3 +28,20 @@ References checked 2026-09-16:
 The existing signing algorithm matches DNSE's current documented HMAC-SHA256,
 UTF-8 secret, path without query, date, fresh UUID hex nonce, Base64 plus URL encoding.
 No signing change was made without evidence of a defect.
+## Compose frame-rate noise
+
+Compose BOM 2026.08.00 selects UI 1.12.0, which includes the upstream fix that
+only calls setRequestedFrameRate when the value changes (including NaN-aware
+comparison). The previous UI 1.10.4 called it on every draw, flooding Samsung
+Logcat. Frame-rate category values and NaN are framework hints, not DNSE errors.
+A few entries on actual frame-rate changes may still be emitted by Android.
+
+For a quieter Android Studio view while keeping API activity and warnings:
+`package:com.example.finance_planning & (tag:PlanningApi | level:WARN)`
+
+HTTP 401 must remain visible: it means an API rejected authentication.
+The old `HTTP 401 code=unclassified` entry was produced by the earlier build;
+current requests include the sanitized service, route and error classification.
+
+Upstream fix:
+https://android.googlesource.com/platform/frameworks/support/+/59e21467962fe232cad57ca257cd1715b86ba9b4
