@@ -1,0 +1,153 @@
+package com.example.finance_planning.ui
+
+import android.app.Application
+import android.content.Context
+import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.viewModelScope
+import com.example.finance_planning.PlanningApp
+import com.example.finance_planning.core.*
+import com.example.finance_planning.network.HttpFailure
+import com.example.finance_planning.sync.SyncSchedule
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
+import org.json.JSONObject
+
+data class ScreenState(
+    val busy: Boolean = false, val message: String = "Chào bạn. Đăng nhập để kết nối planning.",
+    val signedIn: Boolean = false, val approved: Boolean = false, val configured: Boolean = false,
+    val planning: JSONObject? = null, val notifications: List<JSONObject> = emptyList(),
+    val orders: List<JSONObject> = emptyList(), val batches: List<JSONObject> = emptyList(),
+    val notificationCursor: String? = null, val orderCursor: String? = null, val batchCursor: String? = null,
+    val status: JSONObject? = null, val detail: JSONObject? = null, val detailTitle: String = "",
+    val lastSync: String = "Chưa đồng bộ", val hasDnse: Boolean = false,
+    val localQueue: List<String> = emptyList()
+)
+
+class PlanningViewModel(application: Application) : AndroidViewModel(application) {
+    val repo = (application as PlanningApp).repository
+    private val mutable = MutableStateFlow(ScreenState(configured = repo.identity.configured))
+    val state = mutable.asStateFlow()
+    init { restore() }
+    private fun flags() {
+        mutable.value = mutable.value.copy(signedIn = repo.identity.uid() != null,
+            approved = repo.approved(), configured = repo.identity.configured,
+            lastSync = repo.lastSync() ?: "Chưa đồng bộ", hasDnse = repo.hasDnse())
+    }
+    private fun run(action: suspend () -> String) {
+        if (mutable.value.busy) return
+        viewModelScope.launch {
+            mutable.value = mutable.value.copy(busy = true)
+            try { mutable.value = mutable.value.copy(message = action()) }
+            catch (e: CancellationException) { throw e }
+            catch (e: HttpFailure) { if (e.status == 401 || e.status == 403) repo.invalidateSession(); mutable.value = mutable.value.copy(message = e.safe().safeMessage) }
+            catch (e: AppFailure) { mutable.value = mutable.value.copy(message = e.safeMessage) }
+            catch (_: Exception) { mutable.value = mutable.value.copy(message =
+                "Chưa hoàn tất. Kiểm tra cấu hình đăng nhập, kết nối và định dạng dữ liệu.") }
+            finally { flags(); mutable.value = mutable.value.copy(busy = false) }
+        }
+    }
+    fun restore() = run {
+        flags()
+        if (repo.identity.uid() != null) {
+            mutable.value = mutable.value.copy(planning = repo.cached("planning"),
+                notifications = repo.cached("notifications")?.objects("items") ?: emptyList())
+            queue()
+        }
+        if (repo.approved()) refreshAll() else if (!repo.identity.configured)
+            "Bản cài chưa có cấu hình Firebase. Có thể kiểm tra máy chủ; đăng nhập cần hoàn tất cấu hình."
+        else "Đăng nhập Google, rồi kiểm tra quyền kết nối backend."
+    }
+    fun signIn(context: Context) = run {
+        mutable.value = ScreenState(busy = true, configured = repo.identity.configured)
+        repo.identity.signIn(context)
+        repo.verifySession()
+        refreshAll()
+    }
+    fun verify() = run { repo.verifySession(); refreshAll() }
+    fun health() = run { "Máy chủ: " + repo.api.health().optString("status") }
+    fun refresh() = run { refreshAll() }
+    private suspend fun refreshAll(): String {
+        val status = repo.api.syncStatus()
+        val planning = repo.planning()
+        val events = repo.notifications()
+        val orders = repo.api.orders()
+        val batches = repo.api.batches()
+        mutable.value = mutable.value.copy(status = status, planning = planning,
+            notifications = events.objects("items"), notificationCursor = cursor(events),
+            orders = orders.objects("items"), orderCursor = cursor(orders),
+            batches = batches.objects("items"), batchCursor = cursor(batches))
+        queue()
+        return "Đã cập nhật dữ liệu mới nhất."
+    }
+    private fun cursor(json: JSONObject): String? = if (json.isNull("next_cursor")) null else json.optString("next_cursor").takeIf { it.isNotBlank() }
+    fun more(kind: String) = run {
+        val s = mutable.value
+        when (kind) {
+            "notifications" -> s.notificationCursor?.let { cursor ->
+                val p = repo.api.notifications(cursor)
+                mutable.value = s.copy(notifications = (s.notifications + p.objects("items")).distinctBy { it.optString("event_id", it.optString("id")) },
+                    notificationCursor = cursor(p))
+            }
+            "orders" -> s.orderCursor?.let { cursor ->
+                val p = repo.api.orders(cursor)
+                mutable.value = s.copy(orders = (s.orders + p.objects("items")).distinctBy { it.optString("id") }, orderCursor = cursor(p))
+            }
+            "batches" -> s.batchCursor?.let { cursor ->
+                val p = repo.api.batches(cursor)
+                mutable.value = s.copy(batches = (s.batches + p.objects("items")).distinctBy { it.optString("id") }, batchCursor = cursor(p))
+            }
+        }
+        "Đã tải thêm."
+    }
+    fun notification(id: String) {
+        viewModelScope.launch {
+            state.first { !it.busy }
+            openEvent(id)
+        }
+    }
+    private fun openEvent(id: String) = run {
+        val d = repo.openNotification(id)
+        d.put("plan_state", repo.api.notificationPlan(d.getString("plan_id")))
+        mutable.value = mutable.value.copy(detail = d, detailTitle =
+            if (Contracts.mayReview(d)) "Nhắc xem xét kế hoạch" else "Thông báo không còn yêu cầu thực hiện")
+        "Đã kiểm tra trạng thái hiện tại. Bạn tự thực hiện giao dịch trên DNSE."
+    }
+    fun order(row: JSONObject) = run {
+        val p = row.optJSONObject("payload") ?: row
+        mutable.value = mutable.value.copy(detail = repo.api.order(p.getString("account"), p.getString("order_id")),
+            detailTitle = "Chi tiết lệnh")
+        "Đây là dữ liệu đã đồng bộ; không phải xác nhận giao dịch mới."
+    }
+    fun batch(id: String) = run {
+        mutable.value = mutable.value.copy(detail = repo.api.batch(id), detailTitle = "Chi tiết đợt đồng bộ")
+        "Đã tải chi tiết."
+    }
+    fun dismissDetail() { mutable.value = mutable.value.copy(detail = null) }
+    fun saveDnse(key: String, secret: String, production: Boolean, unit: String) = run {
+        repo.saveDnse(key, secret, production, unit)
+        "Đã lưu khóa bằng mã hóa trên thiết bị."
+    }
+    fun sync() = run { val result = repo.sync(); queue(); result }
+    fun retry() = run { val result = repo.retryPending(); queue(); result }
+    private suspend fun queue() {
+        mutable.value = mutable.value.copy(localQueue = repo.localBatches().map { "${it.id.take(8)} • ${it.state} ${it.error}" })
+    }
+    fun importPlanning() = run { repo.api.importPlanning(); repo.planning(); refreshAll() }
+    fun reconcile() = run { "Trạng thái Sheet: " + repo.api.reconcile().optString("state") }
+    fun schedule(enabled: Boolean) = run {
+        if (enabled) {
+            if (!repo.approved()) throw AppFailure("Cần backend cấp quyền trước khi bật lịch.")
+            SyncSchedule.enable(getApplication())
+        } else SyncSchedule.cancel(getApplication())
+        if (enabled) "Đã bật lịch mỗi 6 giờ; Android có thể chạy trễ khi tiết kiệm pin." else "Đã tắt lịch đồng bộ."
+    }
+    fun logout() = run {
+        repo.logout()
+        SyncSchedule.cancel(getApplication())
+        mutable.value = ScreenState(configured = repo.identity.configured)
+        "Đã gỡ thiết bị khỏi backend và xóa khóa/dữ liệu local của phiên này."
+    }
+}

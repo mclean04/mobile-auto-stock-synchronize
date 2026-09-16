@@ -21,3 +21,7 @@ local.properties
 *.jks
 *.keystore
 keystore.properties
+
+/mobile.properties
+/app/google-services.json
+*.log
