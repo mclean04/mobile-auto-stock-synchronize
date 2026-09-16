@@ -79,6 +79,11 @@ class PlanningViewModel(application: Application) : AndroidViewModel(application
         refreshAll()
     }
     fun verify() = run { repo.verifySession(); refreshAll() }
+    fun saveDnseEnvironment(production: Boolean) = run {
+        repo.saveDnseEnvironment(production)
+        if (production) "Đã lưu môi trường Production với bộ khóa hiện có. Bấm đồng bộ DNSE để kiểm tra."
+        else "Đã lưu môi trường Sandbox với bộ khóa hiện có."
+    }
     fun health() = run { "Máy chủ: " + repo.api.health().optString("status") }
     fun refresh() = run { refreshAll() }
     private suspend fun refreshAll(): String {

@@ -159,11 +159,22 @@ private fun Settings(s: ScreenState, model: PlanningViewModel, confirm: (String)
         HorizontalDivider()
         Text("DNSE chỉ đọc", style = MaterialTheme.typography.titleLarge)
         Text("Khóa chỉ lưu mã hóa trên máy. Dữ liệu sandbox không được gửi vào planning thật.")
+        Text("Môi trường kết nối DNSE", style = MaterialTheme.typography.titleMedium)
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            FilterChip(selected = production, onClick = { production = true },
+                label = { Text("Production (thật)") })
+            FilterChip(selected = !production, onClick = { production = false },
+                label = { Text("Sandbox (thử)") })
+        }
+        if (s.hasDnse) Button(onClick = { model.saveDnseEnvironment(production) },
+            enabled = s.signedIn && !s.busy) {
+            Text("Lưu môi trường — dùng khóa đã lưu")
+        }
+        Text("Đổi môi trường không cần nhập lại khóa. Chỉ nhập hai ô bên dưới khi thay bộ khóa.")
         OutlinedTextField(key, { key = it }, label = { Text("API Key") }, singleLine = true,
             visualTransformation = PasswordVisualTransformation(), modifier = Modifier.fillMaxWidth())
         OutlinedTextField(secret, { secret = it }, label = { Text("API Secret") }, singleLine = true,
             visualTransformation = PasswordVisualTransformation(), modifier = Modifier.fillMaxWidth())
-        Row { Checkbox(production, { production = it }); Text("Tôi dùng tài khoản Production (chỉ đọc)") }
         Text("Đơn vị giá API — phải khớp dữ liệu DNSE trước khi gửi:")
         Row {
             FilterChip(selected = unit == "1000", onClick = { unit = "1000" }, label = { Text("Nghìn VND") })
