@@ -68,6 +68,7 @@ class MobileIdentity(private val context: Context) {
         return mapOf("Authorization" to "Bearer $token", "X-Firebase-AppCheck" to attestation)
     }
     suspend fun signOut() {
+        context.getSystemService(android.app.NotificationManager::class.java).cancelAll()
         if (configured) FirebaseAuth.getInstance().signOut()
         CredentialManager.create(context).clearCredentialState(ClearCredentialStateRequest())
     }

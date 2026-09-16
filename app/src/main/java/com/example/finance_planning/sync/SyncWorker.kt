@@ -15,8 +15,14 @@ class SyncWorker(context: Context, params: WorkerParameters) : CoroutineWorker(c
         return try {
             val event = inputData.getString("event")
             if (event != null) {
-                return Result.failure() // Shared planning events are not mobile-upload data.
+                val expectedUid = inputData.getString("uid") ?: return Result.failure()
+                if (repo.identity.uid() != expectedUid) return Result.failure()
+                val notification = repo.receiveNotification(event, inputData.getString("receipt") ?: "RECEIVED")
+                if (repo.identity.uid() == expectedUid && repo.approved())
+                    PlanningMessagingService.show(applicationContext, notification)
             } else {
+                repo.registerPush()
+                repo.notifications()
                 if (repo.hasDnse()) repo.sync() else repo.retryPending()
             }
             Result.success()
@@ -38,10 +44,10 @@ object SyncSchedule {
             ExistingPeriodicWorkPolicy.UPDATE, task)
     }
     fun cancel(context: Context) { WorkManager.getInstance(context).cancelAllWorkByTag("account-sync") }
-    fun receipt(context: Context, event: String, state: String) {
+    fun receipt(context: Context, event: String, state: String, uid: String) {
         val task = OneTimeWorkRequestBuilder<SyncWorker>().setConstraints(constraints())
-            .setInputData(workDataOf("event" to event, "receipt" to state)).addTag("account-sync").build()
-        WorkManager.getInstance(context).enqueueUniqueWork("receipt:$event:$state", ExistingWorkPolicy.KEEP, task)
+            .setInputData(workDataOf("event" to event, "receipt" to state, "uid" to uid)).addTag("account-sync").build()
+        WorkManager.getInstance(context).enqueueUniqueWork("receipt:$uid:$event:$state", ExistingWorkPolicy.KEEP, task)
     }
     fun refresh(context: Context) {
         WorkManager.getInstance(context).enqueueUniqueWork("planning-refresh", ExistingWorkPolicy.KEEP,

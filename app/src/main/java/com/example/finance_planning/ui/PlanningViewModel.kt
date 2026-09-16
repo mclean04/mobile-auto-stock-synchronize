@@ -91,7 +91,7 @@ class PlanningViewModel(application: Application) : AndroidViewModel(application
         val planning = if (admin) try { repo.planning() } catch (e: HttpFailure) {
             if (e.status == 404) null else throw e
         } else null
-        val events = if (admin) repo.notifications() else JSONObject()
+        val events = repo.notifications()
         val orders = repo.api.orders()
         val batches = repo.api.batches()
         mutable.value = mutable.value.copy(status = status, admin = admin, sources = sources.objects("items"),
@@ -125,8 +125,13 @@ class PlanningViewModel(application: Application) : AndroidViewModel(application
         }
         "Đã tải thêm."
     }
-    fun notification(id: String) = run {
-        if (!mutable.value.admin) throw AppFailure("Chức năng dành cho admin.")
+    fun notification(id: String) {
+        viewModelScope.launch {
+            state.first { !it.busy }
+            openNotification(id)
+        }
+    }
+    private fun openNotification(id: String) = run {
         val event = repo.openNotification(id)
         mutable.value = mutable.value.copy(detail = event, detailTitle = "Thông báo planning")
         "Đã tải thông báo."

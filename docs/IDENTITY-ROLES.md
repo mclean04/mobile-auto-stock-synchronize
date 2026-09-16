@@ -30,8 +30,7 @@ Android thường dùng /v1/sync/status, /v1/sync/batches (POST/GET/detail), /v1
 POST /v1/sync/retry chỉ yêu cầu backend thử ghi lại dữ liệu đã lưu; client không chọn file,
 range hoặc nội dung planning để chỉnh sửa.
 
-API planning, Sheets reconcile quản trị, notifications, notification plans/receipts,
-device registrations và preview từ chối phiên Firebase mobile thường với admin_required.
+API planning, Sheets reconcile quản trị và preview từ chối phiên Firebase mobile thường với admin_required. Notifications, plans, receipts và devices được kiểm tra theo UID; xem NOTIFICATION-ROUTING.md.
 Automation token/legacy operator authentication và Scheduler OIDC giữ cơ chế riêng.
 
 ## Sheet chung và lịch sử cũ
@@ -46,8 +45,7 @@ Dữ liệu cũ không bị xóa; không tự phân phối dữ liệu legacy ch
 Lần xác minh đầu tiên sau nâng cấp làm mới baseline DNSE để lần sync tiếp theo gửi snapshot
 vào vùng riêng. Khóa DNSE và hàng đợi đang chờ vẫn được giữ.
 
-Android thường không hiển thị planning/thông báo chung. Subscription FCM cũ được yêu cầu thu hồi
-khi xác minh phiên; app bỏ qua push planning cũ. Thông báo theo từng người dùng chưa được triển khai.
+Android thường không hiển thị planning chung; chỉ đọc và nhận thông báo của chính tài khoản. Admin được đọc mọi thông báo. Thiết bị cũ phải đăng ký lại qua phiên Firebase để nhận FCM.
 
 ## Các tài khoản không thay thế nhau
 
@@ -77,5 +75,5 @@ GET /v1/admin/sources/{source}/records đọc mọi loại bản ghi nguồn, c�
 API orders/batches/detail nhận query source chỉ cho admin; tài khoản thường bị chặn 403.
 Upload của admin vẫn vào vùng UID của chính admin; không ghi nhầm vào nguồn đang xem.
 Android cho admin chọn nguồn, xem mọi loại dữ liệu, planning và thông báo chung.
-Subscription push chưa khôi phục; thông báo chung được đọc trực tiếp qua API trong màn hình quản trị.
+FCM được định tuyến riêng theo UID; admin đọc mọi thông báo. Xem NOTIFICATION-ROUTING.md.
 BACKEND_SHEET_WRITES vẫn độc lập với role admin; thay đổi role không tự bật ghi Sheet.

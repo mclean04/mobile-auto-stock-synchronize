@@ -20,7 +20,10 @@ class PlanningRepository(val identity: MobileIdentity, private val vault: Vault,
     private val lock = Mutex()
     private val dao = db.dao()
     fun owner() = identity.uid() ?: throw AppFailure("Hãy đăng nhập để truy cập dữ liệu trên máy.")
-    fun device(): String = vault.get("device") ?: UUID.randomUUID().toString().also { vault.put("device", it) }
+    fun device(): String {
+        val key = "device:" + owner()
+        return vault.get(key) ?: UUID.randomUUID().toString().also { vault.put(key, it) }
+    }
     fun invalidateSession() { vault.remove("approved") }
     fun approved(): Boolean = identity.uid()?.let { vault.get("approved") == it && vault.get("mobile_scope") == "uploader-v1:$it" } ?: false
     suspend fun verifySession() {
@@ -30,10 +33,7 @@ class PlanningRepository(val identity: MobileIdentity, private val vault: Vault,
         vault.put("approved", owner())
         save("planning", JSONObject())
         save("notifications", JSONObject())
-        // Revoke any old subscription to shared planning from earlier app versions.
-        try { FirebaseMessaging.getInstance().deleteToken().await() }
-        catch (e: kotlinx.coroutines.CancellationException) { throw e }
-        catch (_: Exception) { /* No shared push is displayed by this app. */ }
+        registerPush()
     }
     suspend fun cached(key: String): JSONObject? =
         dao.cached(owner(), key)?.let { JSONObject(vault.open(it.ciphertext)) }
@@ -50,9 +50,6 @@ class PlanningRepository(val identity: MobileIdentity, private val vault: Vault,
     }
     suspend fun openNotification(id: String): JSONObject {
         val event = api.notification(id)
-        val planning = api.latestPlanning()
-        if (event.optString("planning_revision_id") != planning.optString("revision_id"))
-            event.put("requires_review", false)
         api.receipt(id, device(), "OPENED")
         return event
     }
@@ -201,10 +198,14 @@ class PlanningRepository(val identity: MobileIdentity, private val vault: Vault,
         }
     }
     fun lastSync() = identity.uid()?.let { vault.get("last_sync:$it") } ?: "Chưa đồng bộ"
+    suspend fun registerPush() {
+        if (approved()) api.registerDevice(device(), FirebaseMessaging.getInstance().token.await())
+    }
     suspend fun logout() = lock.withLock {
         val uid = owner()
         // Revocation must succeed before claiming this device is disconnected.
-        // Upload sessions have no subscription to shared planning notifications.
+        if (approved()) api.removeDevice(device())
+        FirebaseMessaging.getInstance().deleteToken().await()
         vault.remove("approved")
         vault.remove("dnse:$uid")
         vault.remove("last_sync:$uid")

@@ -58,13 +58,13 @@ private fun PlanningScreen(model: PlanningViewModel) {
     val s by model.state.collectAsState()
     var tab by remember { mutableIntStateOf(0) }
     var confirm by remember { mutableStateOf("") }
-    val labels = listOf("Tổng quan", if (s.admin) "Lệnh" else "Lệnh của tôi", "Cài đặt") +
+    val labels = listOf("Tổng quan", if (s.admin) "Lệnh" else "Lệnh của tôi", "Cài đặt", "Thông báo") +
         if (s.admin) listOf("Quản trị") else emptyList()
-    LaunchedEffect(s.admin) { if (!s.admin && tab > 2) tab = 0 }
+    LaunchedEffect(s.admin) { if (!s.admin && tab > 3) tab = 0 }
     Scaffold(bottomBar = {
         NavigationBar { labels.forEachIndexed { index, title ->
             NavigationBarItem(selected = tab == index, onClick = { tab = index },
-                icon = { Text(listOf("◉", "↔", "⚙", "▦")[index]) }, label = { Text(title) })
+                icon = { Text(listOf("◉", "↔", "⚙", "●", "▦")[index]) }, label = { Text(title) })
         }}
     }) { padding ->
         Column(Modifier.fillMaxSize().padding(padding).padding(horizontal = 16.dp)) {
@@ -90,7 +90,8 @@ private fun PlanningScreen(model: PlanningViewModel) {
                     if (s.orderCursor != null) item { TextButton(onClick = { model.more("orders") }, enabled = !s.busy) { Text("Tải thêm") } }
                 }
                 2 -> Settings(s, model) { confirm = it }
-                3 -> if (s.admin) AdminPanel(s, model) { confirm = "import" }
+                3 -> NotificationList(s, model)
+                4 -> if (s.admin) AdminPanel(s, model) { confirm = "import" }
             }
         }
     }
@@ -243,6 +244,24 @@ private fun AdminPanel(s: ScreenState, model: PlanningViewModel, importPlanning:
             OutlinedButton(onClick = { model.notification(row.optString("event_id", row.optString("id"))) },
                 enabled = !s.busy) { Text(row.optString("symbol") + " • " + row.optString("reason")) }
         }
+        if (s.notificationCursor != null) item {
+            TextButton(onClick = { model.more("notifications") }, enabled = !s.busy) { Text("Thêm thông báo") }
+        }
+    }
+}
+
+
+@Composable
+private fun NotificationList(s: ScreenState, model: PlanningViewModel) {
+    LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        item { Text(if (s.admin) "Tất cả thông báo" else "Thông báo của tôi",
+            style = MaterialTheme.typography.titleLarge) }
+        item { Button(onClick = model::refresh, enabled = s.approved && !s.busy) { Text("Cập nhật") } }
+        items(s.notifications) { row ->
+            OutlinedButton(onClick = { model.notification(row.optString("event_id", row.optString("id"))) },
+                enabled = !s.busy) { Text(row.optString("symbol") + " • " + row.optString("reason")) }
+        }
+        if (s.notifications.isEmpty()) item { Text("Chưa có thông báo.") }
         if (s.notificationCursor != null) item {
             TextButton(onClick = { model.more("notifications") }, enabled = !s.busy) { Text("Thêm thông báo") }
         }
