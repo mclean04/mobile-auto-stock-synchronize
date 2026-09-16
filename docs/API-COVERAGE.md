@@ -27,29 +27,19 @@ Android communicates with Cloud Run; it never connects directly to Firestore or 
 | POST /internal/sheet-notifications/poll | Scheduler-only; deliberately excluded from mobile |
 | POST /v1/local/notification-preview | Local backend console only; deliberately excluded |
 
-## Authentication integration blocker
+## Authentication integration
 
-The inspected production backend has GOOGLE_USER_AUTH_ENABLED=disabled and accepts the
-automation bearer token. That token MUST NOT be packaged in this app. The backend currently
-does not verify Firebase identity tokens or Firebase App Check. A Firebase sign-in is NOT
-proof that the backend has authorized the user.
+Production keeps automation-token and Scheduler identities separate from mobile identity.
+Mobile requests carry a Firebase Auth ID token in Authorization and a Firebase App Check
+token in X-Firebase-AppCheck. Cloud Run verifies both with Firebase Admin, restricts the
+email to the configured owner and binds that Firebase UID to the owner namespace. The App
+Check subject must exactly match the registered Android Firebase App ID.
 
-The app obtains Firebase Auth ID tokens using Google Credential Manager, refreshes them
-through Firebase Auth, and sends Authorization plus X-Firebase-AppCheck. Backend integration
-must independently verify Firebase ID token signature, exact project audience/issuer,
-expiry, authorized UID and revocation policy; validate App Check app ID/expiry; enforce both
-on every mobile business request. Do not replace existing automation/Scheduler authentication.
-An explicit /v1/auth/session capability endpoint is recommended but not assumed by this app;
-the existing authenticated sync/status is used as the authorization check.
-
-Configure the Android Firebase app for package com.example.finance_planning and register
-the real signing certificate fingerprints. Supply public project identifiers through
-mobile.properties. Enable Google sign-in, configure Play Integrity and the actual authorized
-Firebase UID on the backend. A sideloaded debug APK is NOT automatically eligible for Play
-Integrity. Use a separately authorized development setup/internal testing distribution.
-No token is printed or embedded, and no debug attestation bypass is shipped.
-
-Cloud setup/backend changes are not silently performed in this Android-only project.
+The Android app for com.example.finance_planning has Firebase configuration plus debug
+SHA-1/SHA-256 certificates. Release builds use Play Integrity; debug builds use Firebase's
+debug provider and require the device-generated debug token to be allow-listed before phone
+testing. Google Sign-In must be enabled once in Firebase Console because OAuth clients cannot
+be created or modified programmatically. No automation token is packaged in the APK.
 
 ## Data and scheduling
 
@@ -64,13 +54,13 @@ alarm and cannot overcome force-stop, offline state, Doze or vendor battery rest
 FCM carries only a hint. Opening/reloading fetches canonical notification state and planning;
 no broker placement or cancellation exists in the app.
 
-The initial DNSE sync covers the last 30 calendar days plus today's NORMAL/STOP stock orders.
-It requires real broker update timestamps and explicit price units; it never substitutes
-fetch time for an order's source timestamp. API schema drift stops upload. Sandbox data
-remains local. Balance/position responses are encrypted locally, not mapped to backend
-records until field/unit mapping is independently verified. Executions have a read API
-method but are not yet included in automatic upload. Thus full portfolio/fee reconciliation
-is not claimed by this version.
+The DNSE sync covers the last 30 calendar days plus today's NORMAL/STOP stock orders,
+executions for filled NORMAL orders, current positions and current balance snapshots. Orders
+and executions retain broker timestamps; position/balance updated_at is the explicit device
+observation time because those endpoints return snapshots. Decimal values are converted with
+the configured unit multiplier. Fee aliases are mapped when present and remain null when DNSE
+does not provide a fee; the app never estimates one. API schema drift stops upload and sandbox
+data remains local.
 
 An upload keeps the same batch ID and serialized payload until the server confirms
 database=committed. HTTP 409/422 parks the batch for review, instead of inventing new IDs.

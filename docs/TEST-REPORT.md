@@ -4,7 +4,7 @@ The original Compose template built successfully before implementation.
 
 The integration build completed:
 - assembleDebug: APK generated.
-- testDebugUnitTest: 9 passed, 0 failed (8 new contract tests + 1 template test).
+- testDebugUnitTest: 11 passed, 0 failed (10 contract tests + 1 template test).
 - lintDebug: no errors; non-blocking dependency/style/unused-resource warnings remain.
 - assembleDebugAndroidTest: instrumented test APK generated.
 
@@ -22,6 +22,7 @@ Not tested or claimed:
 - FCM delivery/receipt on a real device.
 - Real DNSE API connectivity and broker-to-backend-to-Sheet reconciliation.
 
-The owner confirmed Firebase Android has not yet been configured. Production backend
-currently lacks the app's Firebase/Auth App Check verification. No real DNSE credentials,
-automation tokens or fabricated financial records were used in the tests.
+Firebase Android configuration and production backend Firebase/App Check verification
+are now deployed. Google Sign-In provider activation and a device-generated debug App Check
+token are still required before the first phone test. No real DNSE credentials, automation
+tokens or fabricated financial records were used in the automated tests.
