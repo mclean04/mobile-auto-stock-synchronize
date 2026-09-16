@@ -30,7 +30,7 @@ object DnseHttpTransport {
         .addInterceptor(ResponseSizeLimitInterceptor())
         .apply {
             if (BuildConfig.DEBUG) addInterceptor(SafeBodyLoggingInterceptor {
-                android.util.Log.d("PlanningApi", it)
+                android.util.Log.w("OkHttp", it)
             })
         }.build()
     private val service = Retrofit.Builder().baseUrl("https://openapi.dnse.com.vn/")

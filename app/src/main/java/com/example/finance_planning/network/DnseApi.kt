@@ -163,7 +163,7 @@ class DnseApi(private val key: String,
                 else arrayOf("cash", "cashBalance", "availableCash", "accountBalance")
             if (cashFields.none { source.has(it) && !source.isNull(it) }) {
                 if (com.example.finance_planning.BuildConfig.DEBUG)
-                    android.util.Log.d("PlanningApi", "SCHEMA_ERROR route=/accounts/{id}/balances field=stock.availableCash reason=missing_cash")
+                    android.util.Log.d("PlanningApp", "SCHEMA_ERROR route=/accounts/{id}/balances field=stock.availableCash reason=missing_cash")
                 throw AppFailure("DNSE: chưa đọc được tiền mặt từ balances.stock.availableCash; chưa gửi số dư lên backend.")
             }
             val units = if (stock != null) BigDecimal.ONE else priceMultiplier

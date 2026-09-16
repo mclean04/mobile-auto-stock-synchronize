@@ -15,9 +15,12 @@ class SafeBodyLoggingInterceptor(private val log: (String) -> Unit) : Intercepto
         val uri = request.url.toUri()
         val id = ids.incrementAndGet()
         val label = "id=$id service=${ApiDiagnostics.service(uri)} method=${if (request.method == "GET") "GET" else "other"} route=${ApiDiagnostics.route(uri)} url=${ApiDiagnostics.dnseUrl(uri)}"
+        val method = if (request.method == "GET") "GET" else "other"
+        val url = ApiDiagnostics.dnseUrl(uri)
         val started = System.nanoTime()
         // DNSE is GET-only: never serialize/replay an unknown request body just for logging.
-        log("START $label request_body=${if (request.body == null) "<empty>" else "<omitted>"}")
+        log("--> $method $url [id=$id]")
+        log("--> END $method (${if (request.body == null) "0-byte body" else "body omitted"}) [id=$id]")
         try {
             val response = chain.proceed(request)
             try {
@@ -26,16 +29,17 @@ class SafeBodyLoggingInterceptor(private val log: (String) -> Unit) : Intercepto
                 val code = if (!response.isSuccessful) ApiDiagnostics.dnseCode(raw) else null
                 val date = response.headers.getDate("Date")?.time
                 val skew = date?.let { (System.currentTimeMillis() - it) / 1000 }
-                log("END $label http=${response.code} code=${code ?: "none"} elapsed_ms=${(System.nanoTime() - started) / 1_000_000} device_minus_server_seconds=${skew ?: "unknown"}")
+                log("<-- ${response.code} $url (${(System.nanoTime() - started) / 1_000_000}ms) [id=$id code=${code ?: "none"} device_minus_server_seconds=${skew ?: "unknown"}]")
                 val body = if (raw == null) "<omitted: body exceeds 8192 bytes>" else SafeJsonBody.render(raw)
-                body.chunked(2500).forEachIndexed { index, part -> log("BODY id=$id part=$index $part") }
+                body.chunked(2500).forEachIndexed { index, part -> log("$part [id=$id part=$index]") }
+                log("<-- END HTTP (redacted body) [id=$id]")
             } catch (e: java.io.IOException) {
                 response.close()
                 throw e
             }
             return response
         } catch (e: java.io.IOException) {
-            log("FAIL $label outcome=${ApiDiagnostics.failure(e)} elapsed_ms=${(System.nanoTime() - started) / 1_000_000}")
+            log("<-- HTTP FAILED: $label outcome=${ApiDiagnostics.failure(e)} elapsed_ms=${(System.nanoTime() - started) / 1_000_000}")
             throw e
         }
     }

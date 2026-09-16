@@ -1,3 +1,19 @@
+# Current Logcat levels
+
+- App diagnostics: DEBUG, tag PlanningApp.
+- API calls (DNSE and backend): WARN, tag OkHttp, even for HTTP 200.
+- DNSE interceptor uses --> METHOD URL, --> END METHOD, <-- STATUS URL,
+  redacted JSON body, <-- END HTTP, and <-- HTTP FAILED on network errors.
+- Backend transport uses the same request/response arrow notation, without bodies.
+- All diagnostic logging remains debug-build-only. Credentials remain redacted.
+
+Filters:
+`package:com.example.finance_planning tag:OkHttp level:WARN`
+`package:com.example.finance_planning tag:PlanningApp level:DEBUG`
+
+The notes below describe the migration history; the current levels/tags above
+supersede earlier PlanningApi DEBUG filter examples.
+
 # API diagnostics (debug builds)
 
 Filter Android Studio Logcat with `package:com.example.finance_planning tag:PlanningApi`.

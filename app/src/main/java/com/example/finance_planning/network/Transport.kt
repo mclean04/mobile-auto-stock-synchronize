@@ -24,9 +24,9 @@ class Transport {
         var outcome = "ok"
         var skewSeconds: Long? = null
         fun log(text: String) {
-            if (com.example.finance_planning.BuildConfig.DEBUG) android.util.Log.d("PlanningApi", text)
+            if (com.example.finance_planning.BuildConfig.DEBUG) android.util.Log.w("OkHttp", text)
         }
-        log("START $label")
+        log("--> $method https://${uri.host}${ApiDiagnostics.route(uri)} [$label]")
         try {
             connection.instanceFollowRedirects = false
             connection.connectTimeout = 20_000
@@ -86,7 +86,7 @@ class Transport {
                 throw AppFailure("Không kết nối được máy chủ. Dữ liệu đang chờ sẽ được giữ lại. [$outcome]", true)
             throw e
         } finally {
-            log("END $label http=${status ?: "none"} code=${code ?: "none"} outcome=$outcome elapsed_ms=${(System.nanoTime() - started) / 1_000_000} device_minus_server_seconds=${skewSeconds ?: "unknown"}")
+            log("<-- ${status ?: "HTTP FAILED"} https://${uri.host}${ApiDiagnostics.route(uri)} [$label] code=${code ?: "none"} outcome=$outcome elapsed_ms=${(System.nanoTime() - started) / 1_000_000} device_minus_server_seconds=${skewSeconds ?: "unknown"}")
             connection.disconnect()
         }
     }

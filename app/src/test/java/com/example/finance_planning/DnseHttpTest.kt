@@ -30,7 +30,9 @@ class DnseHttpTest {
             val printed = logs.joinToString("\n")
             for (secret in listOf("PRIVATE-ACCOUNT", "PRIVATE-TOKEN", "PRIVATE-SECRET", "PRIVATE-KEY", "PRIVATE-SIGNATURE", "987654321"))
                 assertFalse(printed.contains(secret))
-            assertTrue(printed.contains("BODY"))
+            assertTrue(logs.first().startsWith("--> GET "))
+            assertTrue(logs.any { it.startsWith("<-- 200 ") })
+            assertTrue(logs.last().startsWith("<-- END HTTP"))
             assertTrue(printed.contains("availableCash"))
         } finally { server.shutdown() }
     }
