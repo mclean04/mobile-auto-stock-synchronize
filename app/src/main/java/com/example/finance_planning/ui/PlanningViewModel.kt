@@ -49,7 +49,11 @@ class PlanningViewModel(application: Application) : AndroidViewModel(application
         if (mutable.value.busy) return
         viewModelScope.launch {
             mutable.value = mutable.value.copy(busy = true)
-            try { mutable.value = mutable.value.copy(message = action()) }
+            try {
+                // The action may update state while suspended. Copy its latest result, not the old state.
+                val message = action()
+                mutable.value = mutable.value.copy(message = message)
+            }
             catch (e: CancellationException) { throw e }
             catch (e: HttpFailure) { if (e.status == 401 || e.status == 403) repo.invalidateSession(); mutable.value = mutable.value.copy(message = e.safe().safeMessage) }
             catch (e: AppFailure) { mutable.value = mutable.value.copy(message = e.safeMessage) }
