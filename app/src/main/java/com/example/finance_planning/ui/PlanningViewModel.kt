@@ -18,6 +18,9 @@ import org.json.JSONObject
 data class ScreenState(
     val busy: Boolean = false, val message: String = "Chào bạn. Đăng nhập để kết nối planning.",
     val signedIn: Boolean = false, val approved: Boolean = false, val configured: Boolean = false,
+    val admin: Boolean = false, val sources: List<JSONObject> = emptyList(),
+    val sourceCursor: String? = null, val selectedSource: String? = null,
+    val adminRecords: List<JSONObject> = emptyList(), val recordCursor: String? = null,
     val planning: JSONObject? = null, val notifications: List<JSONObject> = emptyList(),
     val orders: List<JSONObject> = emptyList(), val batches: List<JSONObject> = emptyList(),
     val notificationCursor: String? = null, val orderCursor: String? = null, val batchCursor: String? = null,
@@ -32,6 +35,12 @@ class PlanningViewModel(application: Application) : AndroidViewModel(application
     val state = mutable.asStateFlow()
     init { restore() }
     private fun flags() {
+        if (!repo.approved()) {
+            repo.api.readSource = null
+            mutable.value = mutable.value.copy(admin = false, sources = emptyList(),
+                selectedSource = null, adminRecords = emptyList(), planning = null,
+                notifications = emptyList(), orders = emptyList(), batches = emptyList())
+        }
         mutable.value = mutable.value.copy(signedIn = repo.identity.uid() != null,
             approved = repo.approved(), configured = repo.identity.configured,
             lastSync = repo.lastSync() ?: "Chưa đồng bộ", hasDnse = repo.hasDnse())
@@ -70,14 +79,27 @@ class PlanningViewModel(application: Application) : AndroidViewModel(application
     fun refresh() = run { refreshAll() }
     private suspend fun refreshAll(): String {
         val status = repo.api.syncStatus()
+        val admin = status.optString("role") == "admin"
+        if (!admin) repo.api.readSource = null
+        val sources = if (admin) repo.api.adminSources() else JSONObject()
+        val records = if (admin && repo.api.readSource != null)
+            repo.api.adminRecords(repo.api.readSource!!) else JSONObject()
+        val planning = if (admin) try { repo.planning() } catch (e: HttpFailure) {
+            if (e.status == 404) null else throw e
+        } else null
+        val events = if (admin) repo.notifications() else JSONObject()
         val orders = repo.api.orders()
         val batches = repo.api.batches()
-        mutable.value = mutable.value.copy(status = status, planning = null,
-            notifications = emptyList(), notificationCursor = null,
+        mutable.value = mutable.value.copy(status = status, admin = admin, sources = sources.objects("items"),
+            sourceCursor = cursor(sources), selectedSource = repo.api.readSource,
+            adminRecords = records.objects("items"), recordCursor = cursor(records),
+            planning = planning, notifications = events.objects("items"),
+            notificationCursor = cursor(events),
             orders = orders.objects("items"), orderCursor = cursor(orders),
             batches = batches.objects("items"), batchCursor = cursor(batches))
         queue()
-        return "Đã cập nhật dữ liệu của tài khoản đang đăng nhập."
+        return if (admin) "Đã xác minh quyền admin. Có thể truy cập tất cả nguồn dữ liệu."
+        else "Đã cập nhật dữ liệu của tài khoản đang đăng nhập."
     }
     private fun cursor(json: JSONObject): String? = if (json.isNull("next_cursor")) null else json.optString("next_cursor").takeIf { it.isNotBlank() }
     fun more(kind: String) = run {
@@ -100,7 +122,31 @@ class PlanningViewModel(application: Application) : AndroidViewModel(application
         "Đã tải thêm."
     }
     fun notification(id: String) = run {
-        "Phiên Android chỉ truy cập dữ liệu đã gửi của chính tài khoản này."
+        if (!mutable.value.admin) throw AppFailure("Chức năng dành cho admin.")
+        val event = repo.openNotification(id)
+        mutable.value = mutable.value.copy(detail = event, detailTitle = "Thông báo planning")
+        "Đã tải thông báo."
+    }
+    fun source(id: String) = run {
+        if (!mutable.value.admin) throw AppFailure("Chức năng dành cho admin.")
+        repo.api.readSource = id
+        refreshAll()
+    }
+    fun moreSources() = run {
+        if (!mutable.value.admin) throw AppFailure("Chức năng dành cho admin.")
+        val s = mutable.value
+        val p = repo.api.adminSources(s.sourceCursor ?: return@run "Đã hết nguồn dữ liệu.")
+        mutable.value = s.copy(sources = (s.sources + p.objects("items")).distinctBy { it.getString("id") },
+            sourceCursor = cursor(p))
+        "Đã tải thêm nguồn dữ liệu."
+    }
+    fun moreRecords() = run {
+        val s = mutable.value
+        if (!s.admin) throw AppFailure("Chức năng dành cho admin.")
+        val p = repo.api.adminRecords(s.selectedSource ?: return@run "Hãy chọn nguồn.",
+            s.recordCursor ?: return@run "Đã hết bản ghi.")
+        mutable.value = s.copy(adminRecords = s.adminRecords + p.objects("items"), recordCursor = cursor(p))
+        "Đã tải thêm dữ liệu."
     }
     fun order(row: JSONObject) = run {
         val p = row.optJSONObject("payload") ?: row
@@ -133,6 +179,7 @@ class PlanningViewModel(application: Application) : AndroidViewModel(application
     }
     fun logout() = run {
         repo.logout()
+        repo.api.readSource = null
         SyncSchedule.cancel(getApplication())
         mutable.value = ScreenState(configured = repo.identity.configured)
         "Đã gỡ thiết bị khỏi backend và xóa khóa/dữ liệu local của phiên này."

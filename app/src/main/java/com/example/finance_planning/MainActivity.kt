@@ -58,11 +58,13 @@ private fun PlanningScreen(model: PlanningViewModel) {
     val s by model.state.collectAsState()
     var tab by remember { mutableIntStateOf(0) }
     var confirm by remember { mutableStateOf("") }
-    val labels = listOf("Tổng quan", "Lệnh của tôi", "Cài đặt")
+    val labels = listOf("Tổng quan", if (s.admin) "Lệnh" else "Lệnh của tôi", "Cài đặt") +
+        if (s.admin) listOf("Quản trị") else emptyList()
+    LaunchedEffect(s.admin) { if (!s.admin && tab > 2) tab = 0 }
     Scaffold(bottomBar = {
         NavigationBar { labels.forEachIndexed { index, title ->
             NavigationBarItem(selected = tab == index, onClick = { tab = index },
-                icon = { Text(listOf("◉", "↔", "⚙")[index]) }, label = { Text(title) })
+                icon = { Text(listOf("◉", "↔", "⚙", "▦")[index]) }, label = { Text(title) })
         }}
     }) { padding ->
         Column(Modifier.fillMaxSize().padding(padding).padding(horizontal = 16.dp)) {
@@ -88,6 +90,7 @@ private fun PlanningScreen(model: PlanningViewModel) {
                     if (s.orderCursor != null) item { TextButton(onClick = { model.more("orders") }, enabled = !s.busy) { Text("Tải thêm") } }
                 }
                 2 -> Settings(s, model) { confirm = it }
+                3 -> if (s.admin) AdminPanel(s, model) { confirm = "import" }
             }
         }
     }
@@ -123,7 +126,8 @@ private fun Overview(s: ScreenState, model: PlanningViewModel, confirm: (String)
             modifier = Modifier.fillMaxWidth()) { Text("Lấy DNSE và đồng bộ ngay") } }
         item { OutlinedButton(onClick = model::retry, enabled = s.approved && !s.busy,
             modifier = Modifier.fillMaxWidth()) { Text("Gửi lại dữ liệu đang chờ") } }
-        item { Text("Bạn chỉ xem dữ liệu do tài khoản này gửi. Backend tự cập nhật file planning đã cấu hình.") }
+        item { Text(if (s.admin) "Admin: chọn nguồn trong Quản trị để xem dữ liệu của mọi tài khoản."
+            else "Bạn chỉ xem dữ liệu do tài khoản này gửi. Backend tự cập nhật file planning đã cấu hình.") }
         item { Text("Hàng đợi trên máy", style = MaterialTheme.typography.titleMedium) }
         items(s.localQueue) { Text(it) }
         item { Text("Các đợt đã gửi lên backend", style = MaterialTheme.typography.titleMedium) }
@@ -201,5 +205,46 @@ private fun actionLabel(action: String) = when(action) {
         else if (value is JSONArray) Text("$key: ${value.length()} bản ghi")
         else if (value != null && value != JSONObject.NULL && value.toString().isNotBlank())
             Text("$key: $value", style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(vertical = 3.dp))
+    }
+}
+
+
+@Composable
+private fun AdminPanel(s: ScreenState, model: PlanningViewModel, importPlanning: () -> Unit) {
+    LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        item { Text("Quản trị hệ thống", style = MaterialTheme.typography.titleLarge) }
+        item { Text("Chọn nguồn để xem lệnh, số dư, vị thế, khớp lệnh và các đợt đồng bộ. Các màn hình Lệnh và Tổng quan cũng hiển thị nguồn đã chọn.") }
+        items(s.sources) { source ->
+            val id = source.getString("id")
+            OutlinedButton(onClick = { model.source(id) }, enabled = !s.busy) {
+                Text((if (s.selectedSource == id) "✓ " else "") +
+                    if (id == "legacy") "Dữ liệu lịch sử chung" else "Tài khoản: " + source.optString("uid"))
+            }
+        }
+        if (s.sourceCursor != null) item {
+            TextButton(onClick = model::moreSources, enabled = !s.busy) { Text("Thêm tài khoản") }
+        }
+        item { Text("Dữ liệu nguồn đã chọn", style = MaterialTheme.typography.titleMedium) }
+        items(s.adminRecords) { row -> InfoCard(row.optJSONObject("payload") ?: row, row.optString("kind")) }
+        if (s.recordCursor != null) item {
+            TextButton(onClick = model::moreRecords, enabled = !s.busy) { Text("Thêm bản ghi") }
+        }
+        item { HorizontalDivider() }
+        item { Text("Planning chung", style = MaterialTheme.typography.titleMedium) }
+        item { Row {
+            TextButton(onClick = importPlanning, enabled = !s.busy) { Text("Nhập planning") }
+            TextButton(onClick = model::reconcile, enabled = !s.busy) { Text("Cập nhật Sheet") }
+        } }
+        items(s.planning?.objects("items") ?: emptyList()) { row ->
+            InfoCard(row.optJSONObject("fields") ?: row, "Kế hoạch")
+        }
+        item { Text("Thông báo planning", style = MaterialTheme.typography.titleMedium) }
+        items(s.notifications) { row ->
+            OutlinedButton(onClick = { model.notification(row.optString("event_id", row.optString("id"))) },
+                enabled = !s.busy) { Text(row.optString("symbol") + " • " + row.optString("reason")) }
+        }
+        if (s.notificationCursor != null) item {
+            TextButton(onClick = { model.more("notifications") }, enabled = !s.busy) { Text("Thêm thông báo") }
+        }
     }
 }

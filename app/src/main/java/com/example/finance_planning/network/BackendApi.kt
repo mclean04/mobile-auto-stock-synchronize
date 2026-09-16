@@ -5,6 +5,13 @@ import org.json.JSONObject
 import java.net.URLEncoder
 
 class BackendApi(private val transport: Transport, private val headers: suspend () -> Map<String, String>) {
+    var readSource: String? = null
+    private fun scoped(path: String): String = readSource?.let {
+        path + (if ("?" in path) "&" else "?") + "source=" + URLEncoder.encode(it, "UTF-8")
+    } ?: path
+    suspend fun adminSources(cursor: String? = null) = call(page("/v1/admin/sources", cursor))
+    suspend fun adminRecords(source: String, cursor: String? = null) =
+        call(page("/v1/admin/sources/" + Contracts.id(source) + "/records", cursor))
     private suspend fun call(path: String, method: String = "GET", body: JSONObject? = null): JSONObject =
         JSONObject(transport.request(Contracts.BACKEND + path, method, headers(), body))
     suspend fun health() = JSONObject(transport.request(Contracts.BACKEND + "/health"))
@@ -16,11 +23,11 @@ class BackendApi(private val transport: Transport, private val headers: suspend 
     suspend fun upload(batch: JSONObject) = call("/v1/sync/batches", "POST", batch)
     private fun page(path: String, cursor: String?) =
         path + "?limit=20" + (cursor?.let { "&cursor=" + URLEncoder.encode(it, "UTF-8") } ?: "")
-    suspend fun batches(cursor: String? = null) = call(page("/v1/sync/batches", cursor))
-    suspend fun batch(id: String) = call("/v1/sync/batches/" + java.util.UUID.fromString(id))
-    suspend fun orders(cursor: String? = null) = call(page("/v1/orders", cursor))
+    suspend fun batches(cursor: String? = null) = call(scoped(page("/v1/sync/batches", cursor)))
+    suspend fun batch(id: String) = call(scoped("/v1/sync/batches/" + java.util.UUID.fromString(id)))
+    suspend fun orders(cursor: String? = null) = call(scoped(page("/v1/orders", cursor)))
     suspend fun order(account: String, id: String) =
-        call("/v1/orders/" + Contracts.id(account) + "/" + Contracts.id(id))
+        call(scoped("/v1/orders/" + Contracts.id(account) + "/" + Contracts.id(id)))
     suspend fun notifications(cursor: String? = null) = call(page("/v1/notifications", cursor))
     suspend fun notification(id: String) = call("/v1/notifications/" + java.util.UUID.fromString(id))
     suspend fun notificationPlan(plan: String) = call("/v1/notification-plans/" + Contracts.id(plan))
