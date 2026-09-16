@@ -7,9 +7,11 @@ with a process-local ID, service/environment, HTTP method, redacted route, HTTP 
 allowlisted error code, duration and failure category. Firebase/Google SDK internal
 HTTP traffic is not intercepted by this logger.
 
-No raw request/response bodies, query strings, headers, credentials, signatures, tokens,
-account IDs, order IDs, source UIDs or raw exception messages are logged. Unknown
-routes are entirely redacted. Logs are disabled in release builds.
+No raw bodies, headers, credentials, signatures, tokens, source UIDs or raw
+exception messages are logged. DNSE debug request/response URLs now deliberately
+include account/order IDs as requested for debugging; query values are restricted
+to documented pagination, date and market/category parameters. Unknown parameters
+and unknown routes are redacted. The route template itself remains redacted. Logs are disabled in release builds.
 
 `device_minus_server_seconds` is device time minus the DNSE response Date header,
 measured when response headers arrive. It is approximate (network delay and Date
@@ -81,3 +83,5 @@ If Samsung suppresses DEBUG before Logcat can read it, enable only this tag:
 `adb shell setprop log.tag.PlanningApi DEBUG`
 Then trigger a new sync. This is a device-local diagnostic setting and may reset
 on reboot. It does not enable verbose logs for other apps or framework tags.
+
+DNSE START and END entries include the same full `url=` for request/response correlation.

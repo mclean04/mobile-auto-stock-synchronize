@@ -14,7 +14,7 @@ class SafeBodyLoggingInterceptor(private val log: (String) -> Unit) : Intercepto
         val request = chain.request()
         val uri = request.url.toUri()
         val id = ids.incrementAndGet()
-        val label = "id=$id service=${ApiDiagnostics.service(uri)} method=${if (request.method == "GET") "GET" else "other"} route=${ApiDiagnostics.route(uri)}"
+        val label = "id=$id service=${ApiDiagnostics.service(uri)} method=${if (request.method == "GET") "GET" else "other"} route=${ApiDiagnostics.route(uri)} url=${ApiDiagnostics.dnseUrl(uri)}"
         val started = System.nanoTime()
         // DNSE is GET-only: never serialize/replay an unknown request body just for logging.
         log("START $label request_body=${if (request.body == null) "<empty>" else "<omitted>"}")

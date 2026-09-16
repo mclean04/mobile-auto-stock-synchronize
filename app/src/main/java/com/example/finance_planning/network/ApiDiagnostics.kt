@@ -33,6 +33,24 @@ object ApiDiagnostics {
             }
         } ?: "/[redacted]"
     }
+    /** Explicit debug URL: account/order IDs visible; unknown query parameters never emitted. */
+    fun dnseUrl(uri: URI): String {
+        if (!service(uri).startsWith("dnse-") || route(uri) == "/[redacted]") return "<redacted-url>"
+        val query = uri.rawQuery?.split('&')?.map { entry ->
+            val parts = entry.split('=', limit = 2)
+            val name = parts[0]
+            val value = parts.getOrNull(1).orEmpty()
+            val allowed = when (name) {
+                "pageIndex", "pageSize" -> value.matches(Regex("[0-9]{1,6}"))
+                "from", "to" -> runCatching { java.time.LocalDate.parse(value) }.isSuccess
+                "marketType" -> value in setOf("STOCK", "DERIVATIVE")
+                "orderCategory" -> value in setOf("NORMAL", "STOP")
+                else -> false
+            }
+            if (allowed) "$name=$value" else "redacted=REDACTED"
+        }?.joinToString("&")
+        return "https://${uri.host}${uri.rawPath}" + if (query.isNullOrEmpty()) "" else "?$query"
+    }
     private val dnseCodes = setOf("OA-400", "OA-401", "OA-403", "OA-404", "OA-405",
         "OA-422", "OA-429", "OA-500", "OA-503", "FORBIDDEN", "INPUT_MISSING",
         "INPUT_INVALID", "INPUT_FORMAT_INVALID", "ACCOUNT_MISSING", "RESOURCE_NOT_FOUND",
