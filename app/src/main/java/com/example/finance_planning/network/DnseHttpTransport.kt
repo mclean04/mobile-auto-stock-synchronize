@@ -29,9 +29,9 @@ object DnseHttpTransport {
         .followRedirects(false).followSslRedirects(false).retryOnConnectionFailure(false)
         .addInterceptor(ResponseSizeLimitInterceptor())
         .apply {
-            if (BuildConfig.DEBUG) addInterceptor(SafeBodyLoggingInterceptor {
+            if (BuildConfig.DEBUG) addInterceptor(DebugBodyLoggingInterceptor(log = {
                 android.util.Log.w("OkHttp", it)
-            })
+            }))
         }.build()
     private val service = Retrofit.Builder().baseUrl("https://openapi.dnse.com.vn/")
         .client(client).build().create(DnseReadService::class.java)

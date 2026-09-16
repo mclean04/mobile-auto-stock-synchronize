@@ -13,8 +13,6 @@ import com.google.firebase.FirebaseOptions
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.GoogleAuthProvider
 import com.google.firebase.appcheck.FirebaseAppCheck
-import com.google.firebase.appcheck.debug.DebugAppCheckProviderFactory
-import com.google.firebase.appcheck.playintegrity.PlayIntegrityAppCheckProviderFactory
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.tasks.await
 
@@ -30,8 +28,7 @@ class MobileIdentity(private val context: Context) {
                 .setProjectId(BuildConfig.FIREBASE_PROJECT_ID)
                 .setGcmSenderId(BuildConfig.FIREBASE_SENDER_ID).build())
         }
-        val provider = if (BuildConfig.DEBUG) DebugAppCheckProviderFactory.getInstance()
-            else PlayIntegrityAppCheckProviderFactory.getInstance()
+        val provider = AppCheckBuildProvider.create()
         FirebaseAppCheck.getInstance().installAppCheckProviderFactory(provider)
     }
     fun uid(): String? = if (configured) FirebaseAuth.getInstance().currentUser?.uid else null

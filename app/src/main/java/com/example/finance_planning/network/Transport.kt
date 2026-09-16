@@ -22,11 +22,11 @@ class Transport {
         fun log(text: String) {
             if (com.example.finance_planning.BuildConfig.DEBUG) android.util.Log.w("OkHttp", text)
         }
-        val logUrl = "https://${uri.host}${ApiDiagnostics.route(uri)}"
+        val logUrl = uri.toString()
         fun responseBody(raw: String?) {
             if (com.example.finance_planning.BuildConfig.DEBUG) {
                 HttpLogFormat.body(raw, ::log)
-                log("<-- END HTTP (${raw?.toByteArray(Charsets.UTF_8)?.size ?: 0}-byte body; redacted)")
+                log("<-- END HTTP (${raw?.toByteArray(Charsets.UTF_8)?.size ?: 0}-byte body)")
             }
         }
         log("--> $method $logUrl")
@@ -37,7 +37,7 @@ class Transport {
                 log("content-length: ${it.toString().toByteArray(Charsets.UTF_8).size}")
                 HttpLogFormat.body(it.toString(), ::log)
             }
-            log("--> END $method${if (body == null) "" else " (JSON body; redacted)"}")
+            log("--> END $method${if (body == null) "" else " (JSON body)"}")
         }
         try {
             connection.instanceFollowRedirects = false
@@ -63,8 +63,8 @@ class Transport {
                         connection.errorStream?.use { input ->
                             val output = java.io.ByteArrayOutputStream()
                             val buffer = ByteArray(1024)
-                            while (output.size() < 4096) {
-                                val n = input.read(buffer, 0, minOf(buffer.size, 4096 - output.size()))
+                            while (output.size() < 4 * 1024 * 1024) {
+                                val n = input.read(buffer, 0, minOf(buffer.size, 4 * 1024 * 1024 - output.size()))
                                 if (n < 0) break
                                 output.write(buffer, 0, n)
                             }
