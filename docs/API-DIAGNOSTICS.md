@@ -101,3 +101,14 @@ Then trigger a new sync. This is a device-local diagnostic setting and may reset
 on reboot. It does not enable verbose logs for other apps or framework tags.
 
 DNSE START and END entries include the same full `url=` for request/response correlation.
+
+## Structured JSON in Logcat
+
+REQUEST JSON contains method, url, query, body. GET parameters are displayed as
+JSON query fields for readability but stay in the HTTP URL; no GET body is added.
+POST/PUT/PATCH bodies are logged from the original JSON object in backend Transport.
+RESPONSE JSON contains url, HTTP status and redacted JSON body, for success and
+error responses. A 204 response has body null. DNSE responses are peeked by its
+OkHttp interceptor. Correlation IDs pair requests and responses, with numbered
+chunks for long entries. All API entries are WARN/OkHttp; app diagnostics remain
+DEBUG/PlanningApp. No JSON files are created on the device.

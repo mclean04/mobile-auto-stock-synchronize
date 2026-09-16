@@ -20,6 +20,7 @@ class SafeBodyLoggingInterceptor(private val log: (String) -> Unit) : Intercepto
         val started = System.nanoTime()
         // DNSE is GET-only: never serialize/replay an unknown request body just for logging.
         log("--> $method $url [id=$id]")
+        JsonApiLog.emit("REQUEST", id.toString(), JsonApiLog.request(uri, method, null), log)
         log("--> END $method (${if (request.body == null) "0-byte body" else "body omitted"}) [id=$id]")
         try {
             val response = chain.proceed(request)
@@ -30,8 +31,8 @@ class SafeBodyLoggingInterceptor(private val log: (String) -> Unit) : Intercepto
                 val date = response.headers.getDate("Date")?.time
                 val skew = date?.let { (System.currentTimeMillis() - it) / 1000 }
                 log("<-- ${response.code} $url (${(System.nanoTime() - started) / 1_000_000}ms) [id=$id code=${code ?: "none"} device_minus_server_seconds=${skew ?: "unknown"}]")
-                val body = if (raw == null) "<omitted: body exceeds 8192 bytes>" else SafeJsonBody.render(raw)
-                body.chunked(2500).forEachIndexed { index, part -> log("$part [id=$id part=$index]") }
+                JsonApiLog.emit("RESPONSE", id.toString(),
+                    JsonApiLog.response(uri, response.code, raw ?: "<body exceeds limit>"), log)
                 log("<-- END HTTP (redacted body) [id=$id]")
             } catch (e: java.io.IOException) {
                 response.close()
@@ -53,7 +54,11 @@ object SafeJsonBody {
         "orderStatus", "status", "code", "message", "createdDate", "modifiedDate", "createdAt",
         "updatedAt", "marketType", "orderCategory", "total", "pageIndex", "pageSize", "hasNext",
         "depositInterest", "totalDebt", "depositFeeAmount", "secureAmount", "orderSecured",
-        "withdrawableCash", "cashDividendReceiving", "totalValue", "remainSecure", "usedSecure")
+        "withdrawableCash", "cashDividendReceiving", "totalValue", "remainSecure", "usedSecure",
+        "batch_id", "device_id", "fcm_token", "state", "database", "orders_count", "executions_count",
+        "positions_count", "balances_count", "account", "cash_vnd", "buying_power_vnd", "updated_at",
+        "order_id", "execution_id", "position_id", "schema_version", "detail", "next_cursor",
+        "role", "owner", "sources", "notifications", "planning", "requires_review", "event_id")
     fun render(raw: String): String {
         if (raw.isBlank()) return "<empty>"
         if (raw.length > 8192) return "<omitted: large body>"

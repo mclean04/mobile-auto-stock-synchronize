@@ -27,6 +27,8 @@ class Transport {
             if (com.example.finance_planning.BuildConfig.DEBUG) android.util.Log.w("OkHttp", text)
         }
         log("--> $method https://${uri.host}${ApiDiagnostics.route(uri)} [$label]")
+        if (com.example.finance_planning.BuildConfig.DEBUG)
+            JsonApiLog.emit("REQUEST", "backend-$requestId", JsonApiLog.request(uri, method, body?.toString()), ::log)
         try {
             connection.instanceFollowRedirects = false
             connection.connectTimeout = 20_000
@@ -60,12 +62,18 @@ class Transport {
                             output.toString("UTF-8")
                         }
                     } catch (_: java.io.IOException) { null }
+                    if (com.example.finance_planning.BuildConfig.DEBUG)
+                        JsonApiLog.emit("RESPONSE", "backend-$requestId", JsonApiLog.response(uri, status, raw), ::log)
                     if (ApiDiagnostics.service(uri).startsWith("dnse-")) ApiDiagnostics.dnseCode(raw)
                     else HttpFailure.safeCode(raw)
                 } else null
                 throw HttpFailure(status, code)
             }
-            if (status == HttpURLConnection.HTTP_NO_CONTENT) return@withContext "{}"
+            if (status == HttpURLConnection.HTTP_NO_CONTENT) {
+                if (com.example.finance_planning.BuildConfig.DEBUG)
+                    JsonApiLog.emit("RESPONSE", "backend-$requestId", JsonApiLog.response(uri, status, null), ::log)
+                return@withContext "{}"
+            }
             connection.inputStream.use {
                 val output = java.io.ByteArrayOutputStream()
                 val buffer = ByteArray(8192)
@@ -78,7 +86,10 @@ class Transport {
                 }
                 val bytes = output.toByteArray()
                 if (bytes.size > 4 * 1024 * 1024) throw AppFailure("Phản hồi quá lớn.")
-                String(bytes, Charsets.UTF_8)
+                String(bytes, Charsets.UTF_8).also { raw ->
+                    if (com.example.finance_planning.BuildConfig.DEBUG)
+                        JsonApiLog.emit("RESPONSE", "backend-$requestId", JsonApiLog.response(uri, status, raw), ::log)
+                }
             }
         } catch (e: Exception) {
             outcome = ApiDiagnostics.failure(e)
