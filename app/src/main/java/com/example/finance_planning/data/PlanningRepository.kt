@@ -66,6 +66,9 @@ class PlanningRepository(val identity: MobileIdentity, private val vault: Vault,
         vault.put("dnse:$uid", JSONObject().put("key", key.trim()).put("secret", secret.trim())
             .put("production", production).put("vndPerUnit", vndPerUnit).toString())
     }
+    fun dnseProduction(): Boolean? = identity.uid()?.let { uid ->
+        vault.get("dnse:$uid")?.let { JSONObject(it).getBoolean("production") }
+    }
     fun hasDnse() = identity.uid()?.let { vault.get("dnse:$it") != null } ?: false
     suspend fun localBatches(): List<PendingBatch> = dao.batches(owner())
     suspend fun sync(): String = lock.withLock {

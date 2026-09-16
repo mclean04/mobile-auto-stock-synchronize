@@ -44,9 +44,14 @@ class DnseApi(private val transport: Transport, private val key: String,
             "X-Api-Key" to key, "X-Signature" to DnseSigning.signature(key, secret, path, date, nonce),
             "Date" to date, "version" to "2026-07-23"))
         } catch (e: HttpFailure) {
-            if (e.status == 401 || e.status == 403)
-                throw AppFailure("DNSE từ chối khóa hoặc chữ ký. Kiểm tra môi trường, khóa và giờ trên điện thoại.")
-            throw AppFailure("DNSE trả lỗi HTTP ${e.status}; chưa hoàn tất lấy dữ liệu.",
+            val environment = if (production) "production" else "sandbox"
+            val reason = when (e.code) {
+                "invalid_api_key", "OA-401" -> "DNSE không chấp nhận API key ở môi trường $environment. Kiểm tra đúng bộ khóa và khóa còn hiệu lực."
+                "invalid_signature", "invalid_authorization" -> "DNSE từ chối chữ ký/xác thực ở $environment. Kiểm tra secret đi cùng key và bật giờ tự động trên điện thoại."
+                "FORBIDDEN", "OA-403" -> "DNSE từ chối quyền truy cập ở $environment. Kiểm tra quyền của khóa và tiểu khoản."
+                else -> "DNSE trả lỗi ở $environment; chưa hoàn tất lấy dữ liệu."
+            }
+            throw AppFailure("$reason [HTTP ${e.status} / ${e.code ?: "unclassified"}]",
                 e.status == 429 || e.status >= 500)
         }
         return JSONTokener(body).nextValue()

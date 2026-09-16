@@ -25,7 +25,7 @@ data class ScreenState(
     val orders: List<JSONObject> = emptyList(), val batches: List<JSONObject> = emptyList(),
     val notificationCursor: String? = null, val orderCursor: String? = null, val batchCursor: String? = null,
     val status: JSONObject? = null, val detail: JSONObject? = null, val detailTitle: String = "",
-    val lastSync: String = "Chưa đồng bộ", val hasDnse: Boolean = false,
+    val lastSync: String = "Chưa đồng bộ", val hasDnse: Boolean = false, val dnseProduction: Boolean? = null,
     val localQueue: List<String> = emptyList()
 )
 
@@ -43,7 +43,7 @@ class PlanningViewModel(application: Application) : AndroidViewModel(application
         }
         mutable.value = mutable.value.copy(signedIn = repo.identity.uid() != null,
             approved = repo.approved(), configured = repo.identity.configured,
-            lastSync = repo.lastSync() ?: "Chưa đồng bộ", hasDnse = repo.hasDnse())
+            lastSync = repo.lastSync() ?: "Chưa đồng bộ", hasDnse = repo.hasDnse(), dnseProduction = repo.dnseProduction())
     }
     private fun run(action: suspend () -> String) {
         if (mutable.value.busy) return

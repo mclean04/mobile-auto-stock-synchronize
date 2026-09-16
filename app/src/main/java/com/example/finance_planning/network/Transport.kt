@@ -9,11 +9,24 @@ import java.net.URI
 import javax.net.ssl.HttpsURLConnection
 
 class Transport {
+    companion object { private val sequence = java.util.concurrent.atomic.AtomicLong() }
+
     suspend fun request(url: String, method: String = "GET", headers: Map<String, String> = emptyMap(),
                         body: JSONObject? = null): String = withContext(Dispatchers.IO) {
         val uri = URI(url)
         if (uri.scheme != "https" || uri.userInfo != null) throw AppFailure("Địa chỉ kết nối không hợp lệ.")
         val connection = uri.toURL().openConnection() as HttpsURLConnection
+        val requestId = sequence.incrementAndGet()
+        val started = System.nanoTime()
+        val label = "id=$requestId service=${ApiDiagnostics.service(uri)} method=${method.takeIf { it in setOf("GET", "POST", "PUT", "DELETE", "PATCH", "HEAD") } ?: "other"} route=${ApiDiagnostics.route(uri)}"
+        var status: Int? = null
+        var code: String? = null
+        var outcome = "ok"
+        var skewSeconds: Long? = null
+        fun log(text: String) {
+            if (com.example.finance_planning.BuildConfig.DEBUG) android.util.Log.i("PlanningApi", text)
+        }
+        log("START $label")
         try {
             connection.instanceFollowRedirects = false
             connection.connectTimeout = 20_000
@@ -28,9 +41,13 @@ class Transport {
                 connection.setRequestProperty("Content-Type", "application/json")
                 connection.outputStream.use { it.write(bytes) }
             }
-            val status = connection.responseCode
+            status = connection.responseCode
+            if (ApiDiagnostics.service(uri).startsWith("dnse-")) {
+                val serverDate = connection.getHeaderFieldDate("Date", 0)
+                if (serverDate > 0) skewSeconds = (System.currentTimeMillis() - serverDate) / 1000
+            }
             if (status !in 200..299) {
-                val code = if (uri.host == URI(com.example.finance_planning.core.Contracts.BACKEND).host) {
+                code = if (ApiDiagnostics.service(uri) != "other") {
                     val raw = try {
                         connection.errorStream?.use { input ->
                             val output = java.io.ByteArrayOutputStream()
@@ -43,10 +60,9 @@ class Transport {
                             output.toString("UTF-8")
                         }
                     } catch (_: java.io.IOException) { null }
-                    HttpFailure.safeCode(raw)
+                    if (ApiDiagnostics.service(uri).startsWith("dnse-")) ApiDiagnostics.dnseCode(raw)
+                    else HttpFailure.safeCode(raw)
                 } else null
-                if (com.example.finance_planning.BuildConfig.DEBUG)
-                    android.util.Log.w("PlanningAuth", "HTTP $status code=${code ?: "unclassified"}")
                 throw HttpFailure(status, code)
             }
             if (status == HttpURLConnection.HTTP_NO_CONTENT) return@withContext "{}"
@@ -64,9 +80,15 @@ class Transport {
                 if (bytes.size > 4 * 1024 * 1024) throw AppFailure("Phản hồi quá lớn.")
                 String(bytes, Charsets.UTF_8)
             }
-        } catch (e: java.io.IOException) {
-            throw AppFailure("Không kết nối được máy chủ. Dữ liệu đang chờ sẽ được giữ lại.", true)
-        } finally { connection.disconnect() }
+        } catch (e: Exception) {
+            outcome = ApiDiagnostics.failure(e)
+            if (e is java.io.IOException)
+                throw AppFailure("Không kết nối được máy chủ. Dữ liệu đang chờ sẽ được giữ lại. [$outcome]", true)
+            throw e
+        } finally {
+            log("END $label http=${status ?: "none"} code=${code ?: "none"} outcome=$outcome elapsed_ms=${(System.nanoTime() - started) / 1_000_000} device_minus_server_seconds=${skewSeconds ?: "unknown"}")
+            connection.disconnect()
+        }
     }
 }
 class HttpFailure(val status: Int, val code: String? = null) : Exception("HTTP $status") {

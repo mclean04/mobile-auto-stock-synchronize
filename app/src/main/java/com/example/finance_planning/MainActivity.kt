@@ -145,7 +145,7 @@ private fun Settings(s: ScreenState, model: PlanningViewModel, confirm: (String)
     val context = LocalContext.current
     var key by remember { mutableStateOf("") }
     var secret by remember { mutableStateOf("") }
-    var production by remember { mutableStateOf(false) }
+    var production by remember(s.dnseProduction) { mutableStateOf(s.dnseProduction ?: false) }
     var unit by remember { mutableStateOf("1") }
     val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { }
     Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -172,7 +172,11 @@ private fun Settings(s: ScreenState, model: PlanningViewModel, confirm: (String)
         }
         Button(onClick = { model.saveDnse(key, secret, production, unit); key = ""; secret = "" },
             enabled = s.signedIn && key.isNotBlank() && secret.isNotBlank() && !s.busy) { Text("Lưu khóa trên thiết bị") }
-        Text(if (s.hasDnse) "Đã có khóa lưu trên máy." else "Chưa có khóa DNSE.")
+        Text(when (s.dnseProduction) {
+            true -> "Đã lưu: Production — tài khoản DNSE thật."
+            false -> "Đã lưu: Sandbox — cần bộ khóa thử nghiệm riêng."
+            null -> "Chưa có khóa DNSE."
+        })
         HorizontalDivider()
         Text("Đồng bộ định kỳ", style = MaterialTheme.typography.titleLarge)
         Text("Mỗi 6 giờ khi có mạng. Android có thể trì hoãn; buộc dừng app sẽ ngăn lịch chạy tới khi mở lại.")
