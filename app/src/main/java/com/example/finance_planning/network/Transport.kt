@@ -24,7 +24,7 @@ class Transport {
         var outcome = "ok"
         var skewSeconds: Long? = null
         fun log(text: String) {
-            if (com.example.finance_planning.BuildConfig.DEBUG) android.util.Log.i("PlanningApi", text)
+            if (com.example.finance_planning.BuildConfig.DEBUG) android.util.Log.d("PlanningApi", text)
         }
         log("START $label")
         try {

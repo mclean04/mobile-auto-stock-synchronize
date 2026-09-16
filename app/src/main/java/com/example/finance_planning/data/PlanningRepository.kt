@@ -84,7 +84,7 @@ class PlanningRepository(val identity: MobileIdentity, private val vault: Vault,
         flush(uid)
         val config = vault.get("dnse:$uid")?.let(::JSONObject) ?: throw AppFailure("Hãy lưu khóa DNSE trước.")
         val production = config.getBoolean("production")
-        val dnse = DnseApi(Transport(), config.getString("key"), config.getString("secret"), production)
+        val dnse = DnseApi(config.getString("key"), config.getString("secret"), production)
         val now = LocalDate.now(ZoneId.of("Asia/Ho_Chi_Minh"))
         val orders = linkedMapOf<String, JSONObject>()
         val executions = linkedMapOf<String, JSONObject>()

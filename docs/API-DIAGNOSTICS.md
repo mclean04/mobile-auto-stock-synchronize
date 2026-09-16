@@ -1,12 +1,13 @@
 # API diagnostics (debug builds)
 
 Filter Android Studio Logcat with `package:com.example.finance_planning tag:PlanningApi`.
-Every request made through Transport (DNSE and planning backend) has START/END entries
+DNSE uses Retrofit 2.11.0 with OkHttp 4.12.0; the planning backend retains Transport.
+Both emit DEBUG-level START/END entries
 with a process-local ID, service/environment, HTTP method, redacted route, HTTP status,
 allowlisted error code, duration and failure category. Firebase/Google SDK internal
 HTTP traffic is not intercepted by this logger.
 
-No request/response bodies, query strings, headers, credentials, signatures, tokens,
+No raw request/response bodies, query strings, headers, credentials, signatures, tokens,
 account IDs, order IDs, source UIDs or raw exception messages are logged. Unknown
 routes are entirely redacted. Logs are disabled in release builds.
 
@@ -57,3 +58,21 @@ cash stops the batch instead of inventing a zero balance.
 
 Reference: https://developers.dnse.com.vn/docs/dnse/get-account-balances/
 Verified using the official response schema and value-free device field types.
+
+
+## Retrofit + OkHttp BODY interceptor
+
+Filter `package:com.example.finance_planning tag:PlanningApi level:DEBUG`.
+DNSE GET requests log request_body=<empty>. SafeBodyLoggingInterceptor logs a
+redacted JSON body preview: known field names and object/array structure remain;
+scalar values and unknown field names are redacted. Non-JSON, deeply nested or
+bodies larger than 8 KiB are omitted, with at most 3 array entries and 6 levels.
+This is a custom BODY interceptor, not unredacted HttpLoggingInterceptor.Level.BODY.
+It never consumes the response delivered to Retrofit. Release builds do not add
+this logging interceptor. Backend metadata logging also uses DEBUG, without bodies.
+
+HTTPS host validation, disabled redirects and automatic connection retries,
+20s connect / 40s read timeout, and a 4 MiB response cap remain in place.
+A 60s call timeout also bounds DNSE calls. Retrofit error-body buffering is capped
+by a separate response-size interceptor in debug and release builds.
+The existing DNSE signing algorithm and endpoint/query behavior are unchanged.

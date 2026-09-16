@@ -26,7 +26,7 @@ object DnseSigning {
     }
 }
 
-class DnseApi(private val transport: Transport, private val key: String,
+class DnseApi(private val key: String,
               private val secret: String, private val production: Boolean) {
     private val host = if (production) "https://openapi.dnse.com.vn" else "https://sb-openapi.dnse.com.vn"
     private fun id(s: String): String {
@@ -40,7 +40,7 @@ class DnseApi(private val transport: Transport, private val key: String,
         val suffix = if (query.isEmpty()) "" else query.entries.joinToString("&", "?") {
             URLEncoder.encode(it.key, "UTF-8") + "=" + URLEncoder.encode(it.value, "UTF-8")
         }
-        val body = try { transport.request(host + path + suffix, headers = mapOf(
+        val body = try { DnseHttpTransport.request(host + path + suffix, headers = mapOf(
             "X-Api-Key" to key, "X-Signature" to DnseSigning.signature(key, secret, path, date, nonce),
             "Date" to date, "version" to "2026-07-23"))
         } catch (e: HttpFailure) {
@@ -163,7 +163,7 @@ class DnseApi(private val transport: Transport, private val key: String,
                 else arrayOf("cash", "cashBalance", "availableCash", "accountBalance")
             if (cashFields.none { source.has(it) && !source.isNull(it) }) {
                 if (com.example.finance_planning.BuildConfig.DEBUG)
-                    android.util.Log.w("PlanningApi", "SCHEMA_ERROR route=/accounts/{id}/balances field=stock.availableCash reason=missing_cash")
+                    android.util.Log.d("PlanningApi", "SCHEMA_ERROR route=/accounts/{id}/balances field=stock.availableCash reason=missing_cash")
                 throw AppFailure("DNSE: chưa đọc được tiền mặt từ balances.stock.availableCash; chưa gửi số dư lên backend.")
             }
             val units = if (stock != null) BigDecimal.ONE else priceMultiplier
