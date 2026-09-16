@@ -16,6 +16,7 @@ import com.google.firebase.messaging.FirebaseMessagingService
 import com.google.firebase.messaging.RemoteMessage
 import org.json.JSONObject
 import java.util.UUID
+import java.time.Instant
 
 class PlanningMessagingService : FirebaseMessagingService() {
     override fun onNewToken(token: String) { SyncSchedule.refresh(this) }
@@ -32,7 +33,11 @@ class PlanningMessagingService : FirebaseMessagingService() {
 
     companion object {
         fun show(context: Context, event: JSONObject) {
-            if (!event.optBoolean("requires_review")) return
+            val isTest = event.optJSONObject("sheet")?.optString("mode") == "TEST" &&
+                event.optBoolean("is_current") && runCatching {
+                    Instant.parse(event.optString("test_push_until")).isAfter(Instant.now())
+                }.getOrDefault(false)
+            if (!event.optBoolean("requires_review") && !isTest) return
             if (android.os.Build.VERSION.SDK_INT >= 33 &&
                 ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) !=
                 PackageManager.PERMISSION_GRANTED) return
@@ -47,7 +52,7 @@ class PlanningMessagingService : FirebaseMessagingService() {
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
             manager.notify(id, 1, NotificationCompat.Builder(context, "planning")
                 .setSmallIcon(R.drawable.ic_launcher_foreground)
-                .setContentTitle("Bạn có thông báo planning")
+                .setContentTitle(if (isTest) "[TEST] Thông báo planning" else "Bạn có thông báo planning")
                 .setContentText("Mở app để xem thông báo dành cho tài khoản của bạn.")
                 .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
                 .setContentIntent(pending).setAutoCancel(true).build())
