@@ -22,11 +22,18 @@ class PlanningRepository(val identity: MobileIdentity, private val vault: Vault,
     fun owner() = identity.uid() ?: throw AppFailure("Hãy đăng nhập để truy cập dữ liệu trên máy.")
     fun device(): String = vault.get("device") ?: UUID.randomUUID().toString().also { vault.put("device", it) }
     fun invalidateSession() { vault.remove("approved") }
-    fun approved(): Boolean = identity.uid()?.let { vault.get("approved") == it } ?: false
+    fun approved(): Boolean = identity.uid()?.let { vault.get("approved") == it && vault.get("mobile_scope") == "uploader-v1:$it" } ?: false
     suspend fun verifySession() {
         api.syncStatus() // Firebase sign-in alone is not backend authorization.
+        if (vault.get("mobile_scope") != "uploader-v1:${owner()}") save("dnse", JSONObject())
+        vault.put("mobile_scope", "uploader-v1:${owner()}")
         vault.put("approved", owner())
-        api.registerDevice(device(), FirebaseMessaging.getInstance().token.await())
+        save("planning", JSONObject())
+        save("notifications", JSONObject())
+        // Revoke any old subscription to shared planning from earlier app versions.
+        try { FirebaseMessaging.getInstance().deleteToken().await() }
+        catch (e: kotlinx.coroutines.CancellationException) { throw e }
+        catch (_: Exception) { /* No shared push is displayed by this app. */ }
     }
     suspend fun cached(key: String): JSONObject? =
         dao.cached(owner(), key)?.let { JSONObject(vault.open(it.ciphertext)) }
@@ -165,7 +172,7 @@ class PlanningRepository(val identity: MobileIdentity, private val vault: Vault,
         if (!production) return@withLock "Đã đọc ${orderList.size} lệnh, ${executionList.size} khớp lệnh, " +
             "${positionList.size} vị thế sandbox trên máy; không gửi vào planning thật."
         flush(uid)
-        val sheet = api.reconcile()
+        val sheet = api.retryProjection()
         vault.put("last_sync:$uid", java.time.Instant.now().toString())
         "Đã đồng bộ ${orderList.size} lệnh, ${executionList.size} khớp lệnh, " +
             "${positionList.size} vị thế và ${balanceList.size} số dư. Sheet: ${sheet.optString("state")}"
@@ -173,7 +180,7 @@ class PlanningRepository(val identity: MobileIdentity, private val vault: Vault,
     suspend fun retryPending(): String = lock.withLock {
         if (!approved()) throw AppFailure("Backend chưa cấp quyền mobile.")
         flush(owner())
-        val result = api.reconcile()
+        val result = api.retryProjection()
         "Đã gửi lại dữ liệu chờ. Sheet: ${result.optString("state")}"
     }
     private suspend fun flush(uid: String) {
@@ -194,13 +201,10 @@ class PlanningRepository(val identity: MobileIdentity, private val vault: Vault,
         }
     }
     fun lastSync() = identity.uid()?.let { vault.get("last_sync:$it") } ?: "Chưa đồng bộ"
-    suspend fun registerPush() {
-        if (approved()) api.registerDevice(device(), FirebaseMessaging.getInstance().token.await())
-    }
     suspend fun logout() = lock.withLock {
         val uid = owner()
         // Revocation must succeed before claiming this device is disconnected.
-        if (approved()) api.removeDevice(device())
+        // Upload sessions have no subscription to shared planning notifications.
         vault.remove("approved")
         vault.remove("dnse:$uid")
         vault.remove("last_sync:$uid")

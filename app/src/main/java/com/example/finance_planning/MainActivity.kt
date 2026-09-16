@@ -58,11 +58,11 @@ private fun PlanningScreen(model: PlanningViewModel) {
     val s by model.state.collectAsState()
     var tab by remember { mutableIntStateOf(0) }
     var confirm by remember { mutableStateOf("") }
-    val labels = listOf("Tổng quan", "Planning", "Thông báo", "Lệnh", "Cài đặt")
+    val labels = listOf("Tổng quan", "Lệnh của tôi", "Cài đặt")
     Scaffold(bottomBar = {
         NavigationBar { labels.forEachIndexed { index, title ->
             NavigationBarItem(selected = tab == index, onClick = { tab = index },
-                icon = { Text(listOf("◉", "▦", "●", "↔", "⚙")[index]) }, label = { Text(title) })
+                icon = { Text(listOf("◉", "↔", "⚙")[index]) }, label = { Text(title) })
         }}
     }) { padding ->
         Column(Modifier.fillMaxSize().padding(padding).padding(horizontal = 16.dp)) {
@@ -74,27 +74,6 @@ private fun PlanningScreen(model: PlanningViewModel) {
             when (tab) {
                 0 -> Overview(s, model) { confirm = it }
                 1 -> LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    item { Button(onClick = model::refresh, enabled = s.approved && !s.busy) { Text("Cập nhật planning") } }
-                    item { Text("Bản đã lưu • ${s.planning?.optString("revision_id")?.take(12) ?: "Chưa có dữ liệu"}") }
-                    items(s.planning?.objects("items") ?: emptyList()) { row ->
-                        InfoCard(row.optJSONObject("fields") ?: row, "Kế hoạch")
-                    }
-                }
-                2 -> LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    item { Button(onClick = model::refresh, enabled = s.approved && !s.busy) { Text("Lấy thông báo mới") } }
-                    items(s.notifications) { row ->
-                        Card(onClick = { model.notification(row.optString("event_id", row.optString("id"))) }, enabled = !s.busy) {
-                            Column(Modifier.padding(16.dp)) {
-                                Text(row.optString("symbol", "Planning"), style = MaterialTheme.typography.titleMedium)
-                                Text(actionLabel(row.optString("action")))
-                                Text(row.optString("reason"))
-                                Text("Mở để kiểm tra hiệu lực hiện tại", style = MaterialTheme.typography.labelMedium)
-                            }
-                        }
-                    }
-                    if (s.notificationCursor != null) item { TextButton(onClick = { model.more("notifications") }, enabled = !s.busy) { Text("Tải thêm") } }
-                }
-                3 -> LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     item { Button(onClick = model::refresh, enabled = s.approved && !s.busy) { Text("Lịch sử trên backend") } }
                     items(s.orders) { row ->
                         val p = row.optJSONObject("payload") ?: row
@@ -108,13 +87,13 @@ private fun PlanningScreen(model: PlanningViewModel) {
                     }
                     if (s.orderCursor != null) item { TextButton(onClick = { model.more("orders") }, enabled = !s.busy) { Text("Tải thêm") } }
                 }
-                4 -> Settings(s, model) { confirm = it }
+                2 -> Settings(s, model) { confirm = it }
             }
         }
     }
     if (confirm.isNotEmpty()) AlertDialog(onDismissRequest = { confirm = "" },
         title = { Text(if (confirm == "logout") "Đăng xuất và xóa dữ liệu trên máy?" else "Nhập lại planning vào database?") },
-        text = { Text(if (confirm == "logout") "Hàng đợi chưa gửi và khóa DNSE trên máy sẽ bị xóa. Nếu đang mất mạng, không thể gỡ thiết bị khỏi backend."
+        text = { Text(if (confirm == "logout") "Hàng đợi chưa gửi và khóa DNSE trên máy sẽ bị xóa."
             else "Backend sẽ đọc file planning hiện tại và lưu một phiên bản. Thao tác này không đặt lệnh.") },
         confirmButton = { TextButton(onClick = { if (confirm == "logout") model.logout() else model.importPlanning(); confirm = "" }) { Text("Xác nhận") } },
         dismissButton = { TextButton(onClick = { confirm = "" }) { Text("Quay lại") } })
@@ -144,10 +123,7 @@ private fun Overview(s: ScreenState, model: PlanningViewModel, confirm: (String)
             modifier = Modifier.fillMaxWidth()) { Text("Lấy DNSE và đồng bộ ngay") } }
         item { OutlinedButton(onClick = model::retry, enabled = s.approved && !s.busy,
             modifier = Modifier.fillMaxWidth()) { Text("Gửi lại dữ liệu đang chờ") } }
-        item { Row {
-            TextButton(onClick = { confirm("import") }, enabled = s.approved && !s.busy) { Text("Nhập planning") }
-            TextButton(onClick = model::reconcile, enabled = s.approved && !s.busy) { Text("Cập nhật Sheet") }
-        }}
+        item { Text("Bạn chỉ xem dữ liệu do tài khoản này gửi. Backend tự cập nhật file planning đã cấu hình.") }
         item { Text("Hàng đợi trên máy", style = MaterialTheme.typography.titleMedium) }
         items(s.localQueue) { Text(it) }
         item { Text("Các đợt đã gửi lên backend", style = MaterialTheme.typography.titleMedium) }

@@ -29,7 +29,26 @@ class Transport {
                 connection.outputStream.use { it.write(bytes) }
             }
             val status = connection.responseCode
-            if (status !in 200..299) throw HttpFailure(status)
+            if (status !in 200..299) {
+                val code = if (uri.host == URI(com.example.finance_planning.core.Contracts.BACKEND).host) {
+                    val raw = try {
+                        connection.errorStream?.use { input ->
+                            val output = java.io.ByteArrayOutputStream()
+                            val buffer = ByteArray(1024)
+                            while (output.size() < 4096) {
+                                val n = input.read(buffer, 0, minOf(buffer.size, 4096 - output.size()))
+                                if (n < 0) break
+                                output.write(buffer, 0, n)
+                            }
+                            output.toString("UTF-8")
+                        }
+                    } catch (_: java.io.IOException) { null }
+                    HttpFailure.safeCode(raw)
+                } else null
+                if (com.example.finance_planning.BuildConfig.DEBUG)
+                    android.util.Log.w("PlanningAuth", "HTTP $status code=${code ?: "unclassified"}")
+                throw HttpFailure(status, code)
+            }
             if (status == HttpURLConnection.HTTP_NO_CONTENT) return@withContext "{}"
             connection.inputStream.use {
                 val output = java.io.ByteArrayOutputStream()
@@ -50,9 +69,24 @@ class Transport {
         } finally { connection.disconnect() }
     }
 }
-class HttpFailure(val status: Int) : Exception("HTTP $status") {
+class HttpFailure(val status: Int, val code: String? = null) : Exception("HTTP $status") {
+    companion object {
+        private val allowedCodes = setOf("authentication_required", "invalid_access_token",
+            "invalid_firebase_token", "app_check_required", "invalid_app_check_token",
+            "invalid_mobile_app", "owner_only", "identity_changed", "invalid_identity_token")
+        fun safeCode(body: String?): String? = try {
+            body?.let { JSONObject(it).optString("detail").takeIf(allowedCodes::contains) }
+        } catch (_: Exception) { null }
+    }
     fun safe(): AppFailure = when (status) {
-        401, 403 -> AppFailure("Máy chủ chưa cấp quyền cho phiên đăng nhập này.")
+        401, 403 -> AppFailure(when (code) {
+            "owner_only" -> "Tài khoản Google này chưa được backend cho phép. Hãy dùng tài khoản chủ planning. [owner_only]"
+            "identity_changed" -> "Định danh đăng nhập khác định danh đã lưu trong backend. Cần kiểm tra liên kết tài khoản. [identity_changed]"
+            "invalid_mobile_app" -> "Firebase App ID của bản cài không khớp cấu hình backend. [invalid_mobile_app]"
+            "invalid_firebase_token" -> "Backend không xác minh được phiên Firebase. [invalid_firebase_token]"
+            "app_check_required", "invalid_app_check_token" -> "Backend chưa chấp nhận xác minh App Check. [$code]"
+            else -> "Máy chủ chưa cấp quyền cho phiên đăng nhập này. [HTTP $status / ${code ?: "unclassified"}]"
+        })
         409 -> AppFailure("Dữ liệu xung đột phiên bản. Đợt gửi được giữ để kiểm tra.")
         422 -> AppFailure("Dữ liệu chưa đúng định dạng backend. Đợt gửi được giữ để kiểm tra.")
         429 -> AppFailure("Máy chủ đang giới hạn lượt gọi. Sẽ thử lại sau.", true)

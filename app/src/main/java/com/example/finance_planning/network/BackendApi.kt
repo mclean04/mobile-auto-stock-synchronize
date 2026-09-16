@@ -11,6 +11,7 @@ class BackendApi(private val transport: Transport, private val headers: suspend 
     suspend fun syncStatus() = call("/v1/sync/status")
     suspend fun latestPlanning() = call("/v1/planning/latest")
     suspend fun importPlanning() = call("/v1/planning/import", "POST")
+    suspend fun retryProjection() = call("/v1/sync/retry", "POST")
     suspend fun reconcile() = call("/v1/sheets/reconcile", "POST")
     suspend fun upload(batch: JSONObject) = call("/v1/sync/batches", "POST", batch)
     private fun page(path: String, cursor: String?) =

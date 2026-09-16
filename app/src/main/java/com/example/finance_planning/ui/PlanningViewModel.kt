@@ -52,8 +52,7 @@ class PlanningViewModel(application: Application) : AndroidViewModel(application
     fun restore() = run {
         flags()
         if (repo.identity.uid() != null) {
-            mutable.value = mutable.value.copy(planning = repo.cached("planning"),
-                notifications = repo.cached("notifications")?.objects("items") ?: emptyList())
+            mutable.value = mutable.value.copy(planning = null, notifications = emptyList())
             queue()
         }
         if (repo.approved()) refreshAll() else if (!repo.identity.configured)
@@ -71,16 +70,14 @@ class PlanningViewModel(application: Application) : AndroidViewModel(application
     fun refresh() = run { refreshAll() }
     private suspend fun refreshAll(): String {
         val status = repo.api.syncStatus()
-        val planning = repo.planning()
-        val events = repo.notifications()
         val orders = repo.api.orders()
         val batches = repo.api.batches()
-        mutable.value = mutable.value.copy(status = status, planning = planning,
-            notifications = events.objects("items"), notificationCursor = cursor(events),
+        mutable.value = mutable.value.copy(status = status, planning = null,
+            notifications = emptyList(), notificationCursor = null,
             orders = orders.objects("items"), orderCursor = cursor(orders),
             batches = batches.objects("items"), batchCursor = cursor(batches))
         queue()
-        return "Đã cập nhật dữ liệu mới nhất."
+        return "Đã cập nhật dữ liệu của tài khoản đang đăng nhập."
     }
     private fun cursor(json: JSONObject): String? = if (json.isNull("next_cursor")) null else json.optString("next_cursor").takeIf { it.isNotBlank() }
     fun more(kind: String) = run {
@@ -102,18 +99,8 @@ class PlanningViewModel(application: Application) : AndroidViewModel(application
         }
         "Đã tải thêm."
     }
-    fun notification(id: String) {
-        viewModelScope.launch {
-            state.first { !it.busy }
-            openEvent(id)
-        }
-    }
-    private fun openEvent(id: String) = run {
-        val d = repo.openNotification(id)
-        d.put("plan_state", repo.api.notificationPlan(d.getString("plan_id")))
-        mutable.value = mutable.value.copy(detail = d, detailTitle =
-            if (Contracts.mayReview(d)) "Nhắc xem xét kế hoạch" else "Thông báo không còn yêu cầu thực hiện")
-        "Đã kiểm tra trạng thái hiện tại. Bạn tự thực hiện giao dịch trên DNSE."
+    fun notification(id: String) = run {
+        "Phiên Android chỉ truy cập dữ liệu đã gửi của chính tài khoản này."
     }
     fun order(row: JSONObject) = run {
         val p = row.optJSONObject("payload") ?: row

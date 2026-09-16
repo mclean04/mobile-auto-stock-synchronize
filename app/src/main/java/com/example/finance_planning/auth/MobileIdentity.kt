@@ -15,6 +15,7 @@ import com.google.firebase.auth.GoogleAuthProvider
 import com.google.firebase.appcheck.FirebaseAppCheck
 import com.google.firebase.appcheck.debug.DebugAppCheckProviderFactory
 import com.google.firebase.appcheck.playintegrity.PlayIntegrityAppCheckProviderFactory
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.tasks.await
 
 class MobileIdentity(private val context: Context) {
@@ -52,7 +53,18 @@ class MobileIdentity(private val context: Context) {
         if (!configured) throw AppFailure("Chưa cấu hình đăng nhập Firebase.")
         val user = FirebaseAuth.getInstance().currentUser ?: throw AppFailure("Hãy đăng nhập trước.")
         val token = user.getIdToken(false).await().token ?: throw AppFailure("Phiên đăng nhập đã hết hạn.")
-        val attestation = FirebaseAppCheck.getInstance().getAppCheckToken(false).await().token
+        val attestation = try {
+            FirebaseAppCheck.getInstance().getAppCheckToken(false).await().token
+        } catch (e: CancellationException) {
+            throw e
+        } catch (_: Exception) {
+            // Never surface the SDK exception: it may contain credential or request details.
+            val guidance = if (BuildConfig.DEBUG)
+                "Với bản debug, kiểm tra đăng ký debug token của thiết bị trong Firebase App Check. "
+            else "Kiểm tra kết nối và cấu hình Play Integrity của bản cài. "
+            throw AppFailure("Google đã đăng nhập, nhưng chưa xác minh được ứng dụng bằng App Check. " +
+                guidance + "Nếu vừa thử nhiều lần, chờ rồi bấm Kiểm tra quyền.")
+        }
         return mapOf("Authorization" to "Bearer $token", "X-Firebase-AppCheck" to attestation)
     }
     suspend fun signOut() {

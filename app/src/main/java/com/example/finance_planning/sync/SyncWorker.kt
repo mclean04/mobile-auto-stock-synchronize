@@ -15,11 +15,8 @@ class SyncWorker(context: Context, params: WorkerParameters) : CoroutineWorker(c
         return try {
             val event = inputData.getString("event")
             if (event != null) {
-                repo.receiveNotification(event, inputData.getString("receipt") ?: "RECEIVED")
+                return Result.failure() // Shared planning events are not mobile-upload data.
             } else {
-                repo.registerPush()
-                repo.planning()
-                repo.notifications()
                 if (repo.hasDnse()) repo.sync() else repo.retryPending()
             }
             Result.success()
