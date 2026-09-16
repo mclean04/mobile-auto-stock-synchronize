@@ -9,26 +9,36 @@ import java.net.URI
 import javax.net.ssl.HttpsURLConnection
 
 class Transport {
-    companion object { private val sequence = java.util.concurrent.atomic.AtomicLong() }
 
     suspend fun request(url: String, method: String = "GET", headers: Map<String, String> = emptyMap(),
                         body: JSONObject? = null): String = withContext(Dispatchers.IO) {
         val uri = URI(url)
         if (uri.scheme != "https" || uri.userInfo != null) throw AppFailure("Địa chỉ kết nối không hợp lệ.")
         val connection = uri.toURL().openConnection() as HttpsURLConnection
-        val requestId = sequence.incrementAndGet()
         val started = System.nanoTime()
-        val label = "id=$requestId service=${ApiDiagnostics.service(uri)} method=${method.takeIf { it in setOf("GET", "POST", "PUT", "DELETE", "PATCH", "HEAD") } ?: "other"} route=${ApiDiagnostics.route(uri)}"
         var status: Int? = null
         var code: String? = null
         var outcome = "ok"
-        var skewSeconds: Long? = null
         fun log(text: String) {
             if (com.example.finance_planning.BuildConfig.DEBUG) android.util.Log.w("OkHttp", text)
         }
-        log("--> $method https://${uri.host}${ApiDiagnostics.route(uri)} [$label]")
-        if (com.example.finance_planning.BuildConfig.DEBUG)
-            JsonApiLog.emit("REQUEST", "backend-$requestId", JsonApiLog.request(uri, method, body?.toString()), ::log)
+        val logUrl = "https://${uri.host}${ApiDiagnostics.route(uri)}"
+        fun responseBody(raw: String?) {
+            if (com.example.finance_planning.BuildConfig.DEBUG) {
+                HttpLogFormat.body(raw, ::log)
+                log("<-- END HTTP (${raw?.toByteArray(Charsets.UTF_8)?.size ?: 0}-byte body; redacted)")
+            }
+        }
+        log("--> $method $logUrl")
+        if (com.example.finance_planning.BuildConfig.DEBUG) {
+            HttpLogFormat.headers((headers + ("Accept" to "application/json")).toList(), ::log)
+            body?.let {
+                log("content-type: application/json")
+                log("content-length: ${it.toString().toByteArray(Charsets.UTF_8).size}")
+                HttpLogFormat.body(it.toString(), ::log)
+            }
+            log("--> END $method${if (body == null) "" else " (JSON body; redacted)"}")
+        }
         try {
             connection.instanceFollowRedirects = false
             connection.connectTimeout = 20_000
@@ -44,10 +54,9 @@ class Transport {
                 connection.outputStream.use { it.write(bytes) }
             }
             status = connection.responseCode
-            if (ApiDiagnostics.service(uri).startsWith("dnse-")) {
-                val serverDate = connection.getHeaderFieldDate("Date", 0)
-                if (serverDate > 0) skewSeconds = (System.currentTimeMillis() - serverDate) / 1000
-            }
+            log("<-- $status $logUrl (${(System.nanoTime() - started) / 1_000_000}ms)")
+            if (com.example.finance_planning.BuildConfig.DEBUG)
+                HttpLogFormat.headers(connection.headerFields.filterKeys { it != null }.flatMap { (k, values) -> values.map { k to it } }, ::log)
             if (status !in 200..299) {
                 code = if (ApiDiagnostics.service(uri) != "other") {
                     val raw = try {
@@ -62,16 +71,14 @@ class Transport {
                             output.toString("UTF-8")
                         }
                     } catch (_: java.io.IOException) { null }
-                    if (com.example.finance_planning.BuildConfig.DEBUG)
-                        JsonApiLog.emit("RESPONSE", "backend-$requestId", JsonApiLog.response(uri, status, raw), ::log)
+                    responseBody(raw)
                     if (ApiDiagnostics.service(uri).startsWith("dnse-")) ApiDiagnostics.dnseCode(raw)
                     else HttpFailure.safeCode(raw)
                 } else null
                 throw HttpFailure(status, code)
             }
             if (status == HttpURLConnection.HTTP_NO_CONTENT) {
-                if (com.example.finance_planning.BuildConfig.DEBUG)
-                    JsonApiLog.emit("RESPONSE", "backend-$requestId", JsonApiLog.response(uri, status, null), ::log)
+                responseBody(null)
                 return@withContext "{}"
             }
             connection.inputStream.use {
@@ -87,17 +94,17 @@ class Transport {
                 val bytes = output.toByteArray()
                 if (bytes.size > 4 * 1024 * 1024) throw AppFailure("Phản hồi quá lớn.")
                 String(bytes, Charsets.UTF_8).also { raw ->
-                    if (com.example.finance_planning.BuildConfig.DEBUG)
-                        JsonApiLog.emit("RESPONSE", "backend-$requestId", JsonApiLog.response(uri, status, raw), ::log)
+                    responseBody(raw)
                 }
             }
         } catch (e: Exception) {
             outcome = ApiDiagnostics.failure(e)
+            if (e is java.io.IOException) log("<-- HTTP FAILED: $outcome $logUrl")
             if (e is java.io.IOException)
                 throw AppFailure("Không kết nối được máy chủ. Dữ liệu đang chờ sẽ được giữ lại. [$outcome]", true)
             throw e
         } finally {
-            log("<-- ${status ?: "HTTP FAILED"} https://${uri.host}${ApiDiagnostics.route(uri)} [$label] code=${code ?: "none"} outcome=$outcome elapsed_ms=${(System.nanoTime() - started) / 1_000_000} device_minus_server_seconds=${skewSeconds ?: "unknown"}")
+
             connection.disconnect()
         }
     }

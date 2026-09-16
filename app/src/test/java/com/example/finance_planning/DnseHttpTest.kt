@@ -49,7 +49,7 @@ class DnseHttpTest {
             val response = service.get(server.url("/accounts").toString(), emptyMap())
             assertEquals(401, response.code())
             assertEquals(raw, response.errorBody()!!.use { it.string() })
-            assertTrue(logs.any { "code=OA-401" in it })
+            assertTrue(logs.any { "DNSE-error-code: OA-401" in it })
             assertFalse(logs.any { "PRIVATE-SECRET" in it })
         } finally { server.shutdown() }
     }
