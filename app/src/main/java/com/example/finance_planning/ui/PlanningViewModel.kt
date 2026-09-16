@@ -8,6 +8,7 @@ import com.example.finance_planning.PlanningApp
 import com.example.finance_planning.core.*
 import com.example.finance_planning.network.HttpFailure
 import com.example.finance_planning.sync.SyncSchedule
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -16,6 +17,7 @@ import kotlinx.coroutines.launch
 import org.json.JSONObject
 
 data class ScreenState(
+    val notificationNavigation: Long = 0,
     val busy: Boolean = false, val message: String = "Chào bạn. Đăng nhập để kết nối planning.",
     val signedIn: Boolean = false, val approved: Boolean = false, val configured: Boolean = false,
     val admin: Boolean = false, val sources: List<JSONObject> = emptyList(),
@@ -33,8 +35,24 @@ class PlanningViewModel(application: Application) : AndroidViewModel(application
     val repo = (application as PlanningApp).repository
     private val mutable = MutableStateFlow(ScreenState(configured = repo.identity.configured))
     val state = mutable.asStateFlow()
+    private var notificationObserver: Job? = null
+    private var observedUid: String? = null
     init { restore() }
+    private fun observeNotifications() {
+        val uid = repo.identity.uid()?.takeIf { repo.approved() }
+        if (uid == observedUid) return
+        notificationObserver?.cancel()
+        observedUid = uid
+        mutable.value = mutable.value.copy(notifications = emptyList())
+        if (uid != null) notificationObserver = viewModelScope.launch {
+            repo.observeNotifications(uid).collect { events ->
+                if (repo.identity.uid() == uid && repo.approved())
+                    mutable.value = mutable.value.copy(notifications = events)
+            }
+        }
+    }
     private fun flags() {
+        observeNotifications()
         if (!repo.approved()) {
             repo.api.readSource = null
             mutable.value = mutable.value.copy(admin = false, sources = emptyList(),
@@ -102,7 +120,7 @@ class PlanningViewModel(application: Application) : AndroidViewModel(application
         mutable.value = mutable.value.copy(status = status, admin = admin, sources = sources.objects("items"),
             sourceCursor = cursor(sources), selectedSource = repo.api.readSource,
             adminRecords = records.objects("items"), recordCursor = cursor(records),
-            planning = planning, notifications = events.objects("items"),
+            planning = planning,
             notificationCursor = cursor(events),
             orders = orders.objects("items"), orderCursor = cursor(orders),
             batches = batches.objects("items"), batchCursor = cursor(batches))
@@ -115,9 +133,10 @@ class PlanningViewModel(application: Application) : AndroidViewModel(application
         val s = mutable.value
         when (kind) {
             "notifications" -> s.notificationCursor?.let { cursor ->
+                val uid = repo.owner()
                 val p = repo.api.notifications(cursor)
-                mutable.value = s.copy(notifications = (s.notifications + p.objects("items")).distinctBy { it.optString("event_id", it.optString("id")) },
-                    notificationCursor = cursor(p))
+                repo.cacheNotifications(p, uid)
+                mutable.value = mutable.value.copy(notificationCursor = cursor(p))
             }
             "orders" -> s.orderCursor?.let { cursor ->
                 val p = repo.api.orders(cursor)
@@ -131,6 +150,8 @@ class PlanningViewModel(application: Application) : AndroidViewModel(application
         "Đã tải thêm."
     }
     fun notification(id: String) {
+        if (runCatching { java.util.UUID.fromString(id) }.isFailure) return
+        mutable.value = mutable.value.copy(notificationNavigation = mutable.value.notificationNavigation + 1)
         viewModelScope.launch {
             state.first { !it.busy }
             openNotification(id)
@@ -138,6 +159,7 @@ class PlanningViewModel(application: Application) : AndroidViewModel(application
     }
     private fun openNotification(id: String) = run {
         val event = repo.openNotification(id)
+        getApplication<Application>().getSystemService(android.app.NotificationManager::class.java).cancel(id, 1)
         mutable.value = mutable.value.copy(detail = event, detailTitle = "Thông báo planning")
         "Đã tải thông báo."
     }

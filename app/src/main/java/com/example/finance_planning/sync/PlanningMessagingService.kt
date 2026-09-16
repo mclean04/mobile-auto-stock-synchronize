@@ -32,6 +32,11 @@ class PlanningMessagingService : FirebaseMessagingService() {
     }
 
     companion object {
+        fun createChannel(context: Context) {
+            context.getSystemService(NotificationManager::class.java).createNotificationChannel(
+                NotificationChannel("planning", "Thông báo planning", NotificationManager.IMPORTANCE_DEFAULT)
+                    .apply { setShowBadge(true) })
+        }
         fun show(context: Context, event: JSONObject) {
             val isTest = event.optJSONObject("sheet")?.optString("mode") == "TEST" &&
                 event.optBoolean("is_current") && runCatching {
@@ -43,9 +48,9 @@ class PlanningMessagingService : FirebaseMessagingService() {
                 PackageManager.PERMISSION_GRANTED) return
             val id = event.getString("event_id")
             val manager = context.getSystemService(NotificationManager::class.java)
-            manager.createNotificationChannel(NotificationChannel("planning", "Thông báo planning",
-                NotificationManager.IMPORTANCE_DEFAULT))
+            createChannel(context)
             val intent = Intent(context, MainActivity::class.java).putExtra("event_id", id)
+                .putExtra("target_uid", (context.applicationContext as PlanningApp).repository.identity.uid())
                 .setAction("planning:" + id)
                 .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
             val pending = PendingIntent.getActivity(context, id.hashCode(), intent,
@@ -55,6 +60,7 @@ class PlanningMessagingService : FirebaseMessagingService() {
                 .setContentTitle(if (isTest) "[TEST] Thông báo planning" else "Bạn có thông báo planning")
                 .setContentText("Mở app để xem thông báo dành cho tài khoản của bạn.")
                 .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
+                .setNumber(1).setBadgeIconType(NotificationCompat.BADGE_ICON_SMALL).setOnlyAlertOnce(true)
                 .setContentIntent(pending).setAutoCancel(true).build())
         }
     }

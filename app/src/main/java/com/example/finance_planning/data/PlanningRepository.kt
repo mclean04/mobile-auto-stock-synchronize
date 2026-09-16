@@ -5,6 +5,7 @@ import com.example.finance_planning.auth.MobileIdentity
 import com.example.finance_planning.core.*
 import com.example.finance_planning.network.*
 import com.google.firebase.messaging.FirebaseMessaging
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.tasks.await
@@ -44,19 +45,43 @@ class PlanningRepository(val identity: MobileIdentity, private val vault: Vault,
         if (refresh) save("planning", api.latestPlanning())
         return cached("planning") ?: JSONObject()
     }
+    fun observeNotifications(uid: String) = dao.observeNotifications(uid).map { rows ->
+        rows.map { JSONObject(vault.open(it.ciphertext)) }
+            .sortedByDescending { it.optString("created_at") }
+    }
+    suspend fun cacheNotifications(page: JSONObject, uid: String) {
+        if (identity.uid() != uid || !approved()) throw AppFailure("Phiên đăng nhập đã thay đổi.")
+        db.withTransaction {
+            for (event in page.objects("items")) {
+                val id = event.optString("event_id", event.optString("id"))
+                UUID.fromString(id)
+                dao.cache(CacheRow(uid, "notification:" + id, vault.seal(event.toString()), System.currentTimeMillis()))
+            }
+        }
+    }
     suspend fun notifications(refresh: Boolean = true): JSONObject {
-        if (refresh) save("notifications", api.notifications())
+        val uid = owner()
+        if (refresh) {
+            val page = api.notifications()
+            cacheNotifications(page, uid)
+            if (identity.uid() == uid) save("notifications", page)
+        }
         return cached("notifications") ?: JSONObject()
     }
     suspend fun openNotification(id: String): JSONObject {
-        val event = api.notification(id)
+        val uid = owner()
+        val event = receiveNotification(id)
+        if (identity.uid() != uid) throw AppFailure("Phiên đăng nhập đã thay đổi.")
+        save("notification-opened:" + id, JSONObject().put("opened", true))
         api.receipt(id, device(), "OPENED")
         return event
     }
-    suspend fun receiveNotification(id: String, state: String = "RECEIVED"): JSONObject {
+    suspend fun notificationOpened(id: String): Boolean =
+        cached("notification-opened:" + id)?.optBoolean("opened") == true
+    suspend fun receiveNotification(id: String): JSONObject {
+        val uid = owner()
         val event = api.notification(id)
-        api.receipt(id, device(), state)
-        save("notification:" + id, event)
+        cacheNotifications(JSONObject().put("items", JSONArray().put(event)), uid)
         return event
     }
     fun saveDnse(key: String, secret: String, production: Boolean, vndPerUnit: String) {

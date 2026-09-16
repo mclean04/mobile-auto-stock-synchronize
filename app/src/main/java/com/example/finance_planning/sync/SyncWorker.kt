@@ -17,9 +17,12 @@ class SyncWorker(context: Context, params: WorkerParameters) : CoroutineWorker(c
             if (event != null) {
                 val expectedUid = inputData.getString("uid") ?: return Result.failure()
                 if (repo.identity.uid() != expectedUid) return Result.failure()
-                val notification = repo.receiveNotification(event, inputData.getString("receipt") ?: "RECEIVED")
-                if (repo.identity.uid() == expectedUid && repo.approved())
+                val notification = repo.receiveNotification(event)
+                if (repo.identity.uid() != expectedUid || !repo.approved()) return Result.failure()
+                val receipt = inputData.getString("receipt") ?: "RECEIVED"
+                if (receipt == "RECEIVED" && !repo.notificationOpened(event))
                     PlanningMessagingService.show(applicationContext, notification)
+                repo.api.receipt(event, repo.device(), receipt)
             } else {
                 repo.registerPush()
                 repo.notifications()
@@ -46,6 +49,10 @@ object SyncSchedule {
     fun cancel(context: Context) { WorkManager.getInstance(context).cancelAllWorkByTag("account-sync") }
     fun receipt(context: Context, event: String, state: String, uid: String) {
         val task = OneTimeWorkRequestBuilder<SyncWorker>().setConstraints(constraints())
+            .apply {
+                if (android.os.Build.VERSION.SDK_INT >= 31)
+                    setExpedited(OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST)
+            }
             .setInputData(workDataOf("event" to event, "receipt" to state, "uid" to uid)).addTag("account-sync").build()
         WorkManager.getInstance(context).enqueueUniqueWork("receipt:$uid:$event:$state", ExistingWorkPolicy.KEEP, task)
     }

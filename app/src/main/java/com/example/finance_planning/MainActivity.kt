@@ -48,7 +48,9 @@ class MainActivity : ComponentActivity() {
     }
     private fun acceptIntent(intent: Intent) {
         val event = intent.getStringExtra("event_id")
-        if (event != null && model.repo.approved()) model.notification(event)
+        val targetUid = intent.getStringExtra("target_uid")
+        if (event != null && model.repo.approved() &&
+            (targetUid == null || targetUid == model.repo.identity.uid())) model.notification(event)
         intent.removeExtra("event_id")
     }
 }
@@ -57,6 +59,7 @@ class MainActivity : ComponentActivity() {
 private fun PlanningScreen(model: PlanningViewModel) {
     val s by model.state.collectAsState()
     var tab by remember { mutableIntStateOf(0) }
+    LaunchedEffect(s.notificationNavigation) { if (s.notificationNavigation > 0) tab = 3 }
     var confirm by remember { mutableStateOf("") }
     val labels = listOf("Tổng quan", if (s.admin) "Lệnh" else "Lệnh của tôi", "Cài đặt", "Thông báo") +
         if (s.admin) listOf("Quản trị") else emptyList()

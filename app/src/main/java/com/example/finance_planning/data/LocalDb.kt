@@ -15,6 +15,8 @@ interface LocalDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE) suspend fun cache(row: CacheRow)
     @Query("SELECT * FROM cache WHERE owner = :owner AND `key` = :key")
     suspend fun cached(owner: String, key: String): CacheRow?
+    @Query("SELECT * FROM cache WHERE owner = :owner AND `key` LIKE 'notification:%' ORDER BY savedAt DESC")
+    fun observeNotifications(owner: String): Flow<List<CacheRow>>
     @Insert(onConflict = OnConflictStrategy.ABORT) suspend fun enqueue(rows: List<PendingBatch>)
     @Query("SELECT * FROM outbox WHERE owner = :owner AND state = 'PENDING' ORDER BY createdAt, id")
     suspend fun pending(owner: String): List<PendingBatch>
