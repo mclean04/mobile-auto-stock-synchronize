@@ -77,3 +77,28 @@ Upload của admin vẫn vào vùng UID của chính admin; không ghi nhầm v�
 Android cho admin chọn nguồn, xem mọi loại dữ liệu, planning và thông báo chung.
 FCM được định tuyến riêng theo UID; admin đọc mọi thông báo. Xem NOTIFICATION-ROUTING.md.
 BACKEND_SHEET_WRITES vẫn độc lập với role admin; thay đổi role không tự bật ghi Sheet.
+## Phiên và giao diện Android
+
+FirebaseAuth giữ phiên Google qua lần mở app; chỉ thao tác “Đăng xuất và xóa dữ liệu”
+mới chủ động đăng xuất. Khi khôi phục phiên, Android xác minh backend bằng sync/status
+và đăng ký token FCM của thiết bị với phiên UID hiện tại. Không xóa cache thông báo
+khi xác minh lại. Đăng ký FCM và quyền thông báo được hiển thị riêng: đăng ký thành công
+không phải bằng chứng một thông báo cụ thể đã được gửi và nhận.
+
+Các tab: DNSE account, Lệnh, Thông báo, Cài đặt; tài khoản admin có thêm
+tab Quản trị. Cài đặt chứa đăng nhập Google, bộ khóa DNSE và block Đồng bộ
+(lịch định kỳ bằng toggle, đồng bộ ngay, thử lại, hàng đợi và các đợt đã gửi).
+Toggle đọc trạng thái thực tế của unique WorkManager `planning-periodic` khi mở app.
+Tắt lịch chỉ hủy periodic sync, không hủy receipt/thông báo đang xử lý. Đăng xuất
+vẫn hủy toàn bộ account work.
+DNSE account hiển thị dữ liệu cache mã hóa từ accounts, balances, positions với API nguồn.
+Bộ khóa lưu theo UID; có khóa thì ẩn hai input, xóa khóa xóa cả key/secret và snapshot DNSE cũ.
+
+Lệnh / Đang đợi gọi `GET /v1/planning/upcoming`; Lệnh / Lịch sử gọi
+`GET /v1/planning/history`. App hiển thị toàn bộ `items` theo đúng thứ tự response,
+không lọc, sắp xếp hay trộn dữ liệu DNSE/notification. Mỗi card hiển thị mã,
+`scheduled_date` và nội dung `fields` của kế hoạch, không hiển thị ID kỹ thuật.
+Hai endpoint hiện yêu cầu admin theo contract backend. Khi chưa import planning
+hoặc tài khoản không có quyền, app hiển thị trạng thái phù hợp. Lịch sử kế hoạch
+không xác nhận lệnh đã thực thi. Đổi Sheet cần import ở tab Quản trị trước khi
+API đọc được snapshot mới.

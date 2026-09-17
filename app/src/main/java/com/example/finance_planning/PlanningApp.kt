@@ -14,6 +14,7 @@ class PlanningApp : Application() {
         private set
     override fun onCreate() {
         super.onCreate()
+        com.example.finance_planning.core.AppText.initialize(this)
         com.example.finance_planning.sync.PlanningMessagingService.createChannel(this)
         val identity = MobileIdentity(this)
         identity.initialize()

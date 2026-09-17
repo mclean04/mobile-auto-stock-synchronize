@@ -16,6 +16,8 @@ class BackendApi(private val transport: Transport, private val headers: suspend 
         JSONObject(transport.request(Contracts.BACKEND + path, method, headers(), body))
     suspend fun health() = JSONObject(transport.request(Contracts.BACKEND + "/health"))
     suspend fun syncStatus() = call("/v1/sync/status")
+    suspend fun upcomingPlanning() = call("/v1/planning/upcoming")
+    suspend fun planningHistory() = call("/v1/planning/history")
     suspend fun latestPlanning() = call("/v1/planning/latest")
     suspend fun importPlanning() = call("/v1/planning/import", "POST")
     suspend fun retryProjection() = call("/v1/sync/retry", "POST")

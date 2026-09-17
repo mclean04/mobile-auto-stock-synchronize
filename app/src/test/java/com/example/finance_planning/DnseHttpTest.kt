@@ -10,6 +10,7 @@ import org.junit.Test
 import retrofit2.Retrofit
 
 class DnseHttpTest {
+    @org.junit.Before fun initializeTextResources() { TestText.install() }
     @Test fun debugBodyLoggingPreservesRawBodyHeadersAndUrl() = runBlocking {
         val server = MockWebServer()
         server.start()

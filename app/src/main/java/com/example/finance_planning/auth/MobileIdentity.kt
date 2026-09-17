@@ -1,5 +1,7 @@
 package com.example.finance_planning.auth
 
+import com.example.finance_planning.R
+import com.example.finance_planning.core.AppText
 import android.content.Context
 import androidx.credentials.CredentialManager
 import androidx.credentials.GetCredentialRequest
@@ -33,34 +35,32 @@ class MobileIdentity(private val context: Context) {
     }
     fun uid(): String? = if (configured) FirebaseAuth.getInstance().currentUser?.uid else null
     suspend fun signIn(activity: Context) {
-        if (!configured) throw AppFailure("Chưa cấu hình đăng nhập Firebase cho bản cài này.")
+        if (!configured) throw AppFailure(AppText.get(R.string.firebase_sign_in_not_configured_build))
         val option = GetSignInWithGoogleOption.Builder(BuildConfig.GOOGLE_WEB_CLIENT_ID).build()
         val result = try { CredentialManager.create(activity).getCredential(activity,
             GetCredentialRequest.Builder().addCredentialOption(option).build())
         } catch (_: androidx.credentials.exceptions.NoCredentialException) {
-            throw AppFailure("Chưa có tài khoản Google phù hợp trên thiết bị.")
+            throw AppFailure(AppText.get(R.string.no_eligible_google_account_on_this_device))
         } catch (_: androidx.credentials.exceptions.GetCredentialCancellationException) {
-            throw AppFailure("Bạn đã hủy đăng nhập.")
+            throw AppFailure(AppText.get(R.string.sign_in_cancelled))
         }
         val google = GoogleIdTokenCredential.createFrom(result.credential.data)
         FirebaseAuth.getInstance().signInWithCredential(
             GoogleAuthProvider.getCredential(google.idToken, null)).await()
     }
     suspend fun headers(): Map<String, String> {
-        if (!configured) throw AppFailure("Chưa cấu hình đăng nhập Firebase.")
-        val user = FirebaseAuth.getInstance().currentUser ?: throw AppFailure("Hãy đăng nhập trước.")
-        val token = user.getIdToken(false).await().token ?: throw AppFailure("Phiên đăng nhập đã hết hạn.")
+        if (!configured) throw AppFailure(AppText.get(R.string.firebase_sign_in_is_not_configured))
+        val user = FirebaseAuth.getInstance().currentUser ?: throw AppFailure(AppText.get(R.string.sign_in_first))
+        val token = user.getIdToken(false).await().token ?: throw AppFailure(AppText.get(R.string.your_sign_in_session_has_expired))
         val attestation = try {
             FirebaseAppCheck.getInstance().getAppCheckToken(false).await().token
         } catch (e: CancellationException) {
             throw e
         } catch (_: Exception) {
             // Never surface the SDK exception: it may contain credential or request details.
-            val guidance = if (BuildConfig.DEBUG)
-                "Với bản debug, kiểm tra đăng ký debug token của thiết bị trong Firebase App Check. "
-            else "Kiểm tra kết nối và cấu hình Play Integrity của bản cài. "
-            throw AppFailure("Google đã đăng nhập, nhưng chưa xác minh được ứng dụng bằng App Check. " +
-                guidance + "Nếu vừa thử nhiều lần, chờ rồi bấm Kiểm tra quyền.")
+            val guidance = AppText.get(R.string.app_check_certificate_guidance)
+            throw AppFailure(AppText.get(R.string.app_check_not_verified) +
+                guidance + AppText.get(R.string.app_check_retry_guidance))
         }
         return mapOf("Authorization" to "Bearer $token", "X-Firebase-AppCheck" to attestation)
     }

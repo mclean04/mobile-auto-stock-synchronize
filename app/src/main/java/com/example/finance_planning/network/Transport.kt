@@ -1,5 +1,7 @@
 package com.example.finance_planning.network
 
+import com.example.finance_planning.R
+import com.example.finance_planning.core.AppText
 import com.example.finance_planning.core.AppFailure
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -13,7 +15,7 @@ class Transport {
     suspend fun request(url: String, method: String = "GET", headers: Map<String, String> = emptyMap(),
                         body: JSONObject? = null): String = withContext(Dispatchers.IO) {
         val uri = URI(url)
-        if (uri.scheme != "https" || uri.userInfo != null) throw AppFailure("Địa chỉ kết nối không hợp lệ.")
+        if (uri.scheme != "https" || uri.userInfo != null) throw AppFailure(AppText.get(R.string.invalid_connection_address))
         val connection = uri.toURL().openConnection() as HttpsURLConnection
         val started = System.nanoTime()
         var status: Int? = null
@@ -48,7 +50,7 @@ class Transport {
             headers.forEach { (k, v) -> connection.setRequestProperty(k, v) }
             if (body != null) {
                 val bytes = body.toString().toByteArray(Charsets.UTF_8)
-                if (bytes.size > 2 * 1024 * 1024) throw AppFailure("Đợt dữ liệu vượt giới hạn 2 MB.")
+                if (bytes.size > 2 * 1024 * 1024) throw AppFailure(AppText.get(R.string.data_batch_exceeds_the_2_mb_limit))
                 connection.doOutput = true
                 connection.setRequestProperty("Content-Type", "application/json")
                 connection.outputStream.use { it.write(bytes) }
@@ -88,11 +90,11 @@ class Transport {
                     val count = it.read(buffer)
                     if (count < 0) break
                     if (output.size() + count > 4 * 1024 * 1024)
-                        throw AppFailure("Phản hồi quá lớn.")
+                        throw AppFailure(AppText.get(R.string.response_too_large))
                     output.write(buffer, 0, count)
                 }
                 val bytes = output.toByteArray()
-                if (bytes.size > 4 * 1024 * 1024) throw AppFailure("Phản hồi quá lớn.")
+                if (bytes.size > 4 * 1024 * 1024) throw AppFailure(AppText.get(R.string.response_too_large))
                 String(bytes, Charsets.UTF_8).also { raw ->
                     responseBody(raw)
                 }
@@ -101,7 +103,7 @@ class Transport {
             outcome = ApiDiagnostics.failure(e)
             if (e is java.io.IOException) log("<-- HTTP FAILED: $outcome $logUrl")
             if (e is java.io.IOException)
-                throw AppFailure("Không kết nối được máy chủ. Dữ liệu đang chờ sẽ được giữ lại. [$outcome]", true)
+                throw AppFailure(AppText.get(R.string.backend_connection_failed, outcome), true)
             throw e
         } finally {
 
@@ -120,16 +122,16 @@ class HttpFailure(val status: Int, val code: String? = null) : Exception("HTTP $
     }
     fun safe(): AppFailure = when (status) {
         401, 403 -> AppFailure(when (code) {
-            "owner_only" -> "Tài khoản Google này chưa được backend cho phép. Hãy dùng tài khoản chủ planning. [owner_only]"
-            "identity_changed" -> "Định danh đăng nhập khác định danh đã lưu trong backend. Cần kiểm tra liên kết tài khoản. [identity_changed]"
-            "invalid_mobile_app" -> "Firebase App ID của bản cài không khớp cấu hình backend. [invalid_mobile_app]"
-            "invalid_firebase_token" -> "Backend không xác minh được phiên Firebase. [invalid_firebase_token]"
-            "app_check_required", "invalid_app_check_token" -> "Backend chưa chấp nhận xác minh App Check. [$code]"
-            else -> "Máy chủ chưa cấp quyền cho phiên đăng nhập này. [HTTP $status / ${code ?: "unclassified"}]"
+            "owner_only" -> AppText.get(R.string.backend_owner_only)
+            "identity_changed" -> AppText.get(R.string.backend_identity_changed)
+            "invalid_mobile_app" -> AppText.get(R.string.backend_app_id_mismatch)
+            "invalid_firebase_token" -> AppText.get(R.string.backend_firebase_not_verified)
+            "app_check_required", "invalid_app_check_token" -> AppText.get(R.string.backend_app_check_rejected, code)
+            else -> AppText.get(R.string.backend_session_not_authorized, status, code ?: "unclassified")
         })
-        409 -> AppFailure("Dữ liệu xung đột phiên bản. Đợt gửi được giữ để kiểm tra.")
-        422 -> AppFailure("Dữ liệu chưa đúng định dạng backend. Đợt gửi được giữ để kiểm tra.")
-        429 -> AppFailure("Máy chủ đang giới hạn lượt gọi. Sẽ thử lại sau.", true)
-        else -> AppFailure("Máy chủ trả lỗi HTTP $status.", status >= 500)
+        409 -> AppFailure(AppText.get(R.string.backend_data_conflict))
+        422 -> AppFailure(AppText.get(R.string.backend_data_format_invalid))
+        429 -> AppFailure(AppText.get(R.string.backend_rate_limited), true)
+        else -> AppFailure(AppText.get(R.string.the_server_returned_http_error, status), status >= 500)
     }
 }

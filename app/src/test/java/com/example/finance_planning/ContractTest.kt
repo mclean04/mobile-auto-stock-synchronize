@@ -9,6 +9,7 @@ import org.junit.Test
 import java.math.BigDecimal
 
 class ContractTest {
+    @org.junit.Before fun initializeTextResources() { TestText.install() }
     @Test fun signatureMatchesExistingPythonBackendVector() {
         val signature = DnseSigning.signature("local-test-key", "local-test-secret", "/accounts",
             "Fri, 15 May 2026 07:11:30 +0000", "26c4b530cf12427d95bf691e39aa8d74")

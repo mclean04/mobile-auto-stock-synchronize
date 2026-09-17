@@ -1,5 +1,7 @@
 package com.example.finance_planning.network
 
+import com.example.finance_planning.R
+import com.example.finance_planning.core.AppText
 import com.example.finance_planning.BuildConfig
 import com.example.finance_planning.core.AppFailure
 import kotlinx.coroutines.Dispatchers
@@ -58,13 +60,13 @@ object DnseHttpTransport {
                     val raw = if (bytes.size <= limit) String(bytes, Charsets.UTF_8) else null
                     throw HttpFailure(response.code(), ApiDiagnostics.dnseCode(raw))
                 }
-                if (bytes.size > limit) throw AppFailure("Phản hồi quá lớn.")
+                if (bytes.size > limit) throw AppFailure(AppText.get(R.string.response_too_large))
                 return@withContext if (response.code() == 204) "{}" else String(bytes, Charsets.UTF_8)
             }
             if (!response.isSuccessful) throw HttpFailure(response.code())
             "{}"
         } catch (e: java.io.IOException) {
-            throw AppFailure("Không kết nối được DNSE. Dữ liệu đang chờ được giữ lại. [${ApiDiagnostics.failure(e)}]", true)
+            throw AppFailure(AppText.get(R.string.dnse_connection_failed, ApiDiagnostics.failure(e)), true)
         }
     }
 }

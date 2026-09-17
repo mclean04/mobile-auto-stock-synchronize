@@ -1,5 +1,7 @@
 package com.example.finance_planning.network
 
+import com.example.finance_planning.R
+import com.example.finance_planning.core.AppText
 import com.example.finance_planning.core.AppFailure
 import org.json.JSONArray
 import org.json.JSONObject
@@ -30,7 +32,7 @@ class DnseApi(private val key: String,
               private val secret: String, private val production: Boolean) {
     private val host = if (production) "https://openapi.dnse.com.vn" else "https://sb-openapi.dnse.com.vn"
     private fun id(s: String): String {
-        if (!Regex("[A-Za-z0-9._-]{1,80}").matches(s)) throw AppFailure("Mã DNSE không hợp lệ.")
+        if (!Regex("[A-Za-z0-9._-]{1,80}").matches(s)) throw AppFailure(AppText.get(R.string.invalid_dnse_identifier))
         return s
     }
     private suspend fun get(path: String, query: Map<String, String> = emptyMap()): Any {
@@ -44,14 +46,14 @@ class DnseApi(private val key: String,
             "X-Api-Key" to key, "X-Signature" to DnseSigning.signature(key, secret, path, date, nonce),
             "Date" to date, "version" to "2026-07-23"))
         } catch (e: HttpFailure) {
-            val environment = if (production) "production" else "sandbox"
+            val environment = if (production) AppText.get(R.string.production_live) else AppText.get(R.string.sandbox_test)
             val reason = when (e.code) {
-                "invalid_api_key", "OA-401" -> "DNSE không chấp nhận API key ở môi trường $environment. Kiểm tra đúng bộ khóa và khóa còn hiệu lực."
-                "invalid_signature", "invalid_authorization" -> "DNSE từ chối chữ ký/xác thực ở $environment. Kiểm tra secret đi cùng key và bật giờ tự động trên điện thoại."
-                "FORBIDDEN", "OA-403" -> "DNSE từ chối quyền truy cập ở $environment. Kiểm tra quyền của khóa và tiểu khoản."
-                else -> "DNSE trả lỗi ở $environment; chưa hoàn tất lấy dữ liệu."
+                "invalid_api_key", "OA-401" -> AppText.get(R.string.dnse_api_key_rejected, environment)
+                "invalid_signature", "invalid_authorization" -> AppText.get(R.string.dnse_signature_rejected, environment)
+                "FORBIDDEN", "OA-403" -> AppText.get(R.string.dnse_access_denied, environment)
+                else -> AppText.get(R.string.dnse_fetch_failed, environment)
             }
-            throw AppFailure("$reason [HTTP ${e.status} / ${e.code ?: "unclassified"}]",
+            throw AppFailure(AppText.get(R.string.http_error_details, reason, e.status, e.code ?: "unclassified"),
                 e.status == 429 || e.status >= 500)
         }
         return JSONTokener(body).nextValue()
@@ -76,23 +78,23 @@ class DnseApi(private val key: String,
             val items = rows(payload, "data", "orders", "items")
             if (items.isEmpty()) return result
             val pageIds = items.joinToString("|") { text(it, "id", "orderId") }
-            if (!seen.add(pageIds)) throw AppFailure("DNSE lặp lại trang dữ liệu; đã dừng để tránh thiếu lệnh.")
+            if (!seen.add(pageIds)) throw AppFailure(AppText.get(R.string.dnse_repeated_page))
             result.addAll(items)
             val total = (payload as? JSONObject)?.optInt("total", -1) ?: -1
             if (items.size < 100 || (total >= 0 && result.size >= total)) return result
         }
-        throw AppFailure("Lịch sử vượt 100 trang; cần chia nhỏ khoảng ngày.")
+        throw AppFailure(AppText.get(R.string.dnse_history_page_limit))
     }
     companion object {
         fun text(o: JSONObject, vararg keys: String): String = keys.firstNotNullOfOrNull {
             if (o.has(it) && !o.isNull(it)) o.get(it).toString() else null
-        } ?: throw AppFailure("DNSE thiếu trường dữ liệu bắt buộc; chưa gửi bản ghi lên backend.")
+        } ?: throw AppFailure(AppText.get(R.string.dnse_required_field_missing))
         fun rows(payload: Any, vararg keys: String): List<JSONObject> {
             val a = when (payload) {
                 is JSONArray -> payload
                 is JSONObject -> keys.firstNotNullOfOrNull { payload.optJSONArray(it) }
-                    ?: throw AppFailure("Định dạng danh sách DNSE chưa được hỗ trợ.")
-                else -> throw AppFailure("Phản hồi DNSE không hợp lệ.")
+                    ?: throw AppFailure(AppText.get(R.string.unsupported_dnse_list_format))
+                else -> throw AppFailure(AppText.get(R.string.invalid_dnse_response))
             }
             return (0 until a.length()).map { a.getJSONObject(it) }
         }
@@ -102,7 +104,7 @@ class DnseApi(private val key: String,
                 (0 until array.length()).map { array.getJSONObject(it) }
             } ?: keys.firstNotNullOfOrNull { payload.optJSONObject(it) }?.let { listOf(it) }
                 ?: listOf(payload)
-            else -> throw AppFailure("Phản hồi DNSE không hợp lệ.")
+            else -> throw AppFailure(AppText.get(R.string.invalid_dnse_response))
         }
         private fun decimal(raw: JSONObject, vararg names: String): BigDecimal {
             val value = BigDecimal(text(raw, *names))
@@ -157,14 +159,14 @@ class DnseApi(private val key: String,
             // Current OpenAPI separates stock, derivative, bond and egg assets.
             // Stock cash is a VND amount, not a security price in configurable quote units.
             val stock = if (raw.has("stock")) raw.optJSONObject("stock")
-                ?: throw AppFailure("DNSE balances.stock không phải object; chưa gửi số dư.") else null
+                ?: throw AppFailure(AppText.get(R.string.dnse_balances_stock_invalid)) else null
             val source = stock ?: raw
             val cashFields = if (stock != null) arrayOf("availableCash")
                 else arrayOf("cash", "cashBalance", "availableCash", "accountBalance")
             if (cashFields.none { source.has(it) && !source.isNull(it) }) {
                 if (com.example.finance_planning.BuildConfig.DEBUG)
                     android.util.Log.d("PlanningApp", "SCHEMA_ERROR route=/accounts/{id}/balances field=stock.availableCash reason=missing_cash")
-                throw AppFailure("DNSE: chưa đọc được tiền mặt từ balances.stock.availableCash; chưa gửi số dư lên backend.")
+                throw AppFailure(AppText.get(R.string.dnse_cash_field_missing))
             }
             val units = if (stock != null) BigDecimal.ONE else priceMultiplier
             val cash = decimal(source, *cashFields).multiply(units)
@@ -183,7 +185,7 @@ class DnseApi(private val key: String,
             fun time(vararg names: String) = OffsetDateTime.parse(text(raw, *names)).toInstant().toString()
             val side = when (text(raw, "side").uppercase(Locale.US)) {
                 "NB", "BUY" -> "BUY"; "NS", "SELL" -> "SELL"
-                else -> throw AppFailure("Loại mua/bán DNSE chưa được hỗ trợ.")
+                else -> throw AppFailure(AppText.get(R.string.unsupported_dnse_buy_sell_type))
             }
             val quantity = amount("quantity")
             val filled = amount("fillQuantity", "filledQuantity")

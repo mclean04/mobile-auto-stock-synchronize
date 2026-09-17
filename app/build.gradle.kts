@@ -72,5 +72,4 @@ dependencies {
     androidTestImplementation("androidx.room:room-testing:2.8.5")
     debugImplementation(libs.androidx.compose.ui.test.manifest)
     debugImplementation(libs.androidx.compose.ui.tooling)
-    debugImplementation("com.google.firebase:firebase-appcheck-debug")
 }

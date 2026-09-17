@@ -1,11 +1,14 @@
 package com.example.finance_planning.data
 
+import com.example.finance_planning.R
+import com.example.finance_planning.core.AppText
 import androidx.room.withTransaction
 import com.example.finance_planning.auth.MobileIdentity
 import com.example.finance_planning.core.*
 import com.example.finance_planning.network.*
 import com.google.firebase.messaging.FirebaseMessaging
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.tasks.await
@@ -20,7 +23,13 @@ class PlanningRepository(val identity: MobileIdentity, private val vault: Vault,
                          private val db: LocalDb, val api: BackendApi) {
     private val lock = Mutex()
     private val dao = db.dao()
-    fun owner() = identity.uid() ?: throw AppFailure("Hãy đăng nhập để truy cập dữ liệu trên máy.")
+    private val notificationLock = Mutex()
+    private val arrivals = kotlinx.coroutines.flow.MutableSharedFlow<Pair<String, JSONObject>>(extraBufferCapacity = 16)
+    val notificationArrivals = arrivals.asSharedFlow()
+    fun announceNotification(uid: String, event: JSONObject) {
+        if (identity.uid() == uid && approved()) arrivals.tryEmit(uid to event)
+    }
+    fun owner() = identity.uid() ?: throw AppFailure(AppText.get(R.string.sign_in_to_access_data_on_this_device))
     fun device(): String {
         val key = "device:" + owner()
         return vault.get(key) ?: UUID.randomUUID().toString().also { vault.put(key, it) }
@@ -32,8 +41,6 @@ class PlanningRepository(val identity: MobileIdentity, private val vault: Vault,
         if (vault.get("mobile_scope") != "uploader-v1:${owner()}") save("dnse", JSONObject())
         vault.put("mobile_scope", "uploader-v1:${owner()}")
         vault.put("approved", owner())
-        save("planning", JSONObject())
-        save("notifications", JSONObject())
         registerPush()
     }
     suspend fun cached(key: String): JSONObject? =
@@ -45,12 +52,22 @@ class PlanningRepository(val identity: MobileIdentity, private val vault: Vault,
         if (refresh) save("planning", api.latestPlanning())
         return cached("planning") ?: JSONObject()
     }
+    suspend fun upcomingPlanning(): JSONObject {
+        val result = api.upcomingPlanning()
+        save("planning_upcoming", result)
+        return result
+    }
+    suspend fun planningHistory(): JSONObject {
+        val result = api.planningHistory()
+        save("planning_history", result)
+        return result
+    }
     fun observeNotifications(uid: String) = dao.observeNotifications(uid).map { rows ->
         rows.map { JSONObject(vault.open(it.ciphertext)) }
             .sortedByDescending { it.optString("created_at") }
     }
     suspend fun cacheNotifications(page: JSONObject, uid: String) {
-        if (identity.uid() != uid || !approved()) throw AppFailure("Phiên đăng nhập đã thay đổi.")
+        if (identity.uid() != uid || !approved()) throw AppFailure(AppText.get(R.string.the_sign_in_session_has_changed))
         db.withTransaction {
             for (event in page.objects("items")) {
                 val id = event.optString("event_id", event.optString("id"))
@@ -59,21 +76,26 @@ class PlanningRepository(val identity: MobileIdentity, private val vault: Vault,
             }
         }
     }
-    suspend fun notifications(refresh: Boolean = true): JSONObject {
+    suspend fun notifications(refresh: Boolean = true): JSONObject = notificationLock.withLock {
         val uid = owner()
         if (refresh) {
-            val page = api.notifications()
-            cacheNotifications(page, uid)
-            if (identity.uid() == uid) save("notifications", page)
+            var next: String? = null
+            val seen = mutableSetOf<String>()
+            do {
+                val page = api.notifications(next)
+                cacheNotifications(page, uid)
+                next = page.optString("next_cursor").takeIf { it.isNotBlank() && it != "null" }
+                if (next != null && !seen.add(next)) throw AppFailure(AppText.get(R.string.backend_repeated_notification_page), true)
+            } while (next != null)
+            save("notifications", JSONObject().put("next_cursor", JSONObject.NULL))
         }
-        return cached("notifications") ?: JSONObject()
+        cached("notifications") ?: JSONObject()
     }
     suspend fun openNotification(id: String): JSONObject {
         val uid = owner()
-        val event = receiveNotification(id)
-        if (identity.uid() != uid) throw AppFailure("Phiên đăng nhập đã thay đổi.")
+        val event = cached("notification:" + id) ?: receiveNotification(id)
+        if (identity.uid() != uid) throw AppFailure(AppText.get(R.string.the_sign_in_session_has_changed))
         save("notification-opened:" + id, JSONObject().put("opened", true))
-        api.receipt(id, device(), "OPENED")
         return event
     }
     suspend fun notificationOpened(id: String): Boolean =
@@ -94,20 +116,31 @@ class PlanningRepository(val identity: MobileIdentity, private val vault: Vault,
     fun saveDnseEnvironment(production: Boolean) {
         val uid = owner()
         val saved = vault.get("dnse:$uid")?.let(::JSONObject)
-            ?: throw AppFailure("Hãy lưu API key và secret trước.")
+            ?: throw AppFailure(AppText.get(R.string.save_the_api_key_and_secret_first))
         saved.put("production", production)
         vault.put("dnse:$uid", saved.toString())
     }
     fun dnseProduction(): Boolean? = identity.uid()?.let { uid ->
         vault.get("dnse:$uid")?.let { JSONObject(it).getBoolean("production") }
     }
+    suspend fun deleteDnse() = lock.withLock {
+        vault.remove("dnse:${owner()}")
+        save("dnse", JSONObject())
+        vault.remove("last_sync:${owner()}")
+    }
+    fun pushRegistered() = identity.uid()?.let { vault.get("push_registered:$it") == "true" } ?: false
     fun hasDnse() = identity.uid()?.let { vault.get("dnse:$it") != null } ?: false
+    suspend fun localQueueSummary(): List<String> = localBatches().filter { it.state != "COMMITTED" }.map { row ->
+        val data = JSONObject(vault.open(row.ciphertext))
+        val state = if (row.state == "REVIEW_REQUIRED") AppText.get(R.string.data_review_required) else AppText.get(R.string.awaiting_upload)
+        AppText.get(R.string.n_orders_executions_positions_balances, state, NotificationContent.time(java.time.Instant.ofEpochMilli(row.createdAt).toString()), data.objects("orders").size, data.objects("executions").size, data.objects("positions").size, data.objects("balances").size)
+    }
     suspend fun localBatches(): List<PendingBatch> = dao.batches(owner())
     suspend fun sync(): String = lock.withLock {
-        if (!approved()) throw AppFailure("Backend chưa xác nhận quyền mobile. Hãy kiểm tra kết nối.")
+        if (!approved()) throw AppFailure(AppText.get(R.string.backend_mobile_not_verified))
         val uid = owner()
         flush(uid)
-        val config = vault.get("dnse:$uid")?.let(::JSONObject) ?: throw AppFailure("Hãy lưu khóa DNSE trước.")
+        val config = vault.get("dnse:$uid")?.let(::JSONObject) ?: throw AppFailure(AppText.get(R.string.save_your_dnse_keys_first))
         val production = config.getBoolean("production")
         val dnse = DnseApi(config.getString("key"), config.getString("secret"), production)
         val now = LocalDate.now(ZoneId.of("Asia/Ho_Chi_Minh"))
@@ -129,7 +162,7 @@ class PlanningRepository(val identity: MobileIdentity, private val vault: Vault,
                 if (previous == null || java.time.Instant.parse(item.getString("updated_at")) >
                     java.time.Instant.parse(previous.getString("updated_at"))) orders[key] = item
                 else if (item.getString("updated_at") == previous.getString("updated_at") &&
-                    item.toString() != previous.toString()) throw AppFailure("DNSE trả hai bản ghi khác nhau cùng thời điểm.")
+                    item.toString() != previous.toString()) throw AppFailure(AppText.get(R.string.dnse_timestamp_conflict))
             }
 
             for (order in orders.values.filter { it.getString("account") == id &&
@@ -148,7 +181,7 @@ class PlanningRepository(val identity: MobileIdentity, private val vault: Vault,
             val balanceSource = when (rawBalance) {
                 is JSONObject -> rawBalance.optJSONObject("data")
                     ?: rawBalance.optJSONObject("balance") ?: rawBalance
-                else -> throw AppFailure("Định dạng số dư DNSE chưa được hỗ trợ.")
+                else -> throw AppFailure(AppText.get(R.string.unsupported_dnse_balance_format))
             }
             balances[id] = DnseApi.normalizeBalance(id, balanceSource, multiplier, observedAt)
             val rawPositions = dnse.positions(id)
@@ -158,10 +191,10 @@ class PlanningRepository(val identity: MobileIdentity, private val vault: Vault,
                 positions[id + ":" + item.getString("position_id")] = item
             }
             // Preserve raw broker responses only inside the encrypted local cache.
-            overview.put(JSONObject().put("account", id).put("balances", rawBalance)
+            overview.put(JSONObject().put("account", id).put("profile", account).put("balances", rawBalance)
                 .put("positions", rawPositions))
         }
-        if (owner() != uid) throw AppFailure("Phiên đăng nhập đã thay đổi.")
+        if (owner() != uid) throw AppFailure(AppText.get(R.string.the_sign_in_session_has_changed))
         val orderList = orders.values.toList()
         val executionList = executions.values.toList()
         val positionList = positions.values.toList()
@@ -201,29 +234,27 @@ class PlanningRepository(val identity: MobileIdentity, private val vault: Vault,
             save("dnse", snapshot)
             dao.enqueue(pending)
         }
-        if (!production) return@withLock "Đã đọc ${orderList.size} lệnh, ${executionList.size} khớp lệnh, " +
-            "${positionList.size} vị thế sandbox trên máy; không gửi vào planning thật."
+        if (!production) return@withLock AppText.get(R.string.dnse_sandbox_sync_complete, orderList.size, executionList.size, positionList.size)
         flush(uid)
         val sheet = api.retryProjection()
         vault.put("last_sync:$uid", java.time.Instant.now().toString())
-        "Đã đồng bộ ${orderList.size} lệnh, ${executionList.size} khớp lệnh, " +
-            "${positionList.size} vị thế và ${balanceList.size} số dư. Sheet: ${sheet.optString("state")}"
+        AppText.get(R.string.dnse_sync_complete, orderList.size, executionList.size, positionList.size, balanceList.size, sheet.optString("state"))
     }
     suspend fun retryPending(): String = lock.withLock {
-        if (!approved()) throw AppFailure("Backend chưa cấp quyền mobile.")
+        if (!approved()) throw AppFailure(AppText.get(R.string.backend_mobile_access_has_not_been_granted))
         flush(owner())
         val result = api.retryProjection()
-        "Đã gửi lại dữ liệu chờ. Sheet: ${result.optString("state")}"
+        AppText.get(R.string.pending_data_uploaded_again_sheet, result.optString("state"))
     }
     private suspend fun flush(uid: String) {
         if (dao.batches(uid).any { it.state == "REVIEW_REQUIRED" })
-            throw AppFailure("Có đợt dữ liệu cần đối chiếu. Không tạo đợt mới để vượt qua lỗi.")
+            throw AppFailure(AppText.get(R.string.pending_batch_requires_review))
         for (row in dao.pending(uid)) {
-            if (owner() != uid || !approved()) throw AppFailure("Phiên đăng nhập đã thay đổi.")
+            if (owner() != uid || !approved()) throw AppFailure(AppText.get(R.string.the_sign_in_session_has_changed))
             try {
                 val result = api.upload(JSONObject(vault.open(row.ciphertext)))
                 if (result.optString("database") != "committed" || result.optString("batch_id") != row.id)
-                    throw AppFailure("Chưa nhận được xác nhận lưu dữ liệu từ backend.", true)
+                    throw AppFailure(AppText.get(R.string.backend_commit_unconfirmed), true)
                 dao.mark(uid, row.id, "COMMITTED", "")
             } catch (e: HttpFailure) {
                 if (e.status == 409 || e.status == 422)
@@ -232,17 +263,26 @@ class PlanningRepository(val identity: MobileIdentity, private val vault: Vault,
             }
         }
     }
-    fun lastSync() = identity.uid()?.let { vault.get("last_sync:$it") } ?: "Chưa đồng bộ"
+    fun lastSync() = identity.uid()?.let { vault.get("last_sync:$it") } ?: AppText.get(R.string.not_synced_yet)
     suspend fun registerPush() {
-        if (approved()) api.registerDevice(device(), FirebaseMessaging.getInstance().token.await())
+        if (approved()) {
+            val uid = owner()
+            vault.remove("push_registered:$uid")
+            api.registerDevice(device(), FirebaseMessaging.getInstance().token.await())
+            if (owner() == uid) vault.put("push_registered:$uid", "true")
+        }
     }
     suspend fun logout() = lock.withLock {
         val uid = owner()
         // Revocation must succeed before claiming this device is disconnected.
         if (approved()) api.removeDevice(device())
-        FirebaseMessaging.getInstance().deleteToken().await()
+        // Keep the installation token for repeated Firebase Console tests in debug builds.
+        // Backend device revocation above still disconnects the signed-out account.
+        if (!com.example.finance_planning.BuildConfig.DEBUG)
+            FirebaseMessaging.getInstance().deleteToken().await()
         vault.remove("approved")
         vault.remove("dnse:$uid")
+        vault.remove("push_registered:$uid")
         vault.remove("last_sync:$uid")
         db.withTransaction { dao.clearCache(uid); dao.clearBatches(uid) }
         identity.signOut()
