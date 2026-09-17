@@ -55,14 +55,14 @@ Không gửi dữ liệu giả DNSE hoặc thông báo thử vào production tro
 - Khi có push planning, worker tải sự kiện cùng tất cả các trang danh sách và upsert
   từng event trong cache mã hóa. Trùng event không tạo thêm hàng. Mở app cũng tự đồng bộ
   để bù push bị bỏ lỡ. Khi mất mạng, công việc chờ mạng và danh sách local vẫn hiển thị.
-- Bấm notification hệ thống mở tab Thông báo; bấm sự kiện trong danh sách đọc cache,
+- Bấm notification hệ thống mở màn hình danh sách thông báo (ngoài thanh điều hướng dưới); bấm sự kiện trong danh sách đọc cache,
   đánh dấu mở trên máy và gửi OPENED qua WorkManager. Nếu chưa có cache thì tải chi tiết.
 - Nội dung local là lần đồng bộ gần nhất, không phải xác nhận đặt/hủy lệnh. Worker OPENED
   vẫn tải lại trạng thái hiện tại qua backend. Giao diện dùng nội dung, thời gian, trạng thái
   thay cho event ID, revision ID và JSON kỹ thuật.
 - Notification từ Firebase Console ở foreground được lưu local và hiển thị bằng icon
   riêng, rồi yêu cầu đồng bộ danh sách backend. Ở background, FCM tự hiển thị notification;
-  bấm mở tab Thông báo. Console không cung cấp API lịch sử và không gọi onMessageReceived
+  bấm mở màn hình danh sách thông báo (ngoài thanh điều hướng dưới). Console không cung cấp API lịch sử và không gọi onMessageReceived
   ở background, nên không thể lưu đầy đủ nội dung Console vào DB bằng luồng này. Dùng
   push data-only của backend cho lịch sử planning đồng nhất ở cả foreground/background.
 

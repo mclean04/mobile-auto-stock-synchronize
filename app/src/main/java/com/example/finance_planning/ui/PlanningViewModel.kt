@@ -32,11 +32,13 @@ data class ScreenState(
     val adminRecords: List<JSONObject> = emptyList(), val recordCursor: String? = null,
     val scheduleEnabled: Boolean = false,
     val upcomingPlanning: JSONObject? = null, val planningHistory: JSONObject? = null,
+    val upcomingSavedAt: String? = null, val historySavedAt: String? = null,
     val planning: JSONObject? = null, val notifications: List<JSONObject> = emptyList(),
     val orders: List<JSONObject> = emptyList(), val batches: List<JSONObject> = emptyList(),
     val notificationCursor: String? = null, val orderCursor: String? = null, val batchCursor: String? = null,
     val status: JSONObject? = null, val detail: JSONObject? = null, val detailKind: DetailKind? = null,
     val lastSync: String = AppText.get(R.string.not_synced_yet), val hasDnse: Boolean = false, val dnseProduction: Boolean? = null,
+    val hasProductionKeys: Boolean = false, val hasSandboxKeys: Boolean = false,
     val localQueue: List<String> = emptyList()
 )
 
@@ -107,7 +109,8 @@ class PlanningViewModel(application: Application) : AndroidViewModel(application
         mutable.value = mutable.value.copy(signedIn = repo.identity.uid() != null,
             pushRegistered = repo.pushRegistered(), email = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.email.orEmpty(),
             approved = repo.approved(), configured = repo.identity.configured,
-            lastSync = repo.lastSync() ?: AppText.get(R.string.not_synced_yet), hasDnse = repo.hasDnse(), dnseProduction = repo.dnseProduction())
+            lastSync = repo.lastSync() ?: AppText.get(R.string.not_synced_yet), hasDnse = repo.hasDnse(), dnseProduction = repo.dnseProduction(),
+            hasProductionKeys = repo.hasDnse(true), hasSandboxKeys = repo.hasDnse(false))
     }
     private fun run(action: suspend () -> String) {
         if (mutable.value.busy) return
@@ -131,40 +134,60 @@ class PlanningViewModel(application: Application) : AndroidViewModel(application
         if (repo.identity.uid() != null) {
             mutable.value = mutable.value.copy(planning = null, notifications = emptyList())
             queue()
+            restoreCachedPlanning()
         }
-        if (repo.identity.uid() != null) { repo.verifySession(); refreshAll() } else if (!repo.identity.configured)
+        if (repo.identity.uid() != null) { val status = repo.verifySession(); refreshAll(knownStatus = status) } else if (!repo.identity.configured)
             AppText.get(R.string.firebase_build_not_configured)
         else AppText.get(R.string.sign_in_backend_hint)
     }
     fun signIn(context: Context) = run {
         mutable.value = ScreenState(busy = true, configured = repo.identity.configured)
         repo.identity.signIn(context)
-        repo.verifySession()
-        refreshAll()
+        val status = repo.verifySession()
+        refreshAll(knownStatus = status)
     }
-    fun verify() = run { repo.verifySession(); refreshAll() }
+    fun verify() = run { val status = repo.verifySession(); refreshAll(knownStatus = status) }
     fun saveDnseEnvironment(production: Boolean) = run {
         repo.saveDnseEnvironment(production)
+        queue()
         if (production) AppText.get(R.string.dnse_production_saved)
         else AppText.get(R.string.sandbox_environment_saved_with_existing_keys)
     }
     fun health() = run { AppText.get(R.string.server, repo.api.health().optString("status")) }
-    fun refresh() = run { repo.verifySession(); refreshAll() }
-    fun deleteDnse() = run { repo.deleteDnse(); queue(); AppText.get(R.string.dnse_keys_deleted) }
-    private suspend fun refreshAll(): String {
-        val status = repo.api.syncStatus()
+    fun refresh() = run { val status = repo.verifySession(); refreshAll(refreshPlanning = true, knownStatus = status) }
+    fun resume() = run {
+        if (repo.approved()) { queue(); restoreCachedPlanning() }
+        mutable.value.message
+    }
+    private suspend fun restoreCachedPlanning() {
+        if (!repo.approved()) return
+        mutable.value = mutable.value.copy(planning = repo.cached("planning"),
+            upcomingPlanning = repo.cached("planning_upcoming"), planningHistory = repo.cached("planning_history"),
+            upcomingSavedAt = repo.cachedTime("planning_upcoming"), historySavedAt = repo.cachedTime("planning_history"))
+    }
+    fun refreshPlanning() = run {
+        if (!repo.approved() || !mutable.value.admin) throw AppFailure(AppText.get(R.string.this_feature_requires_admin_access))
+        val upcoming = repo.upcomingPlanning(refresh = true)
+        mutable.value = mutable.value.copy(upcomingPlanning = upcoming, upcomingSavedAt = repo.cachedTime("planning_upcoming"))
+        val history = repo.planningHistory(refresh = true)
+        mutable.value = mutable.value.copy(planningHistory = history, historySavedAt = repo.cachedTime("planning_history"))
+        AppText.get(R.string.planning_cache_refreshed)
+    }
+    fun deleteDnse(production: Boolean) = run { repo.deleteDnse(production); queue(); AppText.get(R.string.dnse_keys_deleted) }
+    private suspend fun refreshAll(refreshPlanning: Boolean = false, knownStatus: JSONObject? = null): String {
+        val status = knownStatus ?: repo.api.syncStatus()
         val admin = status.optString("role") == "admin"
         if (!admin) repo.api.readSource = null
         val sources = if (admin) repo.api.adminSources() else JSONObject()
         val records = if (admin && repo.api.readSource != null)
             repo.api.adminRecords(repo.api.readSource!!) else JSONObject()
-        val planning = if (admin) try { repo.planning() } catch (e: HttpFailure) {
+        val planning = if (admin) try { repo.planning(refresh = refreshPlanning) } catch (e: HttpFailure) {
             if (e.status == 404) null else throw e
         } else null
-        val upcoming = if (admin) try { repo.upcomingPlanning() } catch (e: HttpFailure) {
+        val upcoming = if (admin) try { repo.upcomingPlanning(refresh = refreshPlanning) } catch (e: HttpFailure) {
             if (e.status == 404) null else throw e
         } else null
-        val history = if (admin) try { repo.planningHistory() } catch (e: HttpFailure) {
+        val history = if (admin) try { repo.planningHistory(refresh = refreshPlanning) } catch (e: HttpFailure) {
             if (e.status == 404) null else throw e
         } else null
         val events = repo.notifications()
@@ -174,6 +197,8 @@ class PlanningViewModel(application: Application) : AndroidViewModel(application
             sourceCursor = cursor(sources), selectedSource = repo.api.readSource,
             adminRecords = records.objects("items"), recordCursor = cursor(records),
             planning = planning, upcomingPlanning = upcoming, planningHistory = history,
+            upcomingSavedAt = if (admin) repo.cachedTime("planning_upcoming") else null,
+            historySavedAt = if (admin) repo.cachedTime("planning_history") else null,
             notificationCursor = cursor(events),
             orders = orders.objects("items"), orderCursor = cursor(orders),
             batches = batches.objects("items"), batchCursor = cursor(batches))
@@ -255,14 +280,15 @@ class PlanningViewModel(application: Application) : AndroidViewModel(application
     fun dismissDetail() { mutable.value = mutable.value.copy(detail = null) }
     fun saveDnse(key: String, secret: String, production: Boolean, unit: String) = run {
         repo.saveDnse(key, secret, production, unit)
+        queue()
         AppText.get(R.string.keys_saved_encrypted_on_this_device)
     }
-    fun sync() = run { val result = repo.sync(); refreshAll(); result }
+    fun sync() = run { val result = try { repo.sync() } finally { queue() }; refreshAll(); result }
     fun retry() = run { val result = repo.retryPending(); queue(); result }
     private suspend fun queue() {
-        mutable.value = mutable.value.copy(dnse = repo.cached("dnse"), localQueue = repo.localQueueSummary())
+        mutable.value = mutable.value.copy(dnse = repo.dnseSnapshot(), localQueue = repo.localQueueSummary())
     }
-    fun importPlanning() = run { repo.api.importPlanning(); repo.planning(); refreshAll() }
+    fun importPlanning() = run { repo.api.importPlanning(); refreshAll(refreshPlanning = true) }
     fun reconcile() = run { AppText.get(R.string.sheet_status, repo.api.reconcile().optString("state")) }
     fun schedule(enabled: Boolean) = run {
         if (enabled) {

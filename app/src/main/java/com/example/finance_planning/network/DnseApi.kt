@@ -15,11 +15,12 @@ import javax.crypto.spec.SecretKeySpec
 import java.math.BigDecimal
 
 object DnseSigning {
-    fun signature(key: String, secret: String, path: String, date: String, nonce: String): String {
+    fun signature(key: String, secret: String, path: String, date: String, nonce: String, method: String = "get"): String {
         require(path.startsWith("/") && '?' !in path && '#' !in path)
         require(Regex("[a-f0-9]{32}").matches(nonce))
         require(key.none { it == '"' || it == '\r' || it == '\n' })
-        val text = "(request-target): get $path\ndate: $date\nnonce: $nonce"
+        require(method in setOf("get", "post", "delete", "put"))
+        val text = "(request-target): $method $path\ndate: $date\nnonce: $nonce"
         val mac = Mac.getInstance("HmacSHA256")
         mac.init(SecretKeySpec(secret.toByteArray(Charsets.UTF_8), "HmacSHA256"))
         val encoded = URLEncoder.encode(Base64.getEncoder().encodeToString(

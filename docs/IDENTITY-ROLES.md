@@ -85,13 +85,13 @@ và đăng ký token FCM của thiết bị với phiên UID hiện tại. Khôn
 khi xác minh lại. Đăng ký FCM và quyền thông báo được hiển thị riêng: đăng ký thành công
 không phải bằng chứng một thông báo cụ thể đã được gửi và nhận.
 
-Các tab: DNSE account, Lệnh, Thông báo, Cài đặt; tài khoản admin có thêm
+Các tab: Lệnh, Cài đặt; danh sách thông báo mở bằng nút chuông ở góc trên bên phải. Tài khoản admin có thêm
 tab Quản trị. Cài đặt chứa đăng nhập Google, bộ khóa DNSE và block Đồng bộ
 (lịch định kỳ bằng toggle, đồng bộ ngay, thử lại, hàng đợi và các đợt đã gửi).
 Toggle đọc trạng thái thực tế của unique WorkManager `planning-periodic` khi mở app.
 Tắt lịch chỉ hủy periodic sync, không hủy receipt/thông báo đang xử lý. Đăng xuất
 vẫn hủy toàn bộ account work.
-DNSE account hiển thị dữ liệu cache mã hóa từ accounts, balances, positions với API nguồn.
+DNSE account nằm trong Cài đặt, ngay dưới nút Đồng bộ DNSE ngay, hiển thị dữ liệu cache mã hóa từ accounts, balances, positions với API nguồn.
 Bộ khóa lưu theo UID; có khóa thì ẩn hai input, xóa khóa xóa cả key/secret và snapshot DNSE cũ.
 
 Lệnh / Đang đợi gọi `GET /v1/planning/upcoming`; Lệnh / Lịch sử gọi

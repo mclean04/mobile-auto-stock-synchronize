@@ -5,7 +5,8 @@ Backend: https://github.com/mclean04/auto-stock-synchronize
 
 ## Hiện có
 
-- DNSE account, Lệnh (planning upcoming/history), Thông báo, Cài đặt và Quản trị cho admin.
+- Thanh điều hướng dưới: Lệnh (planning upcoming/history), Cài đặt và Quản trị cho admin. Nút chuông ở góc trên bên phải mở màn hình danh sách thông báo riêng; nút quay lại trở về tab trước đó. Bấm thông báo FCM vẫn mở màn hình thông báo và nội dung tương ứng.
+- Thông tin DNSE account nằm trong Cài đặt, dưới nút Đồng bộ DNSE ngay.
 - Lệnh dùng `/v1/planning/upcoming` và `/v1/planning/history`, hiển thị nguyên danh sách backend.
 - Đồng bộ nằm trong Cài đặt, chung block với toggle lịch định kỳ.
 - Credential Manager → Firebase Auth; App Check Play Integrity cho mỗi request backend.
@@ -15,7 +16,7 @@ Backend: https://github.com/mclean04/auto-stock-synchronize
 - Upload orders/executions/positions/balances theo lô <=100 bản ghi; phí được gửi khi DNSE cung cấp.
 - Giữ nguyên batch ID/payload khi thử lại và chỉ ACK sau khi backend xác nhận commit.
 - WorkManager mỗi 6 giờ khi có mạng, nút đồng bộ ngay, thử lại Sheet, đăng ký FCM.
-- Thông báo luôn đọc trạng thái hiện tại khi mở. App không đặt/sửa/hủy lệnh.
+- Thông báo luôn đọc trạng thái hiện tại khi mở và không tự giao dịch. Trong Lệnh → Đang đợi, người dùng có thể đặt lệnh cổ phiếu LO thủ công qua DNSE sau khi chọn tiểu khoản/gói giao dịch, nhập giá VND, xác minh OTP và xác nhận. Chưa có nút sửa/hủy lệnh.
 
 ## Build
 
@@ -71,3 +72,35 @@ trước khi ứng dụng đăng ký thiết bị nhận thông báo.
 - Khi thêm chuỗi: thêm cùng key vào hai file và giữ đúng các tham số `%1$s`, `%2$s`.
   `LocalizationTest` kiểm tra bản dịch/tham số; `LanguageResourcesTest` kiểm tra
   lựa chọn Việt/Anh và fallback bằng resource Android thật.
+
+### Đặt lệnh planning thủ công
+
+API trực tiếp DNSE: `GET /accounts`, `GET /accounts/{accountNo}/loan-packages?marketType=STOCK&symbol=...`, `POST /registration/send-email-otp`, `POST /registration/trading-token`, `POST /accounts/{accountNo}/orders?marketType=STOCK&orderCategory=NORMAL`.
+
+Nút Đặt lệnh gửi ngay sau xác nhận cuối cùng, không tạo lệnh chờ đến ngày planning. Giá phải là VND đầy đủ (25950 nghĩa là 25.950 đồng/cổ phiếu); không dùng hệ số giá của chức năng đọc/đồng bộ. Chỉ tiểu khoản `dealAccount=true`, cổ phiếu, LO, lô lẻ 1–99 hoặc bội số của 100. DNSE kiểm tra giá hợp lệ, sức mua, chứng khoán khả dụng và các quy tắc giao dịch. Gói giao dịch phải do người dùng chọn từ dữ liệu DNSE; app không tự chọn gói vay.
+
+Smart OTP/email OTP phải khớp phương thức đăng ký DNSE. Token chỉ giữ trong bộ nhớ của hộp thoại, cần xác minh lại nếu quá 5 phút trước khi gửi; không lưu OTP/token hay log HTTP giao dịch. Môi trường theo cài đặt DNSE hiện hành; Production đặt lệnh thật, Sandbox thử nghiệm. Luồng kiểm tra không gửi lệnh thực tế.
+
+App kiểm tra lại planning, phiên đăng nhập, cấu hình DNSE, tiểu khoản và gói trước khi gửi. Room mã hóa lưu dấu gửi theo tài khoản Google/môi trường/ngày dự kiến/dòng sheet trước POST. Yêu cầu đã tiếp nhận hoặc không xác định kết quả không được gửi lại trên thiết bị, kể cả khởi động lại; không tự retry/redirect. HTTP 400/401/403/404/422 là từ chối và có thể xác minh OTP rồi xác nhận lại. Trạng thái chưa xác định cần kiểm tra DNSE/EntradeX; dấu gửi chỉ bảo vệ trên thiết bị này, không chống lệnh tạo từ thiết bị/app khác. Việc xóa dữ liệu hoặc đăng xuất/xóa dữ liệu sẽ xóa dấu gửi. Nhận `id` từ DNSE là tiếp nhận yêu cầu, chưa phải xác nhận khớp; Đồng bộ ngay cập nhật giao dịch thực tế lên backend. Không tự đánh dấu planning đã khớp hay ghi thực thi vào sheet.
+
+Hợp đồng đối chiếu [SDK chính thức DNSE](https://github.com/dnse-tech/openapi-sdk/blob/main/python/dnse/api/client.py) và [hướng dẫn đặt lệnh](https://developers.dnse.com.vn/docs/guide/trading-api/trading_order/). DNSE cũng hỗ trợ `DELETE /accounts/{accountNo}/orders/{orderId}` với `trading-token`; màn hình hủy lệnh nằm ngoài thay đổi này.
+
+### So sánh số dư với planning
+
+Danh sách Đang đợi/Lịch sử dùng thẻ thông tin hai cột, màu xanh cho planning đặt lệnh, đỏ cho hành động/trạng thái hủy được khai báo rõ. Lịch sử không có nút đặt lệnh. Lệnh mua chỉ có nút khi số dư tiền khả dụng (`stock.availableCash` → `cash_vnd`) đã đồng bộ của ít nhất một tiểu khoản giao dịch đủ ngân sách; không cộng số dư giữa tiểu khoản, không dùng sức mua margin. Ngân sách là mức lớn nhất giữa giá × số lượng + phí dự phòng, giá trị kế hoạch + phí dự phòng, và tổng chi ngân sách. Thiếu số dư hoặc giá trị hợp lệ thì khóa lệnh mua. Các lệnh được so sánh riêng, không coi kết quả này là đủ tiền để đặt toàn bộ danh sách cùng lúc.
+
+Nạp tiền trong DNSE rồi chọn Cài đặt → Đồng bộ ngay để cập nhật và mở lại nút. Dữ liệu số dư gắn với cấu hình key/môi trường/đơn vị giá đã đồng bộ; thay đổi cấu hình cần đồng bộ lại. Hộp thoại chỉ cho chọn tiểu khoản đủ tiền; kiểm tra lại ngân sách theo giá/số lượng thực nhập (phí dự phòng được tăng theo tỷ lệ nếu giá trị tăng). Trước POST, phải đủ tiền cả ở snapshot đã đồng bộ và số dư DNSE đọc trực tiếp mới nhất. Lệnh bán không yêu cầu số dư tiền; DNSE vẫn kiểm tra lượng cổ phiếu khả dụng và các quy tắc giao dịch.
+
+### Bộ khóa DNSE theo môi trường
+
+Production và Sandbox lưu riêng API key, secret và đơn vị giá trong Vault mã hóa, theo tài khoản Google. Chọn chip môi trường sẽ chọn bộ khóa tương ứng ngay; không lấy khóa của môi trường còn lại nếu chưa có. Khi có khóa, hàng hiển thị trạng thái Đang dùng khóa Production nền xanh đậm (không bấm được), hoặc nút Dùng khóa Sandbox; nút Xóa khóa [môi trường] có nền đỏ. Xóa chỉ bộ khóa đang chọn; khi chưa có khóa, hiện hai input và Lưu key. Bộ khóa cũ được chuyển nguyên vẹn sang môi trường đã lưu, không nhân bản và không làm thay đổi fingerprint số dư đã đồng bộ. Đăng xuất/xóa dữ liệu vẫn xóa cả hai bộ khóa của tài khoản. Số dư chỉ hiển thị nếu khớp cấu hình môi trường/key đã đồng bộ; đổi cấu hình cần đồng bộ lại.
+
+### Giao diện quản trị
+
+Quản trị chia thành Tổng quan (quyền admin, số dữ liệu đã tải, trạng thái ghi Sheet), Tài khoản (chọn tài khoản, nhóm số dư/lệnh/cổ phiếu nắm giữ/khớp lệnh) và Kế hoạch (đọc lại planning, cập nhật dữ liệu giao dịch ra Sheet, danh sách kế hoạch đã lưu). Dữ liệu hiển thị bằng nhãn tiếng Việt/Anh và ô thông tin hai cột; ưu tiên số tiền, mã cổ phiếu, số lượng, trạng thái, thời gian. UID và mã tham chiếu chỉ là thông tin phụ. Số đếm/phân nhóm áp dụng cho các bản ghi đã tải, phân trang vẫn giữ nguyên. Các thao tác dùng API hiện có, đọc lại kế hoạch vẫn yêu cầu xác nhận. Thông báo xem bằng nút chuông.
+
+### Cache kế hoạch trên máy
+
+Đang đợi và Lịch sử đọc Room mã hóa theo tài khoản Google trước khi xác minh backend hoàn tất, nếu phiên đã được xác minh trước đó. Đã có cache (kể cả danh sách rỗng) thì mở app/đưa app về foreground/chuyển tab không tải lại API planning. Thiếu cache thì tải một lần và lưu. Backend trả 404 được lưu thành trạng thái chưa có kế hoạch để không gọi lặp mỗi lần mở; lỗi mạng không thay cache đang có.
+
+Mỗi tab có nút Làm mới kế hoạch; bấm từ bất kỳ tab nào cũng GET upcoming và history, lưu cả hai và cập nhật thời điểm lưu. Không tự lọc/chuyển kế hoạch giữa Đang đợi/Lịch sử theo ngày trên máy; danh sách giữ kết quả lần tải gần nhất cho tới khi làm mới. Quản trị → Làm mới và nhập planning là thao tác chủ động cập nhật cả phiên bản chung và hai danh sách. Trước khi đặt lệnh DNSE, app vẫn bắt buộc lấy upcoming mới nhất để kiểm tra tính hợp lệ; không dùng cache để bỏ qua kiểm tra trước giao dịch. Trở lại foreground chỉ khôi phục cache, không gọi refreshAll; xác minh backend và đăng ký FCM khi đăng nhập/khởi động vẫn giữ nguyên, dùng lại response syncStatus để tránh gọi trùng.

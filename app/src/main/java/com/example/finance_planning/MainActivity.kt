@@ -8,12 +8,18 @@ import android.os.Build
 import android.os.Bundle
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
+import androidx.compose.ui.res.painterResource
 import androidx.activity.compose.setContent
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.LazyColumn
@@ -48,7 +54,7 @@ class MainActivity : ComponentActivity() {
     }
     override fun onResume() {
         super.onResume()
-        if (model.repo.approved()) model.refresh()
+        if (model.repo.approved()) model.resume()
     }
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
@@ -74,7 +80,9 @@ class MainActivity : ComponentActivity() {
 private fun PlanningScreen(model: PlanningViewModel) {
     val s by model.state.collectAsState()
     var tab by rememberSaveable { mutableIntStateOf(0) }
-    LaunchedEffect(s.notificationNavigation) { if (s.notificationNavigation > 0) tab = 2 }
+    var showNotifications by rememberSaveable { mutableStateOf(false) }
+    BackHandler(enabled = showNotifications) { showNotifications = false }
+    LaunchedEffect(s.notificationNavigation) { if (s.notificationNavigation > 0) showNotifications = true }
     val snackbar = remember { SnackbarHostState() }
     val lifecycle = (LocalContext.current as ComponentActivity).lifecycle
     var started by remember { mutableStateOf(lifecycle.currentState.isAtLeast(androidx.lifecycle.Lifecycle.State.STARTED)) }
@@ -99,35 +107,36 @@ private fun PlanningScreen(model: PlanningViewModel) {
         }
     }
     var confirm by remember { mutableStateOf("") }
-    val labels = listOf(text(R.string.dnse_account), text(R.string.orders),
-        text(R.string.notifications), text(R.string.settings)) +
+    val labels = listOf(text(R.string.orders), text(R.string.settings)) +
         if (s.admin) listOf(text(R.string.admin)) else emptyList()
-    val icons = listOf(R.string.nav_account_icon, R.string.nav_orders_icon,
-        R.string.nav_notifications_icon, R.string.nav_settings_icon, R.string.nav_admin_icon)
+    val icons = listOf(R.string.nav_orders_icon, R.string.nav_settings_icon, R.string.nav_admin_icon)
     LaunchedEffect(s.admin) { if (tab !in labels.indices) tab = 0 }
     Scaffold(snackbarHost = { SnackbarHost(snackbar) }, bottomBar = {
-        NavigationBar { labels.forEachIndexed { index, title ->
+        if (!showNotifications) NavigationBar { labels.forEachIndexed { index, title ->
             NavigationBarItem(selected = tab == index, onClick = { tab = index },
                 icon = { Text(text(icons[index])) }, label = { Text(title) })
         }}
     }) { padding ->
         Column(Modifier.fillMaxSize().padding(padding).padding(horizontal = 16.dp)) {
-            Text(text(R.string.app_heading), style = MaterialTheme.typography.headlineSmall,
-                modifier = Modifier.padding(top = 16.dp, bottom = 8.dp))
+            Row(Modifier.fillMaxWidth().padding(top = 12.dp, bottom = 8.dp),
+                verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (showNotifications) IconButton(onClick = { showNotifications = false }) {
+                    Icon(painterResource(R.drawable.ic_back_arrow), contentDescription = text(R.string.back))
+                }
+                Text(text(if (showNotifications) R.string.notifications else R.string.app_heading),
+                    style = MaterialTheme.typography.headlineSmall, modifier = Modifier.weight(1f))
+                if (!showNotifications) FilledTonalIconButton(onClick = { showNotifications = true }) {
+                    Icon(painterResource(R.drawable.ic_notifications_bell), contentDescription = text(R.string.open_notifications))
+                }
+            }
             if (s.busy) LinearProgressIndicator(Modifier.fillMaxWidth())
             Text(s.message, style = MaterialTheme.typography.bodyMedium,
                 modifier = Modifier.padding(vertical = 10.dp))
-            when (tab) {
-                0 -> Column(Modifier.verticalScroll(rememberScrollState()),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text(text(R.string.dnse_account), style = MaterialTheme.typography.titleLarge)
-                    DnseAccount(s, model)
-                    Spacer(Modifier.height(24.dp))
-                }
-                1 -> Orders(s, model)
-                2 -> NotificationList(s, model)
-                3 -> Settings(s, model) { confirm = it }
-                4 -> if (s.admin) AdminPanel(s, model) { confirm = "import" }
+            if (showNotifications) NotificationList(s, model) else when (tab) {
+                0 -> Orders(s, model)
+                1 -> Settings(s, model) { confirm = it }
+                2 -> if (s.admin) AdminPanel(s, model) { confirm = "import" }
             }
         }
     }
@@ -154,50 +163,133 @@ private fun PlanningScreen(model: PlanningViewModel) {
     }
 }
 @Composable
+private fun ConnectionStatus(title: String, value: String, verified: Boolean, note: String) {
+    Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp),
+        color = androidx.compose.ui.graphics.Color(if (verified) 0xFF174D3C else 0xFF632A35),
+        contentColor = androidx.compose.ui.graphics.Color.White) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(title, style = MaterialTheme.typography.titleMedium,
+                fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
+            Text(value, style = MaterialTheme.typography.bodyLarge,
+                fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold)
+            Text(note, style = MaterialTheme.typography.bodySmall, fontStyle = FontStyle.Italic,
+                color = androidx.compose.ui.graphics.Color(if (verified) 0xFFD3E2DA else 0xFFEACFD4))
+        }
+    }
+}
+
+@Composable
 private fun Settings(s: ScreenState, model: PlanningViewModel, confirm: (String) -> Unit) {
     val context = LocalContext.current
     var key by remember { mutableStateOf("") }
     var secret by remember { mutableStateOf("") }
     var production by remember(s.dnseProduction) { mutableStateOf(s.dnseProduction ?: false) }
     var unit by remember { mutableStateOf("1") }
-    LaunchedEffect(s.hasDnse, s.email) { if (s.hasDnse || !s.signedIn) { key = ""; secret = "" } }
+    LaunchedEffect(production, s.hasProductionKeys, s.hasSandboxKeys, s.email) { key = ""; secret = ""; unit = "1" }
     val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { }
     Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Text(text(R.string.settings), style = MaterialTheme.typography.titleLarge)
-        Text(text(R.string.google_account), style = MaterialTheme.typography.titleLarge)
-        if (s.signedIn) Text(s.email)
-        Text(if (s.approved) text(R.string.backend_account_access_verified) else text(R.string.backend_connection_not_verified))
-        Text(if (s.pushRegistered) text(R.string.fcm_device_registered_with_the_backend) else text(R.string.fcm_device_registration_incomplete))
-        Text(if (androidx.core.app.NotificationManagerCompat.from(context).areNotificationsEnabled())
-            text(R.string.notification_permission_enabled) else text(R.string.notification_permission_required))
+        Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp),
+            color = MaterialTheme.colorScheme.surfaceContainerHigh) {
+            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text(text(R.string.google_account), style = MaterialTheme.typography.titleMedium,
+                    fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
+                if (s.signedIn) Text(s.email, style = MaterialTheme.typography.titleLarge,
+                    fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold)
+                SyncNote(text(R.string.google_account_status_note))
+            }
+        }
+        ConnectionStatus(text(R.string.backend_access_status_title),
+            text(if (s.approved) R.string.backend_account_access_verified else R.string.backend_connection_not_verified),
+            s.approved, text(R.string.backend_access_status_note))
+        ConnectionStatus(text(R.string.fcm_registration_status_title),
+            text(if (s.pushRegistered) R.string.fcm_device_registered_with_the_backend else R.string.fcm_device_registration_incomplete),
+            s.pushRegistered, text(R.string.fcm_registration_status_note))
+        val notificationsAllowed = androidx.core.app.NotificationManagerCompat.from(context).areNotificationsEnabled()
+        ConnectionStatus(text(R.string.android_notification_status_title),
+            text(if (notificationsAllowed) R.string.notification_permission_enabled else R.string.notification_permission_required),
+            notificationsAllowed, text(R.string.android_notification_status_note))
         TextButton(onClick = model::copyFcmToken, enabled = s.approved && !s.busy) {
             Text(text(R.string.copy_current_fcm_token))
         }
-        Text(text(R.string.fcm_token_test_hint), style = MaterialTheme.typography.bodySmall)
+        SyncNote(text(R.string.fcm_token_test_hint))
         if (!s.configured) Text(text(R.string.sign_in_configuration_required))
         Button(onClick = { model.signIn(context) }, enabled = s.configured && !s.signedIn && !s.busy) { Text(text(R.string.sign_in_with_google)) }
-        Row {
-            TextButton(onClick = model::health, enabled = !s.busy) { Text(text(R.string.check_server)) }
-            TextButton(onClick = model::verify, enabled = s.signedIn && !s.busy) { Text(text(R.string.check_access)) }
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Card(Modifier.weight(1f), shape = RoundedCornerShape(18.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh)) {
+                Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Button(onClick = model::health, enabled = !s.busy,
+                        modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp), shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = androidx.compose.ui.graphics.Color(0xFF244866),
+                            contentColor = androidx.compose.ui.graphics.Color.White),
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 14.dp)) {
+                        Text(text(R.string.check_server), fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold)
+                    }
+                    SyncNote(text(R.string.check_server_note))
+                }
+            }
+            Card(Modifier.weight(1f), shape = RoundedCornerShape(18.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh)) {
+                Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Button(onClick = model::verify, enabled = s.signedIn && !s.busy,
+                        modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp), shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = androidx.compose.ui.graphics.Color(0xFF174D3C),
+                            contentColor = androidx.compose.ui.graphics.Color.White),
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 14.dp)) {
+                        Text(text(R.string.check_access), fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold)
+                    }
+                    SyncNote(text(R.string.check_access_note))
+                }
+            }
         }
         HorizontalDivider()
         Text(text(R.string.dnse_read_only), style = MaterialTheme.typography.titleLarge)
-        Text(text(R.string.dnse_keys_storage_notice))
+        SyncNote(text(R.string.dnse_keys_storage_notice))
         Text(text(R.string.dnse_environment), style = MaterialTheme.typography.titleMedium)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            FilterChip(selected = production, onClick = { production = true },
+            FilterChip(selected = production, enabled = s.signedIn && !s.busy, onClick = { production = true; model.saveDnseEnvironment(true) },
                 label = { Text(text(R.string.production_live)) })
-            FilterChip(selected = !production, onClick = { production = false },
+            FilterChip(selected = !production, enabled = s.signedIn && !s.busy, onClick = { production = false; model.saveDnseEnvironment(false) },
                 label = { Text(text(R.string.sandbox_test)) })
         }
-        if (s.hasDnse) Button(onClick = { model.saveDnseEnvironment(production) },
-            enabled = s.signedIn && !s.busy) {
-            Text(text(R.string.save_environment_using_stored_keys))
-        }
-        if (s.hasDnse) {
-            Text(text(R.string.dnse_keys_saved_delete_them_to_enter_new_keys))
-            OutlinedButton(onClick = model::deleteDnse, enabled = !s.busy) { Text(text(R.string.delete_keys)) }
+        val selectedHasKeys = if (production) s.hasProductionKeys else s.hasSandboxKeys
+        val environmentName = text(if (production) R.string.dnse_production_name else R.string.dnse_sandbox_name)
+        if (selectedHasKeys) {
+            SyncNote(text(R.string.dnse_environment_keys_saved, environmentName))
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                if (production) {
+                    Surface(modifier = Modifier.weight(1f).heightIn(min = 48.dp),
+                        color = androidx.compose.ui.graphics.Color(0xFF174D3C),
+                        contentColor = androidx.compose.ui.graphics.Color.White, shape = RoundedCornerShape(14.dp)) {
+                        Box(Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                            contentAlignment = androidx.compose.ui.Alignment.Center) {
+                            Text(text(R.string.dnse_active_keys_status, environmentName),
+                                style = MaterialTheme.typography.labelLarge,
+                                fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold)
+                        }
+                    }
+                } else {
+                    Button(onClick = { model.saveDnseEnvironment(production) }, enabled = s.signedIn && !s.busy,
+                        colors = ButtonDefaults.buttonColors(containerColor = androidx.compose.ui.graphics.Color(0xFF174D3C),
+                            contentColor = androidx.compose.ui.graphics.Color.White,
+                            disabledContainerColor = androidx.compose.ui.graphics.Color(0xFF36594C),
+                            disabledContentColor = androidx.compose.ui.graphics.Color(0xFFD4DED9)),
+                        shape = RoundedCornerShape(14.dp), modifier = Modifier.weight(1f)) {
+                        Text(text(R.string.dnse_use_environment_keys, environmentName))
+                    }
+                }
+                Button(onClick = { model.deleteDnse(production) }, enabled = !s.busy,
+                    colors = ButtonDefaults.buttonColors(containerColor = androidx.compose.ui.graphics.Color(0xFF8D2838),
+                        contentColor = androidx.compose.ui.graphics.Color.White,
+                        disabledContainerColor = androidx.compose.ui.graphics.Color(0xFF68414A),
+                        disabledContentColor = androidx.compose.ui.graphics.Color(0xFFE6D5D9)),
+                    shape = RoundedCornerShape(14.dp), modifier = Modifier.weight(1f)) {
+                    Text(text(R.string.dnse_delete_environment_keys, environmentName))
+                }
+            }
         } else {
+            SyncNote(text(R.string.dnse_environment_keys_missing, environmentName))
             OutlinedTextField(key, { key = it }, label = { Text(text(R.string.api_key)) }, singleLine = true,
                 visualTransformation = PasswordVisualTransformation(), modifier = Modifier.fillMaxWidth())
             OutlinedTextField(secret, { secret = it }, label = { Text(text(R.string.api_secret)) }, singleLine = true,
@@ -211,48 +303,142 @@ private fun Settings(s: ScreenState, model: PlanningViewModel, confirm: (String)
             Button(onClick = { model.saveDnse(key, secret, production, unit) },
                 enabled = s.signedIn && key.isNotBlank() && secret.isNotBlank() && !s.busy) { Text(text(R.string.save_keys)) }
         }
-        Text(when (s.dnseProduction) {
-            true -> text(R.string.saved_production_live_dnse_account)
-            false -> text(R.string.saved_sandbox_separate_test_keys_required)
-            null -> text(R.string.no_dnse_keys_saved)
-        })
+        Text(if (s.hasDnse) text(if (s.dnseProduction == true) R.string.saved_production_live_dnse_account
+            else R.string.saved_sandbox_separate_test_keys_required) else text(R.string.dnse_environment_keys_missing, environmentName))
         HorizontalDivider()
-        Card(Modifier.fillMaxWidth()) { Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Text(text(R.string.sync), style = MaterialTheme.typography.titleLarge)
+        Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(24.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)) {
+            Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+            SyncBlockHeader(text(R.string.sync), text(R.string.sync_block_icon), MaterialTheme.colorScheme.primary)
+            Surface(shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.45f)) {
+            Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
-                Text(text(R.string.scheduled_sync), modifier = Modifier.weight(1f))
+                Text(text(R.string.scheduled_sync), modifier = Modifier.weight(1f),
+                    style = MaterialTheme.typography.titleMedium, fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold)
                 Switch(checked = s.scheduleEnabled, onCheckedChange = model::schedule,
                     enabled = !s.busy && (s.approved || s.scheduleEnabled))
             }
-            Text(text(R.string.sync_schedule_explanation))
-            Text(text(R.string.last_sync, s.lastSync))
-            val sheetStatus = if (s.status?.optBoolean("sheet_writes") == true) text(R.string.enabled) else text(R.string.disabled_not_verified)
-            Text(text(R.string.sheet_writes, sheetStatus))
-            Text(text(R.string.batches_awaiting_sheet_updates, s.status?.optInt("pending_sheet_batches") ?: 0))
-            OutlinedButton(onClick = model::sync, enabled = s.approved && s.hasDnse && !s.busy) {
+            SyncNote(text(R.string.sync_schedule_explanation))
+            } }
+            SyncStatusLine(text(R.string.last_sync, s.lastSync))
+            val sheetWrites = s.status?.opt("sheet_writes") as? Boolean
+            SyncStatusLine(text(R.string.google_sheet_write_state, text(when (sheetWrites) {
+                true -> R.string.enabled
+                false -> R.string.sheet_writes_off
+                null -> R.string.sheet_writes_unknown
+            })))
+            SyncNote(text(R.string.sheet_write_state_note))
+            SyncStatusLine(text(R.string.sheet_status_verification, text(if (sheetWrites == null)
+                R.string.sheet_status_not_received else R.string.sheet_status_received)))
+            SyncNote(text(R.string.sheet_status_verification_note))
+            SyncStatusLine(text(R.string.batches_awaiting_sheet_updates, s.status?.optInt("pending_sheet_batches") ?: 0))
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            SyncNote(text(R.string.sync_now_explanation))
+            Button(onClick = model::sync, enabled = s.approved && s.hasDnse && !s.busy,
+                modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp),
+                contentPadding = PaddingValues(vertical = 14.dp)) {
                 Text(text(R.string.sync_dnse_now))
             }
-            OutlinedButton(onClick = model::retry, enabled = s.approved && !s.busy) {
-                Text(text(R.string.retry_pending_uploads))
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            Text(text(R.string.dnse_account), style = MaterialTheme.typography.titleMedium,
+                fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold)
+            DnseAccount(s)
+        } }
+        Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(24.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)) {
+            Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+            SyncBlockHeader(text(R.string.sync_upload_queue), text(R.string.upload_block_icon), MaterialTheme.colorScheme.tertiary)
+            SyncNote(text(R.string.retry_upload_explanation))
+            FilledTonalButton(onClick = model::retry, enabled = s.approved && !s.busy,
+                modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp),
+                contentPadding = PaddingValues(vertical = 14.dp)) {
+                Text(text(R.string.retry_pending_uploads_count, s.localQueue.size))
             }
-            Text(text(R.string.pending_uploads_on_this_device), style = MaterialTheme.typography.titleMedium)
-            s.localQueue.forEach { Text(it) }
-            Text(text(R.string.batches_uploaded_to_the_backend), style = MaterialTheme.typography.titleMedium)
-            s.batches.forEach { row ->
-                OutlinedButton(onClick = { model.batch(row.getString("id")) }, enabled = !s.busy) {
-                    Text(text(R.string.uploaded_records, row.optInt("record_count"), NotificationContent.time(row.optString("received_at"))))
-                }
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                Surface(Modifier.weight(1f), shape = RoundedCornerShape(16.dp),
+                    color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.3f)) {
+                Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text(text(R.string.pending_uploads_on_this_device), style = MaterialTheme.typography.titleSmall,
+                        color = MaterialTheme.colorScheme.secondary)
+                    Badge(containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                        contentColor = MaterialTheme.colorScheme.onSecondaryContainer) {
+                        Text(text(R.string.pending_batch_count, s.localQueue.size), modifier = Modifier.padding(horizontal = 4.dp))
+                    }
+                    HorizontalDivider()
+                    if (s.localQueue.isEmpty()) Text(text(R.string.no_pending_uploads), style = MaterialTheme.typography.bodySmall)
+                    s.localQueue.forEachIndexed { index, summary ->
+                        Text(text(R.string.sync_batch_number, index + 1), style = MaterialTheme.typography.labelLarge)
+                        Text(summary, style = MaterialTheme.typography.bodySmall)
+                        HorizontalDivider()
+                    }
+                } }
+                Surface(Modifier.weight(1f), shape = RoundedCornerShape(16.dp),
+                    color = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.3f)) {
+                Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text(text(R.string.batches_uploaded_to_the_backend), style = MaterialTheme.typography.titleSmall,
+                        color = MaterialTheme.colorScheme.tertiary)
+                    HorizontalDivider()
+                    if (s.batches.isEmpty()) Text(text(R.string.no_uploaded_batches), style = MaterialTheme.typography.bodySmall)
+                    s.batches.forEachIndexed { index, row ->
+                        Column(Modifier.fillMaxWidth().clickable(enabled = !s.busy,
+                            role = androidx.compose.ui.semantics.Role.Button) { model.batch(row.getString("id")) }
+                            .padding(vertical = 6.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Text(text(R.string.sync_batch_number, index + 1), style = MaterialTheme.typography.labelLarge)
+                            Text(text(R.string.uploaded_records, row.optInt("record_count"),
+                                NotificationContent.time(row.optString("received_at"))), style = MaterialTheme.typography.bodySmall)
+                            Text(text(R.string.view_batch_details), style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.primary)
+                        }
+                        HorizontalDivider()
+                    }
+                    if (s.batchCursor != null) TextButton(onClick = { model.more("batches") }, enabled = !s.busy) {
+                        Text(text(R.string.load_more))
+                    }
+                } }
             }
-            if (s.batchCursor != null) TextButton(onClick = { model.more("batches") }, enabled = !s.busy) { Text(text(R.string.load_more)) }
         } }
         TextButton(onClick = {
             if (android.os.Build.VERSION.SDK_INT >= 33) permission.launch(Manifest.permission.POST_NOTIFICATIONS)
         }) { Text(text(R.string.allow_notifications)) }
+        SyncNote(text(R.string.allow_notifications_note))
         OutlinedButton(onClick = { confirm("logout") }, enabled = s.signedIn && !s.busy) { Text(text(R.string.sign_out_and_delete_local_data)) }
         Spacer(Modifier.height(24.dp))
     }
 }
+@Composable
+private fun SyncStatusLine(label: String) {
+    Surface(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp),
+        color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.45f)) {
+        Text(label, modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold,
+            color = MaterialTheme.colorScheme.onSurface)
+    }
+}
+
+@Composable
+private fun SyncNote(note: String) {
+    Text(note, style = MaterialTheme.typography.bodySmall, fontStyle = FontStyle.Italic,
+        color = MaterialTheme.colorScheme.onSurfaceVariant)
+}
+
+@Composable
+private fun SyncBlockHeader(title: String, symbol: String, accent: androidx.compose.ui.graphics.Color) {
+    Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        Surface(shape = CircleShape, color = accent.copy(alpha = 0.12f), modifier = Modifier.size(44.dp)) {
+            Box(contentAlignment = androidx.compose.ui.Alignment.Center) {
+                Text(symbol, style = MaterialTheme.typography.headlineSmall, color = accent)
+            }
+        }
+        Text(title, style = MaterialTheme.typography.titleMedium,
+            fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold)
+    }
+}
+
 @Composable private fun InfoCard(data: JSONObject, title: String) {
     Card(Modifier.fillMaxWidth()) { Column(Modifier.padding(16.dp)) {
         Text(data.optString("Mã", title), style = MaterialTheme.typography.titleMedium)
@@ -272,43 +458,7 @@ private fun Settings(s: ScreenState, model: PlanningViewModel, confirm: (String)
 
 @Composable
 private fun AdminPanel(s: ScreenState, model: PlanningViewModel, importPlanning: () -> Unit) {
-    LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        item { Text(text(R.string.system_administration), style = MaterialTheme.typography.titleLarge) }
-        item { Text(text(R.string.admin_source_explanation)) }
-        items(s.sources) { source ->
-            val id = source.getString("id")
-            OutlinedButton(onClick = { model.source(id) }, enabled = !s.busy) {
-                Text(text(R.string.selected_source_format,
-                    if (s.selectedSource == id) text(R.string.selected_marker) else "",
-                    if (id == "legacy") text(R.string.shared_historical_data) else text(R.string.account, source.optString("uid"))))
-            }
-        }
-        if (s.sourceCursor != null) item {
-            TextButton(onClick = model::moreSources, enabled = !s.busy) { Text(text(R.string.more_accounts)) }
-        }
-        item { Text(text(R.string.selected_source_data), style = MaterialTheme.typography.titleMedium) }
-        items(s.adminRecords) { row -> InfoCard(row.optJSONObject("payload") ?: row, row.optString("kind")) }
-        if (s.recordCursor != null) item {
-            TextButton(onClick = model::moreRecords, enabled = !s.busy) { Text(text(R.string.more_records)) }
-        }
-        item { HorizontalDivider() }
-        item { Text(text(R.string.shared_planning), style = MaterialTheme.typography.titleMedium) }
-        item { Row {
-            TextButton(onClick = importPlanning, enabled = !s.busy) { Text(text(R.string.import_planning)) }
-            TextButton(onClick = model::reconcile, enabled = !s.busy) { Text(text(R.string.update_sheet)) }
-        } }
-        items(s.planning?.objects("items") ?: emptyList()) { row ->
-            InfoCard(row.optJSONObject("fields") ?: row, text(R.string.plan))
-        }
-        item { Text(text(R.string.planning_notifications), style = MaterialTheme.typography.titleMedium) }
-        items(s.notifications) { row ->
-            OutlinedButton(onClick = { model.notification(row.optString("event_id", row.optString("id"))) },
-                enabled = !s.busy) { Text(text(R.string.symbol_reason_format, row.optString("symbol"), row.optString("reason"))) }
-        }
-        if (s.notificationCursor != null) item {
-            TextButton(onClick = { model.more("notifications") }, enabled = !s.busy) { Text(text(R.string.more_notifications)) }
-        }
-    }
+    com.example.finance_planning.ui.AdminDashboard(s, model, importPlanning)
 }
 
 
@@ -375,21 +525,38 @@ private fun NotificationPermissionOnStart() {
 
 @Composable
 private fun AccountBlock(title: String, source: String, content: @Composable ColumnScope.() -> Unit) {
-    Card(Modifier.fillMaxWidth()) {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text(title, style = MaterialTheme.typography.titleMedium)
+    Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)) {
+        Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                Surface(color = MaterialTheme.colorScheme.primary, shape = RoundedCornerShape(4.dp),
+                    modifier = Modifier.width(4.dp).height(24.dp)) { }
+                Text(title, style = MaterialTheme.typography.titleMedium,
+                    fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold)
+            }
             content()
-            Text(text(R.string.source, source), style = MaterialTheme.typography.bodySmall)
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            SyncNote(text(R.string.source, source))
         }
     }
 }
 
 @Composable
-private fun DnseAccount(s: ScreenState, model: PlanningViewModel) {
-    Text(text(R.string.last_sync, NotificationContent.time(s.lastSync)))
-    Button(onClick = model::sync, enabled = s.approved && s.hasDnse && !s.busy,
-        modifier = Modifier.fillMaxWidth()) { Text(text(R.string.sync_data_from_dnse)) }
-    if (s.dnse?.objects("accounts").isNullOrEmpty()) Text(text(R.string.dnse_account_empty))
+private fun AccountMetric(label: String, value: String, accent: androidx.compose.ui.graphics.Color) {
+    Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp), color = accent.copy(alpha = 0.08f)) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Text(label, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(value, style = MaterialTheme.typography.headlineSmall,
+                fontWeight = androidx.compose.ui.text.font.FontWeight.Bold, color = accent)
+        }
+    }
+}
+
+@Composable
+private fun DnseAccount(s: ScreenState) {
+    if (s.dnse?.objects("accounts").isNullOrEmpty()) SyncNote(text(R.string.dnse_account_empty))
     s.dnse?.objects("accounts")?.forEach { account ->
         val id = account.optString("account")
         AccountBlock(text(R.string.personal_information, id), text(R.string.get_accounts)) {
@@ -398,22 +565,46 @@ private fun DnseAccount(s: ScreenState, model: PlanningViewModel) {
                 "phone" to text(R.string.phone), "phoneNumber" to text(R.string.phone), "accountName" to text(R.string.account_name),
                 "accountType" to text(R.string.account_type), "status" to text(R.string.status))
             val present = fields.filter { profile.optString(it.first).let { value -> value.isNotBlank() && value != "null" } }
-            Text(text(R.string.dnse_account_2, id))
-            present.forEach { (key, label) -> Text(text(R.string.label_value, label, profile.optString(key))) }
-            if (present.isEmpty()) Text(text(R.string.dnse_profile_not_provided))
+            Surface(shape = RoundedCornerShape(10.dp), color = MaterialTheme.colorScheme.primaryContainer) {
+                Text(text(R.string.dnse_account_2, id), modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                    style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onPrimaryContainer)
+            }
+            present.forEach { (key, label) ->
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text(label, modifier = Modifier.weight(0.4f), style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(profile.optString(key), modifier = Modifier.weight(0.6f), style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = androidx.compose.ui.text.font.FontWeight.Medium)
+                }
+            }
+            if (present.isEmpty()) SyncNote(text(R.string.dnse_profile_not_provided))
         }
         AccountBlock(text(R.string.cash_and_buying_power), text(R.string.get_accounts_balances, id)) {
             val balance = s.dnse.objects("balances").firstOrNull { it.optString("account") == id }
-            Text(text(R.string.available_cash, OrderContent.money(balance?.let { OrderContent.number(it, "cash_vnd") })))
-            Text(text(R.string.buying_power, OrderContent.money(balance?.let { OrderContent.number(it, "buying_power_vnd") })))
+            AccountMetric(text(R.string.cash_metric_label),
+                OrderContent.money(balance?.let { OrderContent.number(it, "cash_vnd") }), MaterialTheme.colorScheme.primary)
+            AccountMetric(text(R.string.buying_power_metric_label),
+                OrderContent.money(balance?.let { OrderContent.number(it, "buying_power_vnd") }), MaterialTheme.colorScheme.tertiary)
         }
         AccountBlock(text(R.string.stock_portfolio), text(R.string.get_accounts_positions_markettype_stock, id)) {
             val holdings = s.dnse.objects("positions").filter { it.optString("account") == id }
-            if (holdings.isEmpty()) Text(text(R.string.no_stock_positions_in_the_synced_data))
+            if (holdings.isEmpty()) SyncNote(text(R.string.no_stock_positions_in_the_synced_data))
             holdings.forEach { position ->
-                Text(position.optString("symbol"), style = MaterialTheme.typography.titleSmall)
-                Text(text(R.string.quantity_available_to_sell, OrderContent.quantity(position, "quantity"), OrderContent.quantity(position, "available_quantity")))
-                Text(text(R.string.average_cost, OrderContent.money(OrderContent.number(position, "average_price_vnd"))))
+                Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp),
+                    color = MaterialTheme.colorScheme.surfaceContainerLow) {
+                    Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Surface(shape = RoundedCornerShape(8.dp), color = MaterialTheme.colorScheme.secondaryContainer) {
+                            Text(position.optString("symbol"), modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                                style = MaterialTheme.typography.titleMedium, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSecondaryContainer)
+                        }
+                        Text(text(R.string.quantity_available_to_sell, OrderContent.quantity(position, "quantity"),
+                            OrderContent.quantity(position, "available_quantity")), style = MaterialTheme.typography.bodyMedium)
+                        Text(text(R.string.average_cost, OrderContent.money(OrderContent.number(position, "average_price_vnd"))),
+                            style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.primary,
+                            fontWeight = androidx.compose.ui.text.font.FontWeight.Medium)
+                    }
+                }
             }
         }
     }
@@ -421,6 +612,8 @@ private fun DnseAccount(s: ScreenState, model: PlanningViewModel) {
 
 @Composable
 private fun Orders(s: ScreenState, model: PlanningViewModel) {
+    var tradePlan by remember { mutableStateOf<JSONObject?>(null) }
+    tradePlan?.let { com.example.finance_planning.ui.ManualTradeDialog(it, model.repo) { tradePlan = null } }
     var section by rememberSaveable { mutableIntStateOf(0) }
     val response = if (section == 0) s.upcomingPlanning else s.planningHistory
     val rows = response?.objects("items").orEmpty()
@@ -434,19 +627,18 @@ private fun Orders(s: ScreenState, model: PlanningViewModel) {
             item {
                 Text(if (section == 0) text(R.string.pending_orders_explanation)
                     else text(R.string.order_history_explanation), modifier = Modifier.padding(vertical = 12.dp))
-                TextButton(onClick = model::refresh, enabled = s.approved && !s.busy) { Text(text(R.string.refresh_planning_orders)) }
+                val savedAt = if (section == 0) s.upcomingSavedAt else s.historySavedAt
+                savedAt?.let { SyncNote(text(R.string.planning_cache_saved_at, NotificationContent.time(it))) }
+                SyncNote(text(R.string.planning_cache_display_note))
+                FilledTonalButton(onClick = model::refreshPlanning, enabled = s.approved && !s.busy,
+                    modifier = Modifier.padding(top = 8.dp)) { Text(text(R.string.refresh_planning_orders)) }
+                SyncNote(text(R.string.planning_cache_refresh_note))
             }
             items(rows) { row ->
-                val fields = row.optJSONObject("fields") ?: row
-                Card(Modifier.fillMaxWidth()) { Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text(fields.optString("Mã", text(R.string.plan)), style = MaterialTheme.typography.titleMedium)
-                    row.optString("scheduled_date").takeIf { it.isNotBlank() }?.let {
-                        Text(text(R.string.planned_date, it), color = MaterialTheme.colorScheme.primary)
-                    }
-                    JsonFields(fields)
-                } }
+                com.example.finance_planning.ui.PlanningOrderCard(row, s.dnse, section == 0,
+                    s.approved && s.hasDnse && !s.busy) { tradePlan = row }
             }
-            if (!s.busy && response == null) item { Text(text(if (s.approved && !s.admin)
+            if (!s.busy && (response == null || response.optBoolean("_not_available"))) item { Text(text(if (s.approved && !s.admin)
                 R.string.this_feature_requires_admin_access else R.string.planning_orders_unavailable)) }
             else if (!s.busy && rows.isEmpty()) item { Text(text(R.string.no_orders_or_plans_in_this_group_yet)) }
         }

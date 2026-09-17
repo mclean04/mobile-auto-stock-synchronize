@@ -21,9 +21,11 @@ import java.util.UUID
 
 class PlanningRepository(val identity: MobileIdentity, private val vault: Vault,
                          private val db: LocalDb, val api: BackendApi) {
+    private val dnseCredentials = DnseCredentialStore(vault::get, vault::put, vault::remove)
     private val lock = Mutex()
     private val dao = db.dao()
     private val notificationLock = Mutex()
+    private val planningCacheLock = Mutex()
     private val arrivals = kotlinx.coroutines.flow.MutableSharedFlow<Pair<String, JSONObject>>(extraBufferCapacity = 16)
     val notificationArrivals = arrivals.asSharedFlow()
     fun announceNotification(uid: String, event: JSONObject) {
@@ -36,32 +38,37 @@ class PlanningRepository(val identity: MobileIdentity, private val vault: Vault,
     }
     fun invalidateSession() { vault.remove("approved") }
     fun approved(): Boolean = identity.uid()?.let { vault.get("approved") == it && vault.get("mobile_scope") == "uploader-v1:$it" } ?: false
-    suspend fun verifySession() {
-        api.syncStatus() // Firebase sign-in alone is not backend authorization.
+    suspend fun verifySession(): JSONObject {
+        val status = api.syncStatus() // Firebase sign-in alone is not backend authorization.
         if (vault.get("mobile_scope") != "uploader-v1:${owner()}") save("dnse", JSONObject())
         vault.put("mobile_scope", "uploader-v1:${owner()}")
         vault.put("approved", owner())
         registerPush()
+        return status
     }
     suspend fun cached(key: String): JSONObject? =
         dao.cached(owner(), key)?.let { JSONObject(vault.open(it.ciphertext)) }
     private suspend fun save(key: String, json: JSONObject) {
         dao.cache(CacheRow(owner(), key, vault.seal(json.toString()), System.currentTimeMillis()))
     }
-    suspend fun planning(refresh: Boolean = true): JSONObject {
-        if (refresh) save("planning", api.latestPlanning())
-        return cached("planning") ?: JSONObject()
+    suspend fun cachedTime(key: String): String? = dao.cached(owner(), key)?.let {
+        java.time.Instant.ofEpochMilli(it.savedAt).toString()
     }
-    suspend fun upcomingPlanning(): JSONObject {
-        val result = api.upcomingPlanning()
-        save("planning_upcoming", result)
-        return result
+    private suspend fun planningRead(key: String, refresh: Boolean, fetch: suspend () -> JSONObject): JSONObject = planningCacheLock.withLock {
+        val uid = owner()
+        CacheFirstRead.load(refresh, { cached(key) }, {
+            try { fetch() } catch (e: HttpFailure) {
+                if (e.status != 404) throw e
+                JSONObject().put("items", JSONArray()).put("_not_available", true)
+            }
+        }, { result ->
+            if (identity.uid() != uid) throw AppFailure(AppText.get(R.string.the_sign_in_session_has_changed))
+            dao.cache(CacheRow(uid, key, vault.seal(result.toString()), System.currentTimeMillis()))
+        })
     }
-    suspend fun planningHistory(): JSONObject {
-        val result = api.planningHistory()
-        save("planning_history", result)
-        return result
-    }
+    suspend fun planning(refresh: Boolean = true) = planningRead("planning", refresh) { api.latestPlanning() }
+    suspend fun upcomingPlanning(refresh: Boolean = false) = planningRead("planning_upcoming", refresh) { api.upcomingPlanning() }
+    suspend fun planningHistory(refresh: Boolean = false) = planningRead("planning_history", refresh) { api.planningHistory() }
     fun observeNotifications(uid: String) = dao.observeNotifications(uid).map { rows ->
         rows.map { JSONObject(vault.open(it.ciphertext)) }
             .sortedByDescending { it.optString("created_at") }
@@ -106,30 +113,131 @@ class PlanningRepository(val identity: MobileIdentity, private val vault: Vault,
         cacheNotifications(JSONObject().put("items", JSONArray().put(event)), uid)
         return event
     }
+    private fun tradeHash(value: String) = java.security.MessageDigest.getInstance("SHA-256")
+        .digest(value.toByteArray()).joinToString("") { "%02x".format(it) }
+
+    suspend fun dnseSnapshot(): JSONObject? {
+        val config = dnseCredentials.config(owner()) ?: return null
+        return cached("dnse")?.takeIf { it.optString("credential_scope") == tradeHash(config) }
+    }
+
+    /** One dialog owns one OTP session; tokens are never persisted or logged. */
+    inner class ManualTradeSession internal constructor(private val uid: String, private val config: String,
+                                                       private val plan: JSONObject) {
+        private val settings = JSONObject(config)
+        val production = settings.getBoolean("production")
+        private val broker = DnseTradingApi(settings.getString("key"), settings.getString("secret"), production)
+        private var tradingToken: String? = null
+        private var verifiedAt = 0L
+        private fun check() {
+            if (identity.uid() != uid || !approved() || dnseCredentials.config(uid) != config)
+                throw AppFailure(AppText.get(R.string.the_sign_in_session_has_changed))
+        }
+        private val journalKey = "manual_trade:" + production + ":" + tradeHash(
+            plan.optString("scheduled_date") + ":" + plan.getInt("source_row"))
+        suspend fun result(): JSONObject? { check(); return cached(journalKey)?.takeUnless { it.optString("state") == "REJECTED" } }
+        suspend fun funds(): JSONObject? { check(); return dnseSnapshot() }
+        suspend fun requireFunds(account: String, draft: TradeDraft) {
+            check()
+            if (PlanningFunds.cancelled(plan)) throw AppFailure(AppText.get(R.string.trade_plan_changed))
+            if (draft.side != "NB") return
+            val required = PlanningFunds.required(plan, java.math.BigDecimal(draft.price).multiply(java.math.BigDecimal(draft.quantity)))
+                ?: throw AppFailure(AppText.get(R.string.plan_funds_unknown))
+            val syncedCash = PlanningFunds.cash(dnseSnapshot(), account)
+            if (syncedCash == null || syncedCash < required) throw AppFailure(AppText.get(R.string.plan_funds_topup_note))
+        }
+        suspend fun accounts(): List<JSONObject> {
+            check()
+            return broker.accounts().filter { it.optBoolean("dealAccount", false) }
+        }
+        suspend fun packages(account: String, symbol: String): List<JSONObject> {
+            check()
+            require(accounts().any { DnseApi.text(it, "id", "accountNo") == account })
+            return broker.packages(account, symbol)
+        }
+        suspend fun emailOtp() { check(); broker.emailOtp(); check() }
+        suspend fun verify(type: String, otp: String) {
+            check()
+            val token = broker.token(type, otp)
+            check(); tradingToken = token; verifiedAt = System.currentTimeMillis()
+        }
+        fun close() { tradingToken = null; verifiedAt = 0 }
+        suspend fun place(account: String, draft: TradeDraft): JSONObject = lock.withLock {
+            check(); draft.body()
+            require(draft.side == PlanningFunds.side(plan))
+            requireFunds(account, draft)
+            val token = tradingToken ?: throw AppFailure(AppText.get(R.string.trade_otp_required))
+            if (System.currentTimeMillis() - verifiedAt !in 0..(5 * 60 * 1000L))
+                throw AppFailure(AppText.get(R.string.trade_otp_required))
+            if (result() != null) throw AppFailure(AppText.get(R.string.trade_already_attempted))
+            val fresh = upcomingPlanning(refresh = true).objects("items").firstOrNull {
+                it.optInt("source_row") == plan.getInt("source_row") &&
+                    it.optString("scheduled_date") == plan.optString("scheduled_date")
+            }
+            if (fresh == null || fresh.getJSONObject("fields").toString() != plan.getJSONObject("fields").toString())
+                throw AppFailure(AppText.get(R.string.trade_plan_changed))
+            require(packages(account, draft.symbol).any { it.optLong("id", -1) == draft.packageId })
+            check()
+            if (draft.side == "NB") {
+                val rawBalance = broker.balances(account)
+                val balance = (rawBalance as? JSONObject)?.let { it.optJSONObject("data") ?: it.optJSONObject("balance") ?: it }
+                    ?: throw AppFailure(AppText.get(R.string.plan_funds_unknown))
+                val live = DnseApi.normalizeBalance(account, balance, java.math.BigDecimal.ONE, java.time.Instant.now())
+                val cash = OrderContent.number(live, "cash_vnd")
+                val required = PlanningFunds.required(plan, java.math.BigDecimal(draft.price).multiply(java.math.BigDecimal(draft.quantity)))!!
+                if (cash == null || cash < required) throw AppFailure(AppText.get(R.string.plan_funds_topup_note))
+                requireFunds(account, draft)
+            }
+            check()
+            val journal = JSONObject().put("state", "UNKNOWN").put("account", account)
+                .put("draft", draft.body()).put("created_at", java.time.Instant.now().toString())
+            // Durable marker precedes the network write. Cancellation/timeouts never permit an automatic retry.
+            save(journalKey, journal)
+            try {
+                check()
+                val response = broker.place(account, draft, token)
+                val orderId = DnseApi.text(response, "id", "orderId")
+                require(orderId.isNotBlank() && orderId != "null")
+                journal.put("state", "SUBMITTED").put("order_id", orderId)
+                kotlinx.coroutines.withContext(kotlinx.coroutines.NonCancellable) {
+                    dao.cache(CacheRow(uid, journalKey, vault.seal(journal.toString()), System.currentTimeMillis()))
+                }
+                journal
+            } catch (e: Exception) {
+                if (e is TradeHttpFailure && e.status in setOf(400, 401, 403, 404, 422)) {
+                    journal.put("state", "REJECTED").put("http_status", e.status)
+                    kotlinx.coroutines.withContext(kotlinx.coroutines.NonCancellable) {
+                        dao.cache(CacheRow(uid, journalKey, vault.seal(journal.toString()), System.currentTimeMillis()))
+                    }
+                    throw AppFailure(AppText.get(R.string.trade_http_error, e.status))
+                }
+                throw AppFailure(AppText.get(R.string.trade_unknown_result))
+            } finally { close() }
+        }
+    }
+    fun manualTrade(plan: JSONObject): ManualTradeSession {
+        if (!approved()) throw AppFailure(AppText.get(R.string.backend_mobile_not_verified))
+        val uid = owner()
+        val config = dnseCredentials.config(uid) ?: throw AppFailure(AppText.get(R.string.save_the_api_key_and_secret_first))
+        return ManualTradeSession(uid, config, JSONObject(plan.toString()))
+    }
+
     fun saveDnse(key: String, secret: String, production: Boolean, vndPerUnit: String) {
-        require(key.isNotBlank() && secret.isNotBlank())
-        require(vndPerUnit in setOf("1", "1000"))
+        dnseCredentials.save(owner(), key, secret, production, vndPerUnit)
+    }
+    fun saveDnseEnvironment(production: Boolean) { dnseCredentials.select(owner(), production) }
+    fun dnseProduction(): Boolean? = identity.uid()?.let { dnseCredentials.production(it) }
+    suspend fun deleteDnse(production: Boolean) = lock.withLock {
         val uid = owner()
-        vault.put("dnse:$uid", JSONObject().put("key", key.trim()).put("secret", secret.trim())
-            .put("production", production).put("vndPerUnit", vndPerUnit).toString())
-    }
-    fun saveDnseEnvironment(production: Boolean) {
-        val uid = owner()
-        val saved = vault.get("dnse:$uid")?.let(::JSONObject)
-            ?: throw AppFailure(AppText.get(R.string.save_the_api_key_and_secret_first))
-        saved.put("production", production)
-        vault.put("dnse:$uid", saved.toString())
-    }
-    fun dnseProduction(): Boolean? = identity.uid()?.let { uid ->
-        vault.get("dnse:$uid")?.let { JSONObject(it).getBoolean("production") }
-    }
-    suspend fun deleteDnse() = lock.withLock {
-        vault.remove("dnse:${owner()}")
-        save("dnse", JSONObject())
-        vault.remove("last_sync:${owner()}")
+        dnseCredentials.delete(uid, production)
+        if (dnseCredentials.production(uid) == production) {
+            save("dnse", JSONObject())
+            vault.remove("last_sync:$uid")
+        }
     }
     fun pushRegistered() = identity.uid()?.let { vault.get("push_registered:$it") == "true" } ?: false
-    fun hasDnse() = identity.uid()?.let { vault.get("dnse:$it") != null } ?: false
+    fun hasDnse() = identity.uid()?.let { dnseCredentials.config(it) != null } ?: false
+    fun hasDnse(production: Boolean) = identity.uid()?.let { dnseCredentials.has(it, production) } ?: false
     suspend fun localQueueSummary(): List<String> = localBatches().filter { it.state != "COMMITTED" }.map { row ->
         val data = JSONObject(vault.open(row.ciphertext))
         val state = if (row.state == "REVIEW_REQUIRED") AppText.get(R.string.data_review_required) else AppText.get(R.string.awaiting_upload)
@@ -140,7 +248,8 @@ class PlanningRepository(val identity: MobileIdentity, private val vault: Vault,
         if (!approved()) throw AppFailure(AppText.get(R.string.backend_mobile_not_verified))
         val uid = owner()
         flush(uid)
-        val config = vault.get("dnse:$uid")?.let(::JSONObject) ?: throw AppFailure(AppText.get(R.string.save_your_dnse_keys_first))
+        val configRaw = dnseCredentials.config(uid) ?: throw AppFailure(AppText.get(R.string.save_your_dnse_keys_first))
+        val config = JSONObject(configRaw)
         val production = config.getBoolean("production")
         val dnse = DnseApi(config.getString("key"), config.getString("secret"), production)
         val now = LocalDate.now(ZoneId.of("Asia/Ho_Chi_Minh"))
@@ -203,6 +312,7 @@ class PlanningRepository(val identity: MobileIdentity, private val vault: Vault,
             .put("executions", JSONArray(executionList)).put("positions", JSONArray(positionList))
             .put("balances", JSONArray(balanceList)).put("accounts", overview)
             .put("saved_at", java.time.Instant.now().toString()).put("production", production)
+            .put("credential_scope", tradeHash(configRaw))
         val previous = cached("dnse")?.takeIf { it.optBoolean("production") == production }
         fun previousMap(kind: String, key: (JSONObject) -> String): Map<String, JSONObject> =
             previous?.objects(kind)?.associateBy(key) ?: emptyMap()
@@ -281,7 +391,7 @@ class PlanningRepository(val identity: MobileIdentity, private val vault: Vault,
         if (!com.example.finance_planning.BuildConfig.DEBUG)
             FirebaseMessaging.getInstance().deleteToken().await()
         vault.remove("approved")
-        vault.remove("dnse:$uid")
+        dnseCredentials.clear(uid)
         vault.remove("push_registered:$uid")
         vault.remove("last_sync:$uid")
         db.withTransaction { dao.clearCache(uid); dao.clearBatches(uid) }
