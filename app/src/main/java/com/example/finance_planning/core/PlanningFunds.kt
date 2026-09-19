@@ -9,7 +9,7 @@ object PlanningFunds {
     fun fields(plan: JSONObject) = plan.optJSONObject("fields") ?: plan
     fun side(plan: JSONObject): String = when (fields(plan).optString("Mua/Bán").trim().uppercase(Locale.ROOT)) {
         "MUA", "BUY", "NB" -> "NB"; "BÁN", "BAN", "SELL", "NS" -> "NS"; else -> ""
-    }
+    }.ifBlank { when (PlanningIntent.parseOrNull(plan)?.side) { "BUY" -> "NB"; "SELL" -> "NS"; else -> "" } }
     fun cancelled(plan: JSONObject): Boolean {
         val f = fields(plan)
         return plan.optString("action").uppercase(Locale.ROOT) == "CANCEL_ORDER" ||
@@ -17,8 +17,10 @@ object PlanningFunds {
             f.optString("Trạng thái").trim().uppercase(Locale.ROOT) in setOf("CANCELLED", "CANCELED", "ĐÃ HỦY", "ĐÃ HUỶ", "HỦY", "HUỶ")
     }
     private fun number(f: JSONObject, key: String): BigDecimal? = f.optString(key).toBigDecimalOrNull()?.takeIf { it.signum() >= 0 }
-    fun price(plan: JSONObject) = listOf("Giá LO tối đa", "Giá LO", "Giá LO (VND)").firstNotNullOfOrNull { number(fields(plan), it)?.takeIf { n -> n.signum() > 0 } }
+    fun price(plan: JSONObject) = PlanningIntent.parseOrNull(plan)?.let { BigDecimal(it.limitPriceVnd) }
+        ?: listOf("Giá LO tối đa", "Giá LO", "Giá LO (VND)").firstNotNullOfOrNull { number(fields(plan), it)?.takeIf { n -> n.signum() > 0 } }
     fun principal(plan: JSONObject): BigDecimal? {
+        PlanningIntent.parseOrNull(plan)?.let { return BigDecimal(it.limitPriceVnd).multiply(BigDecimal(it.quantity)) }
         val f = fields(plan)
         val quantity = number(f, "Số lượng")?.takeIf { it.signum() > 0 }
         val computed = quantity?.let { q -> price(plan)?.multiply(q) }
@@ -26,6 +28,10 @@ object PlanningFunds {
         return listOfNotNull(computed, stated).maxOrNull()
     }
     fun required(plan: JSONObject, actualPrincipal: BigDecimal? = null): BigDecimal? {
+        PlanningIntent.parseOrNull(plan)?.let {
+            val canonical = BigDecimal(it.limitPriceVnd).multiply(BigDecimal(it.quantity))
+            return (actualPrincipal ?: canonical).max(canonical)
+        }
         val f = fields(plan)
         val principal = principal(plan) ?: return null
         val fee = number(f, "Phí dự phòng") ?: BigDecimal.ZERO

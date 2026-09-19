@@ -31,6 +31,7 @@ data class ScreenState(
     val adminRecords: List<JSONObject> = emptyList(), val recordCursor: String? = null,
     val scheduleEnabled: Boolean = false,
     val upcomingPlanning: JSONObject? = null, val planningHistory: JSONObject? = null,
+    val planningExecutionFresh: Boolean = false,
     val upcomingSavedAt: String? = null, val historySavedAt: String? = null,
     val planning: JSONObject? = null, val notifications: List<JSONObject> = emptyList(),
     val orders: List<JSONObject> = emptyList(), val batches: List<JSONObject> = emptyList(),
@@ -91,7 +92,7 @@ class PlanningViewModel(application: Application) : AndroidViewModel(application
             repo.api.readSource = null
             mutable.value = mutable.value.copy(admin = false, sources = emptyList(),
                 selectedSource = null, adminRecords = emptyList(), planning = null,
-                upcomingPlanning = null, planningHistory = null,
+                upcomingPlanning = null, planningHistory = null, planningExecutionFresh = false,
                 notifications = emptyList(), orders = emptyList(), batches = emptyList())
         }
         mutable.value = mutable.value.copy(signedIn = repo.identity.uid() != null,
@@ -151,6 +152,7 @@ class PlanningViewModel(application: Application) : AndroidViewModel(application
         if (!repo.approved()) return
         mutable.value = mutable.value.copy(planning = repo.cached("planning"),
             upcomingPlanning = repo.cached("planning_upcoming"), planningHistory = repo.cached("planning_history"),
+            planningExecutionFresh = false,
             upcomingSavedAt = repo.cachedTime("planning_upcoming"), historySavedAt = repo.cachedTime("planning_history"))
     }
     fun refreshPlanning() = run {
@@ -158,7 +160,9 @@ class PlanningViewModel(application: Application) : AndroidViewModel(application
         val upcoming = repo.upcomingPlanning(refresh = true)
         mutable.value = mutable.value.copy(upcomingPlanning = upcoming, upcomingSavedAt = repo.cachedTime("planning_upcoming"))
         val history = repo.planningHistory(refresh = true)
-        mutable.value = mutable.value.copy(planningHistory = history, historySavedAt = repo.cachedTime("planning_history"))
+        mutable.value = mutable.value.copy(planningHistory = history, historySavedAt = repo.cachedTime("planning_history"),
+            planningExecutionFresh = upcoming.optString("contract_version") == "2.0" &&
+                history.optString("contract_version") == "2.0")
         AppText.get(R.string.planning_cache_refreshed)
     }
     fun deleteDnse(production: Boolean) = run { repo.deleteDnse(production); queue(); AppText.get(R.string.dnse_keys_deleted) }
@@ -185,6 +189,8 @@ class PlanningViewModel(application: Application) : AndroidViewModel(application
             sourceCursor = cursor(sources), selectedSource = repo.api.readSource,
             adminRecords = records.objects("items"), recordCursor = cursor(records),
             planning = planning, upcomingPlanning = upcoming, planningHistory = history,
+            planningExecutionFresh = refreshPlanning && upcoming?.optString("contract_version") == "2.0" &&
+                history?.optString("contract_version") == "2.0",
             upcomingSavedAt = if (admin) repo.cachedTime("planning_upcoming") else null,
             historySavedAt = if (admin) repo.cachedTime("planning_history") else null,
             notificationCursor = cursor(events),

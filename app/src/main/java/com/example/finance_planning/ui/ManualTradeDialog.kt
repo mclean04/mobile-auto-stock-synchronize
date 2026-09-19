@@ -15,6 +15,7 @@ import com.example.finance_planning.core.AppFailure
 import com.example.finance_planning.core.AppText
 import com.example.finance_planning.core.PlanningFunds
 import com.example.finance_planning.core.OrderContent
+import com.example.finance_planning.core.NotificationContent
 import com.example.finance_planning.data.PlanningRepository
 import com.example.finance_planning.network.DnseApi
 import com.example.finance_planning.network.TradeDraft
@@ -36,14 +37,16 @@ fun ManualTradeDialog(plan: JSONObject, repo: PlanningRepository, dismiss: () ->
     var account by remember { mutableStateOf("") }
     var selectedPackage by remember { mutableStateOf<JSONObject?>(null) }
     var result by remember { mutableStateOf<JSONObject?>(null) }
+    val intent = remember(plan) { com.example.finance_planning.core.PlanningIntent.parseOrNull(plan) }
     val fields = remember(plan) { plan.optJSONObject("fields") ?: plan }
-    val symbol = remember(plan) { fields.optString("Mã").trim().uppercase(java.util.Locale.US) }
-    val side = remember(plan) { when(fields.optString("Mua/Bán").trim().uppercase(java.util.Locale.US)) {
+    val symbol = remember(plan) { intent?.symbol ?: fields.optString("Mã").trim().uppercase(java.util.Locale.US) }
+    val side = remember(plan) { intent?.let { if (it.side == "BUY") "NB" else "NS" } ?: when(fields.optString("Mua/Bán").trim().uppercase(java.util.Locale.US)) {
         "MUA", "BUY", "NB" -> "NB"; "BÁN", "BAN", "SELL", "NS" -> "NS"; else -> ""
     } }
-    var quantity by remember { mutableStateOf(runCatching { BigDecimal(fields.optString("Số lượng")).intValueExact().toString() }.getOrDefault("")) }
+    var quantity by remember { mutableStateOf(intent?.quantity?.toString()
+        ?: runCatching { BigDecimal(fields.optString("Số lượng")).intValueExact().toString() }.getOrDefault("")) }
     // Planning Sheets do not define a reliable quote unit. Require an explicit VND limit price.
-    var price by remember { mutableStateOf("") }
+    var price by remember { mutableStateOf(intent?.limitPriceVnd?.toString().orEmpty()) }
     var draft by remember { mutableStateOf<TradeDraft?>(null) }
     var otp by remember { mutableStateOf("") }
     var otpType by remember { mutableStateOf("smart_otp") }
@@ -84,8 +87,13 @@ fun ManualTradeDialog(plan: JSONObject, repo: PlanningRepository, dismiss: () ->
             if (message.isNotBlank()) Text(message, color = MaterialTheme.colorScheme.error)
             if (result == null) {
                 Text(text(R.string.trade_manual_notice), style = MaterialTheme.typography.bodySmall, fontStyle = FontStyle.Italic)
-                Text(text(R.string.planned_date, plan.optString("scheduled_date")), style = MaterialTheme.typography.titleSmall)
-                fields.optString("Điều kiện thực thi").takeIf { it.isNotBlank() }?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
+                Text(text(R.string.planned_date, intent?.raw?.optString("scheduled_at")?.let(NotificationContent::time)
+                    ?: plan.optString("scheduled_date")), style = MaterialTheme.typography.titleSmall)
+                (intent?.raw?.optString("conditions") ?: fields.optString("Điều kiện thực thi"))
+                    .takeIf { it.isNotBlank() }?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
+                intent?.raw?.optString("thesis")?.takeIf { it.isNotBlank() }?.let {
+                    Text(it, style = MaterialTheme.typography.bodySmall, fontStyle = FontStyle.Italic)
+                }
                 fields.optString("Ghi chú").takeIf { it.isNotBlank() }?.let { Text(it, style = MaterialTheme.typography.bodySmall, fontStyle = FontStyle.Italic) }
             }
             if (result != null) {
@@ -112,8 +120,10 @@ fun ManualTradeDialog(plan: JSONObject, repo: PlanningRepository, dismiss: () ->
                     }, label = { Text(row.optString("name", id) + " · " + id) })
                 }
                 if (!busy && accounts.isEmpty()) Text(text(R.string.trade_no_account))
-                OutlinedTextField(quantity, { quantity = it }, label = { Text(text(R.string.trade_quantity)) }, singleLine = true, enabled = !busy)
-                OutlinedTextField(price, { price = it }, label = { Text(text(R.string.trade_price_vnd)) }, singleLine = true, enabled = !busy)
+                OutlinedTextField(quantity, { quantity = it }, label = { Text(text(R.string.trade_quantity)) },
+                    singleLine = true, enabled = !busy && intent == null)
+                OutlinedTextField(price, { price = it }, label = { Text(text(R.string.trade_price_vnd)) },
+                    singleLine = true, enabled = !busy && intent == null)
                 Text(text(R.string.trade_package), style = MaterialTheme.typography.titleMedium)
                 packages.forEach { row ->
                     FilterChip(selected = selectedPackage == row, enabled = !busy, onClick = { selectedPackage = row }, label = {

@@ -2,7 +2,10 @@ package com.example.finance_planning
 
 import com.example.finance_planning.network.PlacedOrderReport
 import com.example.finance_planning.network.TradeDraft
+import com.example.finance_planning.core.PlanningIntent
+import com.example.finance_planning.core.PreflightAuthorization
 import org.json.JSONObject
+import org.json.JSONArray
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertThrows
@@ -54,5 +57,35 @@ class PlacedOrderReportTest {
             PlacedOrderReport.payload("request", "device", "paper", "account", draft,
                 JSONObject().put("id", "1"), at)
         }
+    }
+
+    @Test fun typedReportBindsIntentVersionEnvironmentAccountAndPreflight() {
+        val intentJson = JSONObject().put("contract_version", "2.0")
+            .put("plan_id", "59c827db-79fa-4a56-943d-291831f28f51")
+            .put("intent_id", "792f0b94-ad11-492b-b375-91916fa4ec68")
+            .put("version", 3).put("authoring_state", "APPROVED").put("execution_state", "NOT_STARTED")
+            .put("environment", "sandbox").put("recipient_uid", "uid").put("account", "000123")
+            .put("symbol", "FPT").put("side", "BUY").put("quantity", "100")
+            .put("limit_price_vnd", "120000").put("scheduled_at", "2026-10-01T09:00:00+07:00")
+            .put("window_starts_at", "2026-10-01T09:00:00+07:00")
+            .put("window_ends_at", "2026-10-01T14:30:00+07:00")
+            .put("eligibility", JSONObject().put("eligible", true).put("reasons", JSONArray()))
+        val preflightJson = JSONObject().put("contract_version", "2.0")
+            .put("preflight_id", "c7e13b2f-0512-4947-b7ad-d0d9902a4d62")
+            .put("intent_id", intentJson.getString("intent_id")).put("current_version", 3)
+            .put("server_time", "2026-10-01T09:10:00+07:00")
+            .put("preflight_expires_at", "2026-10-01T09:15:00+07:00")
+            .put("eligibility", JSONObject().put("eligible", true).put("reasons", JSONArray()))
+        val intent = PlanningIntent.parse(intentJson)
+        val payload = PlacedOrderReport.typedPayload("25d991f9-7813-4505-91ec-038910176310",
+            "d5f91fd9-5bf5-450a-b7a6-0b59f44f4ca3", intent,
+            PreflightAuthorization.parse(preflightJson, intent), "000123", draft,
+            JSONObject().put("id", "596"), at)
+        assertEquals("2.0", payload.getString("contract_version"))
+        assertEquals(3, payload.getInt("expected_version"))
+        assertEquals("sandbox", payload.getString("environment"))
+        assertEquals("000123", payload.getString("account"))
+        assertEquals("596", payload.getJSONObject("order").getString("order_id"))
+        assertFalse(payload.toString().contains("firebase-user"))
     }
 }

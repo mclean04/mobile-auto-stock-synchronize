@@ -18,12 +18,23 @@ class BackendApi(private val transport: Transport, private val headers: suspend 
     suspend fun syncStatus() = call("/v1/sync/status")
     suspend fun upcomingPlanning() = call("/v1/planning/upcoming")
     suspend fun planningHistory() = call("/v1/planning/history")
+    suspend fun planningIntents(view: String, cursor: String? = null): JSONObject {
+        require(view in setOf("upcoming", "history"))
+        val path = "/v2/planning/intents?view=$view&limit=100" +
+            (cursor?.let { "&cursor=" + URLEncoder.encode(it, "UTF-8") } ?: "")
+        return call(path)
+    }
+    suspend fun planningIntent(id: String) =
+        call("/v2/planning/intents/" + java.util.UUID.fromString(id))
+    suspend fun planningPreflight(id: String, payload: JSONObject) =
+        call("/v2/planning/intents/" + java.util.UUID.fromString(id) + "/preflight", "POST", payload)
     suspend fun latestPlanning() = call("/v1/planning/latest")
     suspend fun importPlanning() = call("/v1/planning/import", "POST")
     suspend fun retryProjection() = call("/v1/sync/retry", "POST")
     suspend fun reconcile() = call("/v1/sheets/reconcile", "POST")
     suspend fun upload(batch: JSONObject) = call("/v1/sync/batches", "POST", batch)
     suspend fun placedOrder(payload: JSONObject) = call("/v1/orders/placed", "POST", payload)
+    suspend fun placedOrderV2(payload: JSONObject) = call("/v2/orders/placed", "POST", payload)
     private fun page(path: String, cursor: String?) =
         path + "?limit=20" + (cursor?.let { "&cursor=" + URLEncoder.encode(it, "UTF-8") } ?: "")
     suspend fun batches(cursor: String? = null) = call(scoped(page("/v1/sync/batches", cursor)))

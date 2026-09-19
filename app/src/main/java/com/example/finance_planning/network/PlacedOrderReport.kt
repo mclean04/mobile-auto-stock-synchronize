@@ -3,6 +3,8 @@ package com.example.finance_planning.network
 import org.json.JSONObject
 import java.math.BigDecimal
 import java.time.Instant
+import com.example.finance_planning.core.PlanningIntent
+import com.example.finance_planning.core.PreflightAuthorization
 
 /** Builds the strict payload accepted by POST /v1/orders/placed. */
 object PlacedOrderReport {
@@ -28,5 +30,24 @@ object PlacedOrderReport {
             }
         return JSONObject().put("request_id", requestId).put("device_id", deviceId)
             .put("environment", environment).put("order", order)
+    }
+
+    fun typedPayload(requestId: String, deviceId: String, intent: PlanningIntent,
+                     preflight: PreflightAuthorization, account: String, draft: TradeDraft,
+                     response: JSONObject, observedAt: Instant): JSONObject {
+        require(preflight.intentId == intent.intentId && preflight.currentVersion == intent.version)
+        require(preflight.eligibility.eligible && intent.executable)
+        require(intent.account == account)
+        require(intent.matchesDraft(draft.symbol, if (draft.side == "NB") "BUY" else "SELL",
+            draft.quantity, draft.price))
+        val base = payload(requestId, deviceId, intent.environment.name.lowercase(), account,
+            draft, response, observedAt)
+        return JSONObject().put("contract_version", "2.0")
+            .put("request_id", base.getString("request_id"))
+            .put("device_id", base.getString("device_id"))
+            .put("intent_id", intent.intentId.toString()).put("expected_version", intent.version)
+            .put("environment", base.getString("environment")).put("account", account)
+            .put("preflight_id", requireNotNull(preflight.preflightId).toString())
+            .put("order", base.getJSONObject("order"))
     }
 }

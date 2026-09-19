@@ -142,7 +142,8 @@ fun AdminDashboard(s: ScreenState, model: PlanningViewModel, importPlanning: () 
                  } }
                 item(span = { GridItemSpan(maxLineSpan) }) { Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {  AdminSection(text(R.string.admin_plan_list_title, plans.size), text(R.string.admin_plan_list_note))  } }
                 if (plans.isEmpty()) item { Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {  AdminNote(text(R.string.admin_no_plans))  } }
-                items(plans) { PlanningOrderCard(it, null, upcoming = false, enabled = false, place = {}) }
+                items(plans) { PlanningOrderCard(it, null, upcoming = false, enabled = false,
+                    activeProduction = null, freshForAction = false, place = {}) }
             }
         }
     }

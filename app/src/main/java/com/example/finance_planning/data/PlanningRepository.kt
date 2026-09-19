@@ -73,8 +73,21 @@ class PlanningRepository(val identity: MobileIdentity, private val vault: Vault,
         })
     }
     suspend fun planning(refresh: Boolean = true) = planningRead("planning", refresh) { api.latestPlanning() }
-    suspend fun upcomingPlanning(refresh: Boolean = false) = planningRead("planning_upcoming", refresh) { api.upcomingPlanning() }
-    suspend fun planningHistory(refresh: Boolean = false) = planningRead("planning_history", refresh) { api.planningHistory() }
+    private suspend fun intentPlanning(key: String, view: String, refresh: Boolean): JSONObject =
+        planningRead(key, refresh) {
+            try {
+                api.planningIntents(view).also { page ->
+                    require(page.optString("contract_version") == "2.0")
+                    page.objects("items").forEach { PlanningIntent.parse(it) }
+                }
+            } catch (e: HttpFailure) {
+                if (e.status != 404) throw e
+                val legacy = if (view == "upcoming") api.upcomingPlanning() else api.planningHistory()
+                PlanningContract.legacyReadOnly(legacy)
+            }
+        }
+    suspend fun upcomingPlanning(refresh: Boolean = false) = intentPlanning("planning_upcoming", "upcoming", refresh)
+    suspend fun planningHistory(refresh: Boolean = false) = intentPlanning("planning_history", "history", refresh)
     fun observeNotifications(uid: String) = dao.observeNotificationInbox(uid).map { rows ->
         rows.map { JSONObject(vault.open(it.event.ciphertext)).put("_opened", it.opened) }
             .sortedByDescending { it.optString("created_at") }
@@ -120,11 +133,12 @@ class PlanningRepository(val identity: MobileIdentity, private val vault: Vault,
         return event
     }
     private suspend fun reportPlacedOrder(uid: String, journalKey: String, journal: JSONObject,
-                                          payload: JSONObject) {
+                                          payload: JSONObject, apiVersion: Int = 1) {
         placedReportLock.withLock {
             val requestId = payload.getString("request_id")
             val reportKey = "placed-report:$requestId"
             val report = JSONObject().put("state", "PENDING").put("journal_key", journalKey)
+                .put("api_version", apiVersion)
                 .put("payload", JSONObject(payload.toString()))
             journal.put("backend_request_id", requestId).put("backend_state", "PENDING")
             withContext(NonCancellable) {
@@ -138,7 +152,16 @@ class PlanningRepository(val identity: MobileIdentity, private val vault: Vault,
         if (identity.uid() != uid || !approved()) return
         var cancellation: CancellationException? = null
         try {
-            api.placedOrder(report.getJSONObject("payload"))
+            val payload = report.getJSONObject("payload")
+            val response = if (report.optInt("api_version", 1) == 2) api.placedOrderV2(payload)
+                else api.placedOrder(payload)
+            if (report.optInt("api_version", 1) == 2) {
+                require(response.optString("request_id") == payload.getString("request_id"))
+                require(response.optString("intent_id") == payload.getString("intent_id"))
+                require(response.optInt("reported_version", -1) == payload.getInt("expected_version"))
+                require(response.optString("environment") == payload.getString("environment"))
+                require(response.optString("database") == "committed")
+            }
             report.put("state", "REPORTED")
         } catch (e: CancellationException) {
             cancellation = e
@@ -177,6 +200,7 @@ class PlanningRepository(val identity: MobileIdentity, private val vault: Vault,
                                                        private val plan: JSONObject) {
         private val settings = JSONObject(config)
         val production = settings.getBoolean("production")
+        val intent = PlanningIntent.parse(plan)
         private val broker = DnseTradingApi(settings.getString("key"), settings.getString("secret"), production)
         private var tradingToken: String? = null
         private var verifiedAt = 0L
@@ -184,13 +208,18 @@ class PlanningRepository(val identity: MobileIdentity, private val vault: Vault,
             if (identity.uid() != uid || !approved() || dnseCredentials.config(uid) != config)
                 throw AppFailure(AppText.get(R.string.the_sign_in_session_has_changed))
         }
-        private val journalKey = "manual_trade:" + production + ":" + tradeHash(
-            plan.optString("scheduled_date") + ":" + plan.getInt("source_row"))
+        init {
+            require(production == (intent.environment == TradingEnvironment.PRODUCTION))
+            require(intent.executable)
+        }
+        private val journalKey = "manual_trade:v2:" + intent.environment.name.lowercase() + ":" + intent.intentId
         suspend fun result(): JSONObject? { check(); return cached(journalKey)?.takeUnless { it.optString("state") == "REJECTED" } }
         suspend fun funds(): JSONObject? { check(); return dnseSnapshot() }
         suspend fun requireFunds(account: String, draft: TradeDraft) {
             check()
-            if (PlanningFunds.cancelled(plan)) throw AppFailure(AppText.get(R.string.trade_plan_changed))
+            require(account == intent.account)
+            require(intent.matchesDraft(draft.symbol, if (draft.side == "NB") "BUY" else "SELL",
+                draft.quantity, draft.price))
             if (draft.side != "NB") return
             val required = PlanningFunds.required(plan, java.math.BigDecimal(draft.price).multiply(java.math.BigDecimal(draft.quantity)))
                 ?: throw AppFailure(AppText.get(R.string.plan_funds_unknown))
@@ -199,7 +228,8 @@ class PlanningRepository(val identity: MobileIdentity, private val vault: Vault,
         }
         suspend fun accounts(): List<JSONObject> {
             check()
-            return broker.accounts().filter { it.optBoolean("dealAccount", false) }
+            return broker.accounts().filter { it.optBoolean("dealAccount", false) &&
+                DnseApi.text(it, "id", "accountNo") == intent.account }
         }
         suspend fun packages(account: String, symbol: String): List<JSONObject> {
             check()
@@ -215,18 +245,13 @@ class PlanningRepository(val identity: MobileIdentity, private val vault: Vault,
         fun close() { tradingToken = null; verifiedAt = 0 }
         suspend fun place(account: String, draft: TradeDraft): JSONObject = lock.withLock {
             check(); draft.body()
-            require(draft.side == PlanningFunds.side(plan))
+            require(intent.matchesDraft(draft.symbol, if (draft.side == "NB") "BUY" else "SELL",
+                draft.quantity, draft.price))
             requireFunds(account, draft)
             val token = tradingToken ?: throw AppFailure(AppText.get(R.string.trade_otp_required))
             if (System.currentTimeMillis() - verifiedAt !in 0..(5 * 60 * 1000L))
                 throw AppFailure(AppText.get(R.string.trade_otp_required))
             if (result() != null) throw AppFailure(AppText.get(R.string.trade_already_attempted))
-            val fresh = upcomingPlanning(refresh = true).objects("items").firstOrNull {
-                it.optInt("source_row") == plan.getInt("source_row") &&
-                    it.optString("scheduled_date") == plan.optString("scheduled_date")
-            }
-            if (fresh == null || fresh.getJSONObject("fields").toString() != plan.getJSONObject("fields").toString())
-                throw AppFailure(AppText.get(R.string.trade_plan_changed))
             require(packages(account, draft.symbol).any { it.optLong("id", -1) == draft.packageId })
             check()
             if (draft.side == "NB") {
@@ -243,24 +268,39 @@ class PlanningRepository(val identity: MobileIdentity, private val vault: Vault,
             val reportingDevice = device()
             val journal = JSONObject().put("state", "UNKNOWN").put("account", account)
                 .put("draft", draft.body()).put("created_at", java.time.Instant.now().toString())
-            // Durable marker precedes the network write. Cancellation/timeouts never permit an automatic retry.
-            save(journalKey, journal)
             try {
-                check()
-                val response = broker.place(account, draft, token)
+                // Cache/list eligibility is display-only. The guard performs a fresh detail read and
+                // preflight after final confirmation. Its persistence hook is the last step before DNSE.
+                val guarded = TradeExecutionGuard.execute(intent, account, java.time.Instant.now(),
+                    readCurrent = { api.planningIntent(intent.intentId.toString()) },
+                    runPreflight = { request -> api.planningPreflight(intent.intentId.toString(), request) },
+                    beforeBrokerWrite = { preflight ->
+                        check()
+                        journal.put("preflight_id", preflight.preflightId.toString())
+                        // Durable UNKNOWN marker precedes the network write. A timeout never permits retry.
+                        save(journalKey, journal)
+                    },
+                    brokerWrite = { check(); broker.place(account, draft, token) })
+                val response = guarded.value
+                val preflight = guarded.preflight
                 val placed = response.optJSONObject("data") ?: response.optJSONObject("order") ?: response
                 val orderId = DnseApi.text(placed, "id", "orderId")
                 require(orderId.isNotBlank() && orderId != "null")
                 journal.put("state", "SUBMITTED").put("order_id", orderId)
                 kotlinx.coroutines.withContext(kotlinx.coroutines.NonCancellable) {
                     dao.cache(CacheRow(uid, journalKey, vault.seal(journal.toString()), System.currentTimeMillis()))
-                    val payload = PlacedOrderReport.payload(UUID.randomUUID().toString(), reportingDevice,
-                        if (production) "production" else "sandbox", account, draft, response,
-                        java.time.Instant.now())
-                    reportPlacedOrder(uid, journalKey, journal, payload)
+                    val payload = PlacedOrderReport.typedPayload(UUID.randomUUID().toString(), reportingDevice,
+                        intent, preflight, account, draft, response, java.time.Instant.now())
+                    reportPlacedOrder(uid, journalKey, journal, payload, apiVersion = 2)
                 }
                 journal
             } catch (e: Exception) {
+                if (e is PlanningPreflightUnavailable)
+                    throw AppFailure(AppText.get(R.string.planning_preflight_unavailable))
+                if (e is PlanningVersionChanged)
+                    throw AppFailure(AppText.get(R.string.planning_gate_stale_version))
+                if (e is PlanningGateFailure)
+                    throw AppFailure(PlanningGateText.message(e.reasons))
                 if (e is TradeHttpFailure && e.status in setOf(400, 401, 403, 404, 422)) {
                     journal.put("state", "REJECTED").put("http_status", e.status)
                     kotlinx.coroutines.withContext(kotlinx.coroutines.NonCancellable) {
@@ -276,6 +316,12 @@ class PlanningRepository(val identity: MobileIdentity, private val vault: Vault,
         if (!approved()) throw AppFailure(AppText.get(R.string.backend_mobile_not_verified))
         val uid = owner()
         val config = dnseCredentials.config(uid) ?: throw AppFailure(AppText.get(R.string.save_the_api_key_and_secret_first))
+        val intent = PlanningIntent.parseOrNull(plan)
+            ?: throw AppFailure(AppText.get(R.string.planning_legacy_read_only))
+        if (!intent.executable) throw AppFailure(PlanningGateText.message(intent.eligibility.reasons))
+        val selectedProduction = JSONObject(config).getBoolean("production")
+        if (selectedProduction != (intent.environment == TradingEnvironment.PRODUCTION))
+            throw AppFailure(PlanningGateText.message(listOf(EligibilityReason.WRONG_ENVIRONMENT)))
         return ManualTradeSession(uid, config, JSONObject(plan.toString()))
     }
 

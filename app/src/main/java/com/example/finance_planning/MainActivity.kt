@@ -748,7 +748,8 @@ private fun Orders(s: ScreenState, model: PlanningViewModel) {
              } }
             items(rows) { row ->
                 com.example.finance_planning.ui.PlanningOrderCard(row, s.dnse, section == 0,
-                    s.approved && s.hasDnse && !s.busy) { tradePlan = row }
+                    s.approved && s.hasDnse && !s.busy, s.dnseProduction,
+                    freshForAction = s.planningExecutionFresh) { tradePlan = row }
             }
             if (!s.busy && (response == null || response.optBoolean("_not_available"))) item(span = { GridItemSpan(maxLineSpan) }) { Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {  Text(text(if (s.approved && !s.admin)
                 R.string.this_feature_requires_admin_access else R.string.planning_orders_unavailable))  } }
