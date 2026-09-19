@@ -3,8 +3,8 @@ package com.example.finance_planning.ui
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.grid.*
+import com.example.finance_planning.ui.layout.LocalAdaptiveLayout
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -39,23 +39,25 @@ fun AdminDashboard(s: ScreenState, model: PlanningViewModel, importPlanning: () 
                 FilterChip(selected = section == index, onClick = { section = index }, label = { Text(text(label)) })
             }
         }
-        LazyColumn(verticalArrangement = Arrangement.spacedBy(14.dp), contentPadding = PaddingValues(top = 12.dp, bottom = 20.dp)) {
+        LazyVerticalGrid(columns = GridCells.Adaptive(if (LocalAdaptiveLayout.current.tablet) 340.dp else 1000.dp),
+            horizontalArrangement = Arrangement.spacedBy(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp),
+            contentPadding = PaddingValues(top = 12.dp, bottom = 24.dp)) {
             if (section == 0) {
-                item {
+                item { Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Surface(color = Color(0xFF244866), contentColor = Color.White, shape = RoundedCornerShape(22.dp)) {
                         Column(Modifier.fillMaxWidth().padding(20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             Text(text(R.string.admin_role_title), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                             Text(text(R.string.admin_role_note), style = MaterialTheme.typography.bodySmall, fontStyle = FontStyle.Italic, color = Color(0xFFD5E4EE))
                         }
                     }
-                }
-                item {
+                 } }
+                item { Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                         AdminMetric(text(R.string.admin_loaded_accounts), s.sources.count { it.optString("id") != "legacy" }.toString(), Modifier.weight(1f))
                         AdminMetric(text(R.string.admin_loaded_plans), plans.size.toString(), Modifier.weight(1f))
                     }
-                }
-                item {
+                 } }
+                item { Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     AdminSection(text(R.string.admin_sheet_status_title), text(R.string.admin_sheet_status_note))
                     Surface(Modifier.fillMaxWidth().padding(top = 8.dp), shape = RoundedCornerShape(16.dp),
                         color = if (sheetEnabled == true) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerHigh) {
@@ -65,21 +67,21 @@ fun AdminDashboard(s: ScreenState, model: PlanningViewModel, importPlanning: () 
                             Text(text(R.string.batches_awaiting_sheet_updates, s.status?.optInt("pending_sheet_batches") ?: 0), style = MaterialTheme.typography.bodyLarge)
                         }
                     }
-                }
-                item {
+                 } }
+                item { Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     AdminSection(text(R.string.admin_selected_account_title), text(R.string.admin_account_scope_note))
                     AdminMetric(text(R.string.admin_viewing_account), sourceTitle, Modifier.fillMaxWidth().padding(top = 8.dp))
-                }
-                item {
+                 } }
+                item { Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                         FilledTonalButton({ section = 1 }, Modifier.weight(1f)) { Text(text(R.string.admin_view_account_data)) }
                         FilledTonalButton({ section = 2 }, Modifier.weight(1f)) { Text(text(R.string.admin_manage_plans)) }
                     }
                     Button(model::refresh, Modifier.fillMaxWidth().padding(top = 10.dp), enabled = !s.busy) { Text(text(R.string.admin_refresh_dashboard)) }
                     AdminNote(text(R.string.admin_refresh_dashboard_note))
-                }
+                 } }
             } else if (section == 1) {
-                item { AdminSection(text(R.string.admin_choose_account_title), text(R.string.admin_choose_account_note)) }
+                item(span = { GridItemSpan(maxLineSpan) }) { Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {  AdminSection(text(R.string.admin_choose_account_title), text(R.string.admin_choose_account_note))  } }
                 items(s.sources) { source ->
                     val id = source.getString("id")
                     val isOwn = source.optString("uid") == ownUid
@@ -97,8 +99,8 @@ fun AdminDashboard(s: ScreenState, model: PlanningViewModel, importPlanning: () 
                         }
                     }
                 }
-                if (s.sourceCursor != null) item { FilledTonalButton(model::moreSources, enabled = !s.busy) { Text(text(R.string.more_accounts)) } }
-                item {
+                if (s.sourceCursor != null) item(span = { GridItemSpan(maxLineSpan) }) { Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {  FilledTonalButton(model::moreSources, enabled = !s.busy) { Text(text(R.string.more_accounts)) }  } }
+                item(span = { GridItemSpan(maxLineSpan) }) { Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     AdminSection(text(R.string.admin_account_records_title), text(R.string.admin_account_records_note))
                     if (s.selectedSource == null) AdminNote(text(R.string.admin_no_account_selected))
                     else {
@@ -111,14 +113,14 @@ fun AdminDashboard(s: ScreenState, model: PlanningViewModel, importPlanning: () 
                         }
                         AdminNote(text(R.string.admin_loaded_records_count, s.adminRecords.size))
                     }
-                }
+                 } }
                 items(s.adminRecords.filter { recordKind == "all" || it.optString("kind") == recordKind }) { AdminRecord(it) }
                 if (s.selectedSource != null && !s.busy && s.adminRecords.none { recordKind == "all" || it.optString("kind") == recordKind })
-                    item { AdminNote(text(R.string.admin_no_loaded_records)) }
-                if (s.recordCursor != null) item { FilledTonalButton(model::moreRecords, enabled = !s.busy) { Text(text(R.string.more_records)) } }
+                    item { Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {  AdminNote(text(R.string.admin_no_loaded_records))  } }
+                if (s.recordCursor != null) item(span = { GridItemSpan(maxLineSpan) }) { Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {  FilledTonalButton(model::moreRecords, enabled = !s.busy) { Text(text(R.string.more_records)) }  } }
             } else {
-                item { AdminSection(text(R.string.admin_plan_tools_title), text(R.string.admin_plan_tools_note)) }
-                item {
+                item(span = { GridItemSpan(maxLineSpan) }) { Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {  AdminSection(text(R.string.admin_plan_tools_title), text(R.string.admin_plan_tools_note))  } }
+                item { Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(20.dp)) {
                         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                             Text(text(R.string.admin_read_plans_title), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
@@ -126,8 +128,8 @@ fun AdminDashboard(s: ScreenState, model: PlanningViewModel, importPlanning: () 
                             AdminNote(text(R.string.admin_read_plans_note))
                         }
                     }
-                }
-                item {
+                 } }
+                item { Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(20.dp)) {
                         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                             Text(text(R.string.admin_write_sheet_title), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
@@ -137,9 +139,9 @@ fun AdminDashboard(s: ScreenState, model: PlanningViewModel, importPlanning: () 
                                 style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
                         }
                     }
-                }
-                item { AdminSection(text(R.string.admin_plan_list_title, plans.size), text(R.string.admin_plan_list_note)) }
-                if (plans.isEmpty()) item { AdminNote(text(R.string.admin_no_plans)) }
+                 } }
+                item(span = { GridItemSpan(maxLineSpan) }) { Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {  AdminSection(text(R.string.admin_plan_list_title, plans.size), text(R.string.admin_plan_list_note))  } }
+                if (plans.isEmpty()) item { Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {  AdminNote(text(R.string.admin_no_plans))  } }
                 items(plans) { PlanningOrderCard(it, null, upcoming = false, enabled = false, place = {}) }
             }
         }

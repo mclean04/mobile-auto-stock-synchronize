@@ -73,8 +73,10 @@ Google. Khi test, dùng Cài đặt → Sao chép token FCM hiện tại và ch�
 Backend tiếp tục đăng ký/cập nhật token tự động theo UID khi khôi phục phiên/onNewToken.
 
 Console foreground hiển thị thông báo hệ thống ngay trong onMessageReceived; worker
-lưu Room và làm mới inbox. Sau khi lưu, app hiển thị banner có tiêu đề/nội dung và nút
-Xem nội dung khi Activity đang hoạt động. Mức kênh/âm thanh do người dùng quản lý;
+lưu Room và làm mới inbox. Sau khi lưu, badge đỏ ở góc trên bên trái icon chuông cập nhật số chưa đọc, không hiển thị snackbar.
+Mở danh sách không đánh dấu tất cả là đã đọc; mở từng nội dung sẽ lưu marker đã đọc
+trong Room theo UID và cập nhật badge ngay. Trạng thái đọc được giữ qua lần mở app
+và các lần làm mới notification, tính riêng trên từng thiết bị. Mức kênh/âm thanh do người dùng quản lý;
 không tạo kênh mới để vượt qua lựa chọn tắt thông báo. Event backend được hiển thị
 sau khi tải và xác minh nội dung, trước khi làm mới tất cả trang thông báo; lỗi làm
 mới danh sách không ngăn hiển thị event đã tải được.

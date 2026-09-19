@@ -15,10 +15,11 @@ class DnseCredentialStore(private val read: (String) -> String?, private val wri
     }
     fun production(uid: String): Boolean { migrate(uid); return read("dnse_environment:$uid") == "true" }
     fun config(uid: String): String? { migrate(uid); return read(slot(uid, production(uid))) }
+    fun config(uid: String, production: Boolean): String? { migrate(uid); return read(slot(uid, production)) }
     fun has(uid: String, production: Boolean): Boolean { migrate(uid); return read(slot(uid, production)) != null }
     fun select(uid: String, production: Boolean) { migrate(uid); write("dnse_environment:$uid", production.toString()) }
     fun save(uid: String, key: String, secret: String, production: Boolean, unit: String) {
-        require(key.isNotBlank() && secret.isNotBlank() && unit in setOf("1", "1000"))
+        require(DnseCredentialFormat.valid(key.trim(), secret.trim()) && unit in setOf("1", "1000")) { "Invalid DNSE credential format" }
         migrate(uid)
         write(slot(uid, production), JSONObject().put("key", key.trim()).put("secret", secret.trim())
             .put("production", production).put("vndPerUnit", unit).toString())

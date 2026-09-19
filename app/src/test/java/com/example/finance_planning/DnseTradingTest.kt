@@ -62,6 +62,86 @@ class DnseTradingTest {
         assertFalse(defaults.retryOnConnectionFailure); assertFalse(defaults.followRedirects)
         assertFalse(defaults.followSslRedirects); assertTrue(defaults.interceptors.isEmpty())
     }
+    @Test fun sandboxCancellationUsesDeleteSignatureAndReportsBrokerErrors() = runBlocking {
+        val reports = mutableListOf<BrokerResponse>()
+        var captured: Request? = null
+        val client = OkHttpClient.Builder().addInterceptor { chain ->
+            captured = chain.request()
+            Response.Builder().request(chain.request()).protocol(Protocol.HTTP_1_1).code(400).message("Bad Request")
+                .body("""{"code":"ORDER_FILLED","message":"Already filled","token":"PRIVATE-TOKEN"}""".toResponseBody()).build()
+        }.build()
+        val api = DnseTradingApi("PRIVATE-KEY", "PRIVATE-SECRET", false, client, reports::add)
+        try { api.cancel("account1", "ORDER-1", "PRIVATE-TOKEN"); fail() }
+        catch (e: TradeHttpFailure) { assertEquals(400, e.status) }
+        val request = captured!!
+        assertEquals("sb-openapi.dnse.com.vn", request.url.host)
+        assertEquals("DELETE", request.method)
+        assertEquals("/accounts/account1/orders/ORDER-1", request.url.encodedPath)
+        assertEquals("NORMAL", request.url.queryParameter("orderCategory"))
+        assertEquals("PRIVATE-TOKEN", request.header("trading-token"))
+        assertNull(request.body)
+        val nonce = Regex("nonce=\"([a-f0-9]{32})\"").find(request.header("X-Signature")!!)!!.groupValues[1]
+        assertEquals(DnseSigning.signature("PRIVATE-KEY", "PRIVATE-SECRET", request.url.encodedPath,
+            request.header("Date")!!, nonce, "delete"), request.header("X-Signature"))
+        assertEquals(400, reports.single().status)
+        assertTrue(reports.single().body.contains("ORDER_FILLED"))
+        assertFalse(reports.single().body.contains("PRIVATE-TOKEN"))
+    }
+    @Test fun malformedCredentialsAreRejectedWithoutEchoingTheirValues() {
+        for (bad in listOf("PRIVATE-KEY\nAPI secret", "PRIVATE SECRET", "PRIVATE\rKEY")) {
+            try { DnseTradingApi(bad, "secret", false); fail() }
+            catch (e: IllegalArgumentException) {
+                assertEquals("Invalid DNSE credential format", e.message)
+                assertFalse(e.message!!.contains("PRIVATE"))
+            }
+        }
+    }
+    @Test fun diagnosticsCannotBeEnabledForProduction() {
+        try { DnseTradingApi("key", "secret", true, diagnostic = {}); fail() }
+        catch (_: IllegalArgumentException) {}
+    }
+    @Test fun sandboxCanPlaceAndImmediatelyCancelWithTheSameToken() = runBlocking {
+        val requests = mutableListOf<Request>()
+        val client = OkHttpClient.Builder().addInterceptor { chain ->
+            requests += chain.request()
+            val body = when {
+                chain.request().url.encodedPath == "/registration/trading-token" ->
+                    """{"trading-token":"SANDBOX-TOKEN"}"""
+                chain.request().method == "POST" -> """{"id":"594"}"""
+                else -> """{"status":"pendingCancel"}"""
+            }
+            Response.Builder().request(chain.request()).protocol(Protocol.HTTP_1_1).code(200).message("OK")
+                .body(body.toResponseBody()).build()
+        }.build()
+        val api = DnseTradingApi("key", "secret", false, client)
+        val token = api.token("email_otp", "666666")
+        val order = api.place("9379529478", draft, token)
+        api.cancel("9379529478", order.getString("id"), token)
+        assertEquals(listOf("POST", "POST", "DELETE"), requests.map { it.method })
+        assertEquals("SANDBOX-TOKEN", requests[1].header("trading-token"))
+        assertEquals("SANDBOX-TOKEN", requests[2].header("trading-token"))
+        assertEquals("/accounts/9379529478/orders/594", requests[2].url.encodedPath)
+    }
+    @Test fun sandboxOtpAndResponseRedactionPreserveUsefulFields() = runBlocking {
+        val reports = mutableListOf<BrokerResponse>()
+        var captured: Request? = null
+        val client = OkHttpClient.Builder().addInterceptor { chain ->
+            captured = chain.request()
+            Response.Builder().request(chain.request()).protocol(Protocol.HTTP_1_1).code(200).message("OK")
+                .body("""{"trading-token":"PRIVATE-TOKEN"}""".toResponseBody()).build()
+        }.build()
+        assertEquals("PRIVATE-TOKEN", DnseTradingApi("key", "secret", false, client, reports::add).token("email_otp", "666666"))
+        val buffer = okio.Buffer(); captured!!.body!!.writeTo(buffer)
+        assertEquals("666666", JSONObject(buffer.readUtf8()).getString("passcode"))
+        assertFalse(reports.single().body.contains("PRIVATE-TOKEN"))
+        val clean = BrokerResponseRedaction.body(
+            """{"code":"OA-100","data":[{"apiKey":"hidden","secret":"hidden","passcode":"666666","symbol":"HPG"}],"message":"Echo PRIVATE-KEY"}""",
+            listOf("PRIVATE-KEY", "666666"))
+        assertTrue(clean.contains("OA-100")); assertTrue(clean.contains("HPG"))
+        assertFalse(clean.contains("hidden")); assertFalse(clean.contains("PRIVATE-KEY")); assertFalse(clean.contains("666666"))
+        assertEquals("[Non-JSON response omitted]", BrokerResponseRedaction.body("HTML echo secret", emptyList()))
+    }
+
     @Test fun transportFailureNeverAutomaticallyResubmits() = runBlocking {
         var attempts = 0
         val client = OkHttpClient.Builder().retryOnConnectionFailure(false).addInterceptor {

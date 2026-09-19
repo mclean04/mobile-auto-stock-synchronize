@@ -15,6 +15,7 @@ Android communicates with Cloud Run; it never connects directly to Firestore or 
 | GET /v1/sync/batches/{id} | Batch detail |
 | GET /v1/orders | Orders tab, pagination |
 | GET /v1/orders/{account}/{order_id} | Exact order detail |
+| POST /v1/orders/placed | Report a DNSE-confirmed placement with explicit Production/Sandbox environment and durable idempotency key |
 | POST /v1/sheets/reconcile | Retry pending Sheet projection |
 | PUT /v1/devices/{id} | Register and refresh FCM token after authorization |
 | DELETE /v1/devices/{id} | Disconnect device before local logout |
@@ -52,7 +53,7 @@ would be lost.
 WorkManager runs approximately every six hours with a network constraint. It is not an exact
 alarm and cannot overcome force-stop, offline state, Doze or vendor battery restrictions.
 FCM carries only a hint. Opening/reloading fetches canonical notification state and planning;
-no broker placement or cancellation exists in the app.
+broker placement and cancellation only run after an explicit user action.
 
 The DNSE sync covers the last 30 calendar days plus today's NORMAL/STOP stock orders,
 executions for filled NORMAL orders, current positions and current balance snapshots. Orders
@@ -60,7 +61,10 @@ and executions retain broker timestamps; position/balance updated_at is the expl
 observation time because those endpoints return snapshots. Decimal values are converted with
 the configured unit multiplier. Fee aliases are mapped when present and remain null when DNSE
 does not provide a fee; the app never estimates one. API schema drift stops upload and sandbox
-data remains local.
+sync data remains scoped by environment. A successfully placed order is reported separately
+through `/v1/orders/placed`; Production routes to `DNSE Orders` and Sandbox routes to
+`DNSE Orders Sandbox`. The exact payload and `request_id` are stored in encrypted Room before
+delivery and reused after transient failures, app restart, or a lost backend response.
 
 An upload keeps the same batch ID and serialized payload until the server confirms
 database=committed. HTTP 409/422 parks the batch for review, instead of inventing new IDs.

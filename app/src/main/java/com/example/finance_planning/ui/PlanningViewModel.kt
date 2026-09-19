@@ -23,7 +23,6 @@ enum class DetailKind { NOTIFICATION, ORDER, BATCH }
 
 data class ScreenState(
     val dnse: JSONObject? = null, val pushRegistered: Boolean = false, val email: String = "",
-    val foregroundNotification: JSONObject? = null,
     val notificationNavigation: Long = 0,
     val busy: Boolean = false, val message: String = AppText.get(R.string.welcome_sign_in_to_connect_to_planning),
     val signedIn: Boolean = false, val approved: Boolean = false, val configured: Boolean = false,
@@ -55,18 +54,7 @@ class PlanningViewModel(application: Application) : AndroidViewModel(application
                     mutable.value = mutable.value.copy(scheduleEnabled = work.any { !it.state.isFinished })
                 }
         }
-        viewModelScope.launch {
-            val seen = mutableSetOf<String>()
-            repo.notificationArrivals.collect { (uid, event) ->
-                if (repo.identity.uid() == uid && repo.approved() && seen.add(uid + ":" + event.optString("event_id")))
-                    mutable.value = mutable.value.copy(foregroundNotification = event)
-            }
-        }
         restore()
-    }
-    fun dismissForegroundNotification(id: String) {
-        if (mutable.value.foregroundNotification?.optString("event_id") == id)
-            mutable.value = mutable.value.copy(foregroundNotification = null)
     }
     fun copyFcmToken() = run {
         if (!repo.approved()) throw AppFailure(AppText.get(R.string.backend_mobile_not_verified))

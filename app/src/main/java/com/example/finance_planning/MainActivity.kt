@@ -24,9 +24,14 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.grid.*
+import com.example.finance_planning.ui.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.zIndex
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
@@ -83,60 +88,101 @@ private fun PlanningScreen(model: PlanningViewModel) {
     var showNotifications by rememberSaveable { mutableStateOf(false) }
     BackHandler(enabled = showNotifications) { showNotifications = false }
     LaunchedEffect(s.notificationNavigation) { if (s.notificationNavigation > 0) showNotifications = true }
-    val snackbar = remember { SnackbarHostState() }
-    val lifecycle = (LocalContext.current as ComponentActivity).lifecycle
-    var started by remember { mutableStateOf(lifecycle.currentState.isAtLeast(androidx.lifecycle.Lifecycle.State.STARTED)) }
-    DisposableEffect(lifecycle) {
-        val observer = androidx.lifecycle.LifecycleEventObserver { _, _ ->
-            started = lifecycle.currentState.isAtLeast(androidx.lifecycle.Lifecycle.State.STARTED)
-        }
-        lifecycle.addObserver(observer)
-        onDispose { lifecycle.removeObserver(observer) }
-    }
-    val viewNotification = text(R.string.view_content)
-    val bannerMessage = s.foregroundNotification?.let {
-        text(R.string.notification_banner_content, NotificationContent.title(it), NotificationContent.body(it))
-    }
-    LaunchedEffect(s.foregroundNotification?.optString("event_id"), started) {
-        val event = s.foregroundNotification
-        if (started && event != null) {
-            val result = snackbar.showSnackbar(bannerMessage.orEmpty(),
-                actionLabel = viewNotification, withDismissAction = true, duration = SnackbarDuration.Indefinite)
-            if (result == SnackbarResult.ActionPerformed) model.notification(event.getString("event_id"))
-            model.dismissForegroundNotification(event.getString("event_id"))
-        }
-    }
     var confirm by remember { mutableStateOf("") }
     val labels = listOf(text(R.string.orders), text(R.string.settings)) +
         if (s.admin) listOf(text(R.string.admin)) else emptyList()
-    val icons = listOf(R.string.nav_orders_icon, R.string.nav_settings_icon, R.string.nav_admin_icon)
+    val icons = listOf(R.drawable.ic_nav_clipboard_list, R.drawable.ic_nav_settings, R.drawable.ic_nav_shield_user)
     LaunchedEffect(s.admin) { if (tab !in labels.indices) tab = 0 }
-    Scaffold(snackbarHost = { SnackbarHost(snackbar) }, bottomBar = {
-        if (!showNotifications) NavigationBar { labels.forEachIndexed { index, title ->
-            NavigationBarItem(selected = tab == index, onClick = { tab = index },
-                icon = { Text(text(icons[index])) }, label = { Text(title) })
-        }}
-    }) { padding ->
-        Column(Modifier.fillMaxSize().padding(padding).padding(horizontal = 16.dp)) {
-            Row(Modifier.fillMaxWidth().padding(top = 12.dp, bottom = 8.dp),
-                verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                if (showNotifications) IconButton(onClick = { showNotifications = false }) {
-                    Icon(painterResource(R.drawable.ic_back_arrow), contentDescription = text(R.string.back))
+    BoxWithConstraints(Modifier.fillMaxSize()) {
+        val tablet = maxWidth >= 600.dp && maxHeight >= 480.dp
+        val landscape = tablet && maxWidth >= 900.dp && maxWidth > maxHeight
+        CompositionLocalProvider(LocalAdaptiveLayout provides AdaptiveLayout(tablet, landscape)) {
+            Scaffold(bottomBar = {
+                if (!showNotifications && !landscape) Surface(
+                    shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
+                    color = MaterialTheme.colorScheme.surfaceContainerLow,
+                    shadowElevation = 8.dp,
+                    border = androidx.compose.foundation.BorderStroke(1.dp,
+                        MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.45f))) {
+                    NavigationBar(containerColor = androidx.compose.ui.graphics.Color.Transparent, tonalElevation = 0.dp) {
+                        Box(Modifier.fillMaxWidth(), contentAlignment = androidx.compose.ui.Alignment.Center) {
+                            Row(Modifier.widthIn(max = 640.dp).fillMaxWidth()) {
+                                labels.forEachIndexed { index, title ->
+                                    NavigationBarItem(selected = tab == index, onClick = { tab = index },
+                                        icon = { NavigationIcon(icons[index], tab == index) },
+                                        label = { NavigationLabel(title, tab == index) },
+                                        colors = NavigationBarItemDefaults.colors(
+                                            selectedIconColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                                            selectedTextColor = MaterialTheme.colorScheme.primary,
+                                            indicatorColor = MaterialTheme.colorScheme.primaryContainer,
+                                            unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant))
+                                }
+                            }
+                        }
+                    }
                 }
-                Text(text(if (showNotifications) R.string.notifications else R.string.app_heading),
-                    style = MaterialTheme.typography.headlineSmall, modifier = Modifier.weight(1f))
-                if (!showNotifications) FilledTonalIconButton(onClick = { showNotifications = true }) {
-                    Icon(painterResource(R.drawable.ic_notifications_bell), contentDescription = text(R.string.open_notifications))
+            }) { padding ->
+                Row(Modifier.fillMaxSize().padding(padding)) {
+                    if (!showNotifications && landscape) NavigationRail(Modifier.fillMaxHeight(), containerColor = MaterialTheme.colorScheme.surfaceContainerLow) {
+                        Spacer(Modifier.height(24.dp))
+                        labels.forEachIndexed { index, title ->
+                            NavigationRailItem(selected = tab == index, onClick = { tab = index },
+                                icon = { NavigationIcon(icons[index], tab == index) },
+                                label = { NavigationLabel(title, tab == index) },
+                                colors = NavigationRailItemDefaults.colors(
+                                    selectedIconColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                                    selectedTextColor = MaterialTheme.colorScheme.primary,
+                                    indicatorColor = MaterialTheme.colorScheme.primaryContainer,
+                                    unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant),
+                                modifier = Modifier.padding(vertical = 8.dp))
+                        }
+                    }
+                    Box(Modifier.weight(1f).fillMaxHeight(), contentAlignment = androidx.compose.ui.Alignment.TopCenter) {
+                        Column(Modifier.widthIn(max = if (landscape) 1440.dp else 840.dp)
+                            .fillMaxSize().padding(horizontal = if (tablet) 24.dp else 16.dp)) {
+                            Row(Modifier.fillMaxWidth().padding(top = 12.dp, bottom = 8.dp),
+                                verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                if (showNotifications) IconButton(onClick = { showNotifications = false }) {
+                                    Icon(painterResource(R.drawable.ic_back_arrow), contentDescription = text(R.string.back))
+                                }
+                                Text(text(if (showNotifications) R.string.notifications else R.string.app_heading),
+                                    style = MaterialTheme.typography.headlineSmall, modifier = Modifier.weight(1f))
+                                if (!showNotifications) {
+                                    val unreadCount = s.notifications.count { !it.optBoolean("_opened") }
+                                    val unreadDescription = text(R.string.unread_notifications_count, unreadCount)
+                                    // The badge is a sibling of the button, so its round shape cannot clip it.
+                                    Box(Modifier.size(56.dp)) {
+                                        FilledTonalIconButton(onClick = { showNotifications = true },
+                                            modifier = Modifier.size(48.dp).align(androidx.compose.ui.Alignment.BottomEnd)
+                                                .semantics { stateDescription = unreadDescription }) {
+                                            Icon(painterResource(R.drawable.ic_notifications_bell),
+                                                contentDescription = text(R.string.open_notifications),
+                                                modifier = Modifier.size(24.dp))
+                                        }
+                                        if (unreadCount > 0) Badge(
+                                            modifier = Modifier.align(androidx.compose.ui.Alignment.TopStart).zIndex(1f),
+                                            containerColor = androidx.compose.ui.graphics.Color(0xFFB3261E),
+                                            contentColor = androidx.compose.ui.graphics.Color.White) {
+                                            Text(if (unreadCount > 99) text(R.string.notification_badge_overflow)
+                                                else unreadCount.toString(), style = MaterialTheme.typography.labelSmall)
+                                        }
+                                    }
+                                }
+                            }
+                            if (s.busy) LinearProgressIndicator(Modifier.fillMaxWidth())
+                            Text(s.message, style = MaterialTheme.typography.bodySmall,
+                                modifier = Modifier.padding(vertical = 8.dp))
+                            if (showNotifications) NotificationList(s, model) else when (tab) {
+                                0 -> Orders(s, model)
+                                1 -> Settings(s, model) { confirm = it }
+                                2 -> if (s.admin) AdminPanel(s, model) { confirm = "import" }
+                            }
+                        }
+                    }
                 }
-            }
-            if (s.busy) LinearProgressIndicator(Modifier.fillMaxWidth())
-            Text(s.message, style = MaterialTheme.typography.bodyMedium,
-                modifier = Modifier.padding(vertical = 10.dp))
-            if (showNotifications) NotificationList(s, model) else when (tab) {
-                0 -> Orders(s, model)
-                1 -> Settings(s, model) { confirm = it }
-                2 -> if (s.admin) AdminPanel(s, model) { confirm = "import" }
             }
         }
     }
@@ -163,23 +209,74 @@ private fun PlanningScreen(model: PlanningViewModel) {
     }
 }
 @Composable
-private fun ConnectionStatus(title: String, value: String, verified: Boolean, note: String) {
-    Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp),
-        color = androidx.compose.ui.graphics.Color(if (verified) 0xFF174D3C else 0xFF632A35),
+private fun NavigationIcon(@androidx.annotation.DrawableRes icon: Int, selected: Boolean) {
+    val size by androidx.compose.animation.core.animateDpAsState(if (selected) 26.dp else 24.dp,
+        label = "navigationIconSize")
+    // The label already names the tab for accessibility; avoid announcing it twice.
+    Icon(painterResource(icon), contentDescription = null, modifier = Modifier.size(size))
+}
+
+@Composable
+private fun NavigationLabel(title: String, selected: Boolean) {
+    Text(title, style = MaterialTheme.typography.labelMedium,
+        fontWeight = if (selected) androidx.compose.ui.text.font.FontWeight.Bold
+            else androidx.compose.ui.text.font.FontWeight.Medium)
+}
+
+@Composable
+private fun ConnectionStatus(title: String, verified: Boolean, ready: String, pending: String) {
+    Row(Modifier.fillMaxWidth(), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        Text(title, modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodySmall,
+            color = androidx.compose.ui.graphics.Color(0xFFE0E8F4))
+        Surface(shape = RoundedCornerShape(8.dp),
+            color = androidx.compose.ui.graphics.Color(if (verified) 0xFF354C70 else 0xFF634350)) {
+            Text(if (verified) ready else pending, modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold,
+                color = androidx.compose.ui.graphics.Color(if (verified) 0xFFF1F5FF else 0xFFFFDBD7))
+        }
+    }
+}
+
+@Composable
+private fun ConnectionSummary(s: ScreenState, notificationsAllowed: Boolean) {
+    var showDetails by rememberSaveable { mutableStateOf(false) }
+    Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp),
+        color = androidx.compose.ui.graphics.Color(0xFF243249),
         contentColor = androidx.compose.ui.graphics.Color.White) {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text(title, style = MaterialTheme.typography.titleMedium,
+        Column(Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Text(text(R.string.connection_summary_title), style = MaterialTheme.typography.titleSmall,
                 fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
-            Text(value, style = MaterialTheme.typography.bodyLarge,
-                fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold)
-            Text(note, style = MaterialTheme.typography.bodySmall, fontStyle = FontStyle.Italic,
-                color = androidx.compose.ui.graphics.Color(if (verified) 0xFFD3E2DA else 0xFFEACFD4))
+            ConnectionStatus(text(R.string.connection_backend_label), s.approved,
+                text(R.string.connection_verified), text(R.string.connection_not_verified))
+            ConnectionStatus(text(R.string.connection_fcm_label), s.pushRegistered,
+                text(R.string.connection_registered), text(R.string.connection_not_registered))
+            ConnectionStatus(text(R.string.connection_android_label), notificationsAllowed,
+                text(R.string.connection_allowed), text(R.string.connection_not_allowed))
+            TextButton(onClick = { showDetails = !showDetails },
+                contentPadding = PaddingValues(horizontal = 0.dp, vertical = 0.dp),
+                colors = ButtonDefaults.textButtonColors(contentColor = androidx.compose.ui.graphics.Color(0xFFCBDCFF))) {
+                Text(text(if (showDetails) R.string.connection_hide_details else R.string.connection_show_details),
+                    style = MaterialTheme.typography.labelSmall)
+            }
+            if (showDetails) {
+                listOf(R.string.backend_access_status_note, R.string.fcm_registration_status_note,
+                    R.string.android_notification_status_note).forEach { note ->
+                    Text(text(note), style = MaterialTheme.typography.bodySmall, fontStyle = FontStyle.Italic,
+                        color = androidx.compose.ui.graphics.Color(0xFFCED8E8))
+                }
+            }
         }
     }
 }
 
 @Composable
 private fun Settings(s: ScreenState, model: PlanningViewModel, confirm: (String) -> Unit) {
+    var showSandboxTest by remember { mutableStateOf(false) }
+    if (showSandboxTest && s.hasSandboxKeys && s.approved)
+        com.example.finance_planning.ui.SandboxTradeDialog(model.repo) { showSandboxTest = false }
     val context = LocalContext.current
     var key by remember { mutableStateOf("") }
     var secret by remember { mutableStateOf("") }
@@ -187,7 +284,8 @@ private fun Settings(s: ScreenState, model: PlanningViewModel, confirm: (String)
     var unit by remember { mutableStateOf("1") }
     LaunchedEffect(production, s.hasProductionKeys, s.hasSandboxKeys, s.email) { key = ""; secret = ""; unit = "1" }
     val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { }
-    Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+    SettingsPanes(left = {
+        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Text(text(R.string.settings), style = MaterialTheme.typography.titleLarge)
         Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp),
             color = MaterialTheme.colorScheme.surfaceContainerHigh) {
@@ -199,16 +297,8 @@ private fun Settings(s: ScreenState, model: PlanningViewModel, confirm: (String)
                 SyncNote(text(R.string.google_account_status_note))
             }
         }
-        ConnectionStatus(text(R.string.backend_access_status_title),
-            text(if (s.approved) R.string.backend_account_access_verified else R.string.backend_connection_not_verified),
-            s.approved, text(R.string.backend_access_status_note))
-        ConnectionStatus(text(R.string.fcm_registration_status_title),
-            text(if (s.pushRegistered) R.string.fcm_device_registered_with_the_backend else R.string.fcm_device_registration_incomplete),
-            s.pushRegistered, text(R.string.fcm_registration_status_note))
         val notificationsAllowed = androidx.core.app.NotificationManagerCompat.from(context).areNotificationsEnabled()
-        ConnectionStatus(text(R.string.android_notification_status_title),
-            text(if (notificationsAllowed) R.string.notification_permission_enabled else R.string.notification_permission_required),
-            notificationsAllowed, text(R.string.android_notification_status_note))
+        ConnectionSummary(s, notificationsAllowed)
         TextButton(onClick = model::copyFcmToken, enabled = s.approved && !s.busy) {
             Text(text(R.string.copy_current_fcm_token))
         }
@@ -247,7 +337,7 @@ private fun Settings(s: ScreenState, model: PlanningViewModel, confirm: (String)
         Text(text(R.string.dnse_read_only), style = MaterialTheme.typography.titleLarge)
         SyncNote(text(R.string.dnse_keys_storage_notice))
         Text(text(R.string.dnse_environment), style = MaterialTheme.typography.titleMedium)
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             FilterChip(selected = production, enabled = s.signedIn && !s.busy, onClick = { production = true; model.saveDnseEnvironment(true) },
                 label = { Text(text(R.string.production_live)) })
             FilterChip(selected = !production, enabled = s.signedIn && !s.busy, onClick = { production = false; model.saveDnseEnvironment(false) },
@@ -305,7 +395,15 @@ private fun Settings(s: ScreenState, model: PlanningViewModel, confirm: (String)
         }
         Text(if (s.hasDnse) text(if (s.dnseProduction == true) R.string.saved_production_live_dnse_account
             else R.string.saved_sandbox_separate_test_keys_required) else text(R.string.dnse_environment_keys_missing, environmentName))
+        FilledTonalButton(onClick = { showSandboxTest = true },
+            enabled = s.approved && s.hasSandboxKeys && !s.busy, modifier = Modifier.fillMaxWidth()) {
+            Text(text(R.string.sandbox_test_title))
+        }
+        SyncNote(text(if (s.hasSandboxKeys) R.string.sandbox_test_settings_note else R.string.sandbox_keys_required))
         HorizontalDivider()
+        }
+    }, right = {
+        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(24.dp),
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
             elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)) {
@@ -406,7 +504,8 @@ private fun Settings(s: ScreenState, model: PlanningViewModel, confirm: (String)
         SyncNote(text(R.string.allow_notifications_note))
         OutlinedButton(onClick = { confirm("logout") }, enabled = s.signedIn && !s.busy) { Text(text(R.string.sign_out_and_delete_local_data)) }
         Spacer(Modifier.height(24.dp))
-    }
+        }
+    })
 }
 @Composable
 private fun SyncStatusLine(label: String) {
@@ -464,16 +563,27 @@ private fun AdminPanel(s: ScreenState, model: PlanningViewModel, importPlanning:
 
 @Composable
 private fun NotificationList(s: ScreenState, model: PlanningViewModel) {
-    LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        item { Text(if (s.admin) text(R.string.all_notifications) else text(R.string.my_notifications),
-            style = MaterialTheme.typography.titleLarge) }
-        item { Text(text(R.string.notifications_storage_hint),
-            style = MaterialTheme.typography.bodySmall) }
+    LazyVerticalGrid(columns = GridCells.Adaptive(if (LocalAdaptiveLayout.current.tablet) 340.dp else 1000.dp),
+        horizontalArrangement = Arrangement.spacedBy(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp),
+        contentPadding = PaddingValues(bottom = 24.dp)) {
+        item(span = { GridItemSpan(maxLineSpan) }) { Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {  Text(if (s.admin) text(R.string.all_notifications) else text(R.string.my_notifications),
+            style = MaterialTheme.typography.titleLarge)  } }
+        item(span = { GridItemSpan(maxLineSpan) }) { Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {  Text(text(R.string.notifications_storage_hint),
+            style = MaterialTheme.typography.bodySmall)  } }
         items(s.notifications, key = { it.optString("event_id", it.optString("id")) }) { row ->
             Card(onClick = { model.notification(row.optString("event_id", row.optString("id"))) },
                 modifier = Modifier.fillMaxWidth(), enabled = !s.busy) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text(NotificationContent.title(row), style = MaterialTheme.typography.titleMedium)
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                        Text(NotificationContent.title(row), style = MaterialTheme.typography.titleMedium,
+                            fontWeight = if (!row.optBoolean("_opened")) androidx.compose.ui.text.font.FontWeight.Bold
+                                else androidx.compose.ui.text.font.FontWeight.Normal,
+                            modifier = Modifier.weight(1f))
+                        if (!row.optBoolean("_opened")) Badge(
+                            containerColor = androidx.compose.ui.graphics.Color(0xFFB3261E),
+                            contentColor = androidx.compose.ui.graphics.Color.White) { Text(text(R.string.notification_unread)) }
+                    }
                     Text(NotificationContent.body(row), style = MaterialTheme.typography.bodyLarge)
                     Text(NotificationContent.status(row), style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.primary)
@@ -483,10 +593,10 @@ private fun NotificationList(s: ScreenState, model: PlanningViewModel) {
                 }
             }
         }
-        if (s.notifications.isEmpty()) item { Text(text(R.string.no_notifications_yet)) }
-        if (s.notificationCursor != null) item {
+        if (s.notifications.isEmpty()) item(span = { GridItemSpan(maxLineSpan) }) { Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {  Text(text(R.string.no_notifications_yet))  } }
+        if (s.notificationCursor != null) item(span = { GridItemSpan(maxLineSpan) }) { Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             TextButton(onClick = { model.more("notifications") }, enabled = !s.busy) { Text(text(R.string.more_notifications)) }
-        }
+         } }
     }
 }
 
@@ -623,8 +733,10 @@ private fun Orders(s: ScreenState, model: PlanningViewModel) {
                 Tab(selected = section == i, onClick = { section = i }, text = { Text(label) })
             }
         }
-        LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            item {
+        LazyVerticalGrid(columns = GridCells.Adaptive(if (LocalAdaptiveLayout.current.tablet) 340.dp else 1000.dp),
+            horizontalArrangement = Arrangement.spacedBy(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp),
+            contentPadding = PaddingValues(bottom = 24.dp)) {
+            item(span = { GridItemSpan(maxLineSpan) }) { Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(if (section == 0) text(R.string.pending_orders_explanation)
                     else text(R.string.order_history_explanation), modifier = Modifier.padding(vertical = 12.dp))
                 val savedAt = if (section == 0) s.upcomingSavedAt else s.historySavedAt
@@ -633,14 +745,14 @@ private fun Orders(s: ScreenState, model: PlanningViewModel) {
                 FilledTonalButton(onClick = model::refreshPlanning, enabled = s.approved && !s.busy,
                     modifier = Modifier.padding(top = 8.dp)) { Text(text(R.string.refresh_planning_orders)) }
                 SyncNote(text(R.string.planning_cache_refresh_note))
-            }
+             } }
             items(rows) { row ->
                 com.example.finance_planning.ui.PlanningOrderCard(row, s.dnse, section == 0,
                     s.approved && s.hasDnse && !s.busy) { tradePlan = row }
             }
-            if (!s.busy && (response == null || response.optBoolean("_not_available"))) item { Text(text(if (s.approved && !s.admin)
-                R.string.this_feature_requires_admin_access else R.string.planning_orders_unavailable)) }
-            else if (!s.busy && rows.isEmpty()) item { Text(text(R.string.no_orders_or_plans_in_this_group_yet)) }
+            if (!s.busy && (response == null || response.optBoolean("_not_available"))) item(span = { GridItemSpan(maxLineSpan) }) { Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {  Text(text(if (s.approved && !s.admin)
+                R.string.this_feature_requires_admin_access else R.string.planning_orders_unavailable))  } }
+            else if (!s.busy && rows.isEmpty()) item(span = { GridItemSpan(maxLineSpan) }) { Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {  Text(text(R.string.no_orders_or_plans_in_this_group_yet))  } }
         }
     }
 }

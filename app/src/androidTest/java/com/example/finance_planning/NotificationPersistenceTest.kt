@@ -14,6 +14,38 @@ import org.junit.runner.RunWith
 
 @RunWith(AndroidJUnit4::class)
 class NotificationPersistenceTest {
+    @Test fun unreadInboxReactsToOpeningAndPersistsAcrossRefreshAndRestart() = runBlocking {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val name = "notification-unread-${System.nanoTime()}.db"
+        var db = Room.databaseBuilder(context, LocalDb::class.java, name).build()
+        try {
+            val dao = db.dao()
+            dao.cache(CacheRow("A", "notification:first", "first", 1))
+            dao.cache(CacheRow("A", "notification:second", "second", 2))
+            dao.cache(CacheRow("B", "notification:first", "other-account", 3))
+            assertEquals(2, dao.observeNotificationInbox("A").first().count { !it.opened })
+            // Opening one account's event must not mark another account's matching ID.
+            dao.cache(CacheRow("A", "notification-opened:first", "encrypted-marker", 4))
+            val opened = withTimeout(5000) {
+                dao.observeNotificationInbox("A").first { it.count { row -> row.opened } == 1 }
+            }
+            assertEquals(1, opened.count { !it.opened })
+            assertTrue(opened.first { it.event.key == "notification:first" }.opened)
+            assertFalse(dao.observeNotificationInbox("B").first().single().opened)
+            // A received duplicate / server refresh never resets a read marker.
+            dao.cache(CacheRow("A", "notification:first", "refreshed", 5))
+            assertEquals(1, dao.observeNotificationInbox("A").first().count { !it.opened })
+            db.close()
+            db = Room.databaseBuilder(context, LocalDb::class.java, name).build()
+            assertEquals(1, db.dao().observeNotificationInbox("A").first().count { !it.opened })
+            db.dao().cache(CacheRow("A", "notification-opened:second", "encrypted-marker", 6))
+            assertEquals(0, db.dao().observeNotificationInbox("A").first().count { !it.opened })
+        } finally {
+            db.close()
+            context.deleteDatabase(name)
+        }
+    }
+
     @Test fun notificationStreamUpdatesDeduplicatesAndSeparatesAccounts() = runBlocking {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         val name = "notification-test-${System.nanoTime()}.db"

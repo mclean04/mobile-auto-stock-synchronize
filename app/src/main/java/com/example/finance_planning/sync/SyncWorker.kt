@@ -22,8 +22,6 @@ class SyncWorker(context: Context, params: WorkerParameters) : CoroutineWorker(c
                 val receipt = inputData.getString("receipt") ?: "RECEIVED"
                 if (receipt == "RECEIVED" && !repo.notificationOpened(event)) {
                     PlanningMessagingService.show(applicationContext, notification)
-                    if (com.example.finance_planning.core.NotificationContent.shouldDisplay(notification))
-                        repo.announceNotification(expectedUid, notification)
                 }
                 repo.api.receipt(event, repo.device(), receipt)
                 repo.notifications()
@@ -98,7 +96,6 @@ class ConsoleNotificationWorker(context: Context, params: WorkerParameters) : Co
         repo.cacheNotifications(org.json.JSONObject().put("items", org.json.JSONArray().put(event)), uid)
         if (!repo.notificationOpened(event.getString("event_id"))) {
             PlanningMessagingService.show(applicationContext, event)
-            repo.announceNotification(uid, event)
         }
         SyncSchedule.notificationRefresh(applicationContext)
         return Result.success()

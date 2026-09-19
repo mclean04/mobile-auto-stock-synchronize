@@ -91,6 +91,12 @@ fun ManualTradeDialog(plan: JSONObject, repo: PlanningRepository, dismiss: () ->
             if (result != null) {
                 Text(text(if (result!!.optString("state") == "SUBMITTED") R.string.trade_submitted else R.string.trade_unknown_result))
                 result!!.optString("order_id").takeIf { it.isNotBlank() }?.let { Text(text(R.string.trade_order_reference, it)) }
+                if (result!!.has("backend_request_id")) Text(
+                    text(if (result!!.optString("backend_state") == "REPORTED")
+                        R.string.trade_backend_reported else R.string.trade_backend_pending),
+                    style = MaterialTheme.typography.bodySmall, fontStyle = FontStyle.Italic,
+                    color = if (result!!.optString("backend_state") == "REPORTED")
+                        MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.tertiary)
             } else if (draft == null) {
                 Text(text(R.string.trade_plan_summary, symbol, text(when(side) { "NB" -> R.string.buy; "NS" -> R.string.sell; else -> R.string.plan })), style = MaterialTheme.typography.titleLarge)
                 Text(text(R.string.trade_account), style = MaterialTheme.typography.titleMedium)

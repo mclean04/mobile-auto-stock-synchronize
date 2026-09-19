@@ -8,7 +8,7 @@ import com.example.finance_planning.core.*
 import com.example.finance_planning.network.*
 import com.google.firebase.messaging.FirebaseMessaging
 import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.tasks.await
@@ -18,6 +18,9 @@ import java.math.BigDecimal
 import java.time.LocalDate
 import java.time.ZoneId
 import java.util.UUID
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.withContext
 
 class PlanningRepository(val identity: MobileIdentity, private val vault: Vault,
                          private val db: LocalDb, val api: BackendApi) {
@@ -26,11 +29,7 @@ class PlanningRepository(val identity: MobileIdentity, private val vault: Vault,
     private val dao = db.dao()
     private val notificationLock = Mutex()
     private val planningCacheLock = Mutex()
-    private val arrivals = kotlinx.coroutines.flow.MutableSharedFlow<Pair<String, JSONObject>>(extraBufferCapacity = 16)
-    val notificationArrivals = arrivals.asSharedFlow()
-    fun announceNotification(uid: String, event: JSONObject) {
-        if (identity.uid() == uid && approved()) arrivals.tryEmit(uid to event)
-    }
+    private val placedReportLock = Mutex()
     fun owner() = identity.uid() ?: throw AppFailure(AppText.get(R.string.sign_in_to_access_data_on_this_device))
     fun device(): String {
         val key = "device:" + owner()
@@ -44,6 +43,13 @@ class PlanningRepository(val identity: MobileIdentity, private val vault: Vault,
         vault.put("mobile_scope", "uploader-v1:${owner()}")
         vault.put("approved", owner())
         registerPush()
+        try {
+            retryPlacedOrderReports()
+        } catch (e: CancellationException) {
+            throw e
+        } catch (_: Exception) {
+            // A pending report remains durable and will be retried on the next verified session.
+        }
         return status
     }
     suspend fun cached(key: String): JSONObject? =
@@ -69,8 +75,8 @@ class PlanningRepository(val identity: MobileIdentity, private val vault: Vault,
     suspend fun planning(refresh: Boolean = true) = planningRead("planning", refresh) { api.latestPlanning() }
     suspend fun upcomingPlanning(refresh: Boolean = false) = planningRead("planning_upcoming", refresh) { api.upcomingPlanning() }
     suspend fun planningHistory(refresh: Boolean = false) = planningRead("planning_history", refresh) { api.planningHistory() }
-    fun observeNotifications(uid: String) = dao.observeNotifications(uid).map { rows ->
-        rows.map { JSONObject(vault.open(it.ciphertext)) }
+    fun observeNotifications(uid: String) = dao.observeNotificationInbox(uid).map { rows ->
+        rows.map { JSONObject(vault.open(it.event.ciphertext)).put("_opened", it.opened) }
             .sortedByDescending { it.optString("created_at") }
     }
     suspend fun cacheNotifications(page: JSONObject, uid: String) {
@@ -103,7 +109,7 @@ class PlanningRepository(val identity: MobileIdentity, private val vault: Vault,
         val event = cached("notification:" + id) ?: receiveNotification(id)
         if (identity.uid() != uid) throw AppFailure(AppText.get(R.string.the_sign_in_session_has_changed))
         save("notification-opened:" + id, JSONObject().put("opened", true))
-        return event
+        return event.put("_opened", true)
     }
     suspend fun notificationOpened(id: String): Boolean =
         cached("notification-opened:" + id)?.optBoolean("opened") == true
@@ -112,6 +118,51 @@ class PlanningRepository(val identity: MobileIdentity, private val vault: Vault,
         val event = api.notification(id)
         cacheNotifications(JSONObject().put("items", JSONArray().put(event)), uid)
         return event
+    }
+    private suspend fun reportPlacedOrder(uid: String, journalKey: String, journal: JSONObject,
+                                          payload: JSONObject) {
+        placedReportLock.withLock {
+            val requestId = payload.getString("request_id")
+            val reportKey = "placed-report:$requestId"
+            val report = JSONObject().put("state", "PENDING").put("journal_key", journalKey)
+                .put("payload", JSONObject(payload.toString()))
+            journal.put("backend_request_id", requestId).put("backend_state", "PENDING")
+            withContext(NonCancellable) {
+                dao.cache(CacheRow(uid, reportKey, vault.seal(report.toString()), System.currentTimeMillis()))
+                dao.cache(CacheRow(uid, journalKey, vault.seal(journal.toString()), System.currentTimeMillis()))
+            }
+            sendPlacedOrderReport(uid, reportKey, report)
+        }
+    }
+    private suspend fun sendPlacedOrderReport(uid: String, reportKey: String, report: JSONObject) {
+        if (identity.uid() != uid || !approved()) return
+        var cancellation: CancellationException? = null
+        try {
+            api.placedOrder(report.getJSONObject("payload"))
+            report.put("state", "REPORTED")
+        } catch (e: CancellationException) {
+            cancellation = e
+        } catch (_: Exception) {
+            report.put("state", "PENDING")
+        }
+        withContext(NonCancellable) {
+            dao.cache(CacheRow(uid, reportKey, vault.seal(report.toString()), System.currentTimeMillis()))
+            val journalKey = report.optString("journal_key")
+            val row = dao.cached(uid, journalKey)
+            val journal = row?.let { runCatching { JSONObject(vault.open(it.ciphertext)) }.getOrNull() }
+            if (journal?.optString("backend_request_id") == report.getJSONObject("payload").getString("request_id")) {
+                journal.put("backend_state", report.getString("state"))
+                dao.cache(CacheRow(uid, journalKey, vault.seal(journal.toString()), System.currentTimeMillis()))
+            }
+        }
+        cancellation?.let { throw it }
+    }
+    private suspend fun retryPlacedOrderReports() = placedReportLock.withLock {
+        val uid = owner()
+        for (row in dao.placedReports(uid)) {
+            val report = runCatching { JSONObject(vault.open(row.ciphertext)) }.getOrNull() ?: continue
+            if (report.optString("state") != "REPORTED") sendPlacedOrderReport(uid, row.key, report)
+        }
     }
     private fun tradeHash(value: String) = java.security.MessageDigest.getInstance("SHA-256")
         .digest(value.toByteArray()).joinToString("") { "%02x".format(it) }
@@ -189,6 +240,7 @@ class PlanningRepository(val identity: MobileIdentity, private val vault: Vault,
                 requireFunds(account, draft)
             }
             check()
+            val reportingDevice = device()
             val journal = JSONObject().put("state", "UNKNOWN").put("account", account)
                 .put("draft", draft.body()).put("created_at", java.time.Instant.now().toString())
             // Durable marker precedes the network write. Cancellation/timeouts never permit an automatic retry.
@@ -196,11 +248,16 @@ class PlanningRepository(val identity: MobileIdentity, private val vault: Vault,
             try {
                 check()
                 val response = broker.place(account, draft, token)
-                val orderId = DnseApi.text(response, "id", "orderId")
+                val placed = response.optJSONObject("data") ?: response.optJSONObject("order") ?: response
+                val orderId = DnseApi.text(placed, "id", "orderId")
                 require(orderId.isNotBlank() && orderId != "null")
                 journal.put("state", "SUBMITTED").put("order_id", orderId)
                 kotlinx.coroutines.withContext(kotlinx.coroutines.NonCancellable) {
                     dao.cache(CacheRow(uid, journalKey, vault.seal(journal.toString()), System.currentTimeMillis()))
+                    val payload = PlacedOrderReport.payload(UUID.randomUUID().toString(), reportingDevice,
+                        if (production) "production" else "sandbox", account, draft, response,
+                        java.time.Instant.now())
+                    reportPlacedOrder(uid, journalKey, journal, payload)
                 }
                 journal
             } catch (e: Exception) {
@@ -222,7 +279,138 @@ class PlanningRepository(val identity: MobileIdentity, private val vault: Vault,
         return ManualTradeSession(uid, config, JSONObject(plan.toString()))
     }
 
+    /** Dedicated sandbox client, independent of the user's active Production environment. */
+    inner class SandboxTradeSession internal constructor(private val uid: String, private val config: String) {
+        private val settings = JSONObject(config).also { require(!it.getBoolean("production")) }
+        private val journalKey = "sandbox-test:last:" + tradeHash(config)
+        private val reports = kotlinx.coroutines.flow.MutableStateFlow<List<BrokerResponse>>(emptyList())
+        val responses = reports.asStateFlow()
+        private val broker = DnseTradingApi(settings.getString("key"), settings.getString("secret"), false,
+            diagnostic = { report -> reports.value = (reports.value + report).takeLast(20) })
+        private fun check() {
+            if (identity.uid() != uid || !approved() || dnseCredentials.config(uid, false) != config)
+                throw AppFailure(AppText.get(R.string.the_sign_in_session_has_changed))
+        }
+        suspend fun accounts(): List<JSONObject> { check(); return broker.accounts().filter { it.optBoolean("dealAccount") } }
+        suspend fun packages(account: String, symbol: String): List<JSONObject> {
+            check(); require(accounts().any { DnseApi.text(it, "id", "accountNo") == account })
+            broker.balances(account)
+            return broker.packages(account, symbol)
+        }
+        suspend fun previous(): JSONObject? { check(); return cached(journalKey) }
+        private suspend fun writeJournal(journal: JSONObject) {
+            dao.cache(CacheRow(uid, journalKey, vault.seal(journal.toString()), System.currentTimeMillis()))
+        }
+        private fun status(raw: Any): String {
+            val root = raw as? JSONObject ?: return ""
+            val value = root.optJSONObject("data") ?: root.optJSONObject("order") ?: root
+            return DnseApi.text(value, "orderStatus", "status").lowercase(java.util.Locale.US)
+        }
+        private suspend fun refreshJournal(journal: JSONObject): Any {
+            val raw = broker.order(journal.getString("account"), journal.getString("order_id"))
+            val current = status(raw)
+            journal.put("broker_status", current)
+            if (current in setOf("canceled", "cancelled", "filled", "rejected", "expired", "doneforday"))
+                journal.put("state", "TERMINAL")
+            else if (current == "pendingcancel" && journal.optString("state") == "CANCEL_UNKNOWN")
+                journal.put("state", "CANCEL_REQUESTED")
+            writeJournal(journal)
+            return raw
+        }
+        suspend fun place(account: String, draft: TradeDraft, cancelImmediately: Boolean = false): JSONObject = lock.withLock {
+            check(); draft.body()
+            require(previous() == null) { AppText.get(R.string.sandbox_previous_test) }
+            require(packages(account, draft.symbol).any { it.optLong("id", -1) == draft.packageId })
+            broker.ppse(account, draft)
+            val token = broker.token("email_otp", "666666")
+            check()
+            val reportingDevice = device()
+            val journal = JSONObject().put("state", "UNKNOWN").put("account", account).put("draft", draft.body())
+            save(journalKey, journal)
+            var placedPayload: JSONObject? = null
+            try {
+                val result = broker.place(account, draft, token)
+                val placed = result.optJSONObject("data") ?: result
+                val id = DnseApi.text(placed, "id", "orderId")
+                require(id.isNotBlank() && id != "null")
+                journal.put("state", "SUBMITTED").put("order_id", id)
+                kotlinx.coroutines.withContext(kotlinx.coroutines.NonCancellable) { writeJournal(journal) }
+                placedPayload = PlacedOrderReport.payload(UUID.randomUUID().toString(), reportingDevice, "sandbox",
+                    account, draft, result, java.time.Instant.now())
+                if (cancelImmediately) {
+                    journal.put("state", "CANCEL_UNKNOWN")
+                    kotlinx.coroutines.withContext(kotlinx.coroutines.NonCancellable) { writeJournal(journal) }
+                    broker.cancel(account, id, token)
+                    journal.put("state", "CANCEL_REQUESTED")
+                    kotlinx.coroutines.withContext(kotlinx.coroutines.NonCancellable) { writeJournal(journal) }
+                    refreshJournal(journal)
+                }
+                journal
+            } catch (e: TradeHttpFailure) {
+                if (journal.has("order_id")) {
+                    runCatching { refreshJournal(journal) }
+                } else if (e.status in setOf(400, 401, 403, 404, 422)) {
+                    kotlinx.coroutines.withContext(kotlinx.coroutines.NonCancellable) {
+                        dao.cache(CacheRow(uid, journalKey, vault.seal(journal.put("state", "REJECTED").toString()), System.currentTimeMillis()))
+                    }
+                }
+                throw e
+            } finally {
+                placedPayload?.let { payload ->
+                    kotlinx.coroutines.withContext(kotlinx.coroutines.NonCancellable) {
+                        reportPlacedOrder(uid, journalKey, journal, payload)
+                    }
+                }
+            }
+        }
+        suspend fun detail(): Any {
+            check(); val last = previous() ?: throw AppFailure(AppText.get(R.string.sandbox_previous_test))
+            return if (last.has("order_id")) refreshJournal(last)
+                else broker.orders(last.getString("account"))
+        }
+        suspend fun cancel(): Any = lock.withLock {
+            check(); val last = previous() ?: throw AppFailure(AppText.get(R.string.sandbox_previous_test))
+            require(last.has("order_id")) { AppText.get(R.string.trade_unknown_result) }
+            require(last.optString("state") == "SUBMITTED") { AppText.get(R.string.sandbox_cancel_unknown) }
+            val token = broker.token("email_otp", "666666")
+            check()
+            last.put("state", "CANCEL_UNKNOWN")
+            kotlinx.coroutines.withContext(kotlinx.coroutines.NonCancellable) { writeJournal(last) }
+            try {
+                val result = broker.cancel(last.getString("account"), last.getString("order_id"), token)
+                last.put("state", "CANCEL_REQUESTED")
+                kotlinx.coroutines.withContext(kotlinx.coroutines.NonCancellable) { writeJournal(last) }
+                refreshJournal(last)
+                result
+            } catch (e: Exception) {
+                runCatching { refreshJournal(last) }
+                throw e
+            }
+        }
+        suspend fun reset() = lock.withLock {
+            check(); val last = previous()
+            if (last != null && last.optString("state") != "REJECTED") {
+                require(last.has("order_id")) { AppText.get(R.string.trade_unknown_result) }
+                val raw = refreshJournal(last)
+                require(status(raw) in setOf("canceled", "cancelled", "filled", "rejected", "expired", "doneforday")) {
+                    AppText.get(R.string.sandbox_previous_test)
+                }
+            }
+            check(); dao.deleteCache(uid, journalKey)
+        }
+    }
+    fun sandboxTrade(): SandboxTradeSession {
+        if (!approved()) throw AppFailure(AppText.get(R.string.backend_mobile_not_verified))
+        val config = dnseCredentials.config(owner(), false) ?: throw AppFailure(AppText.get(R.string.sandbox_keys_required))
+        val settings = JSONObject(config)
+        if (!DnseCredentialFormat.valid(settings.optString("key"), settings.optString("secret")))
+            throw AppFailure(AppText.get(R.string.dnse_keys_invalid_format))
+        return SandboxTradeSession(owner(), config)
+    }
+
     fun saveDnse(key: String, secret: String, production: Boolean, vndPerUnit: String) {
+        if (!DnseCredentialFormat.valid(key.trim(), secret.trim()))
+            throw AppFailure(AppText.get(R.string.dnse_keys_invalid_format))
         dnseCredentials.save(owner(), key, secret, production, vndPerUnit)
     }
     fun saveDnseEnvironment(production: Boolean) { dnseCredentials.select(owner(), production) }

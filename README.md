@@ -12,7 +12,7 @@ Backend: https://github.com/mclean04/auto-stock-synchronize
 - Credential Manager → Firebase Auth; App Check Play Integrity cho mỗi request backend.
 - Xác nhận quyền qua API trước khi bật đồng bộ; không nhúng token automation vào APK.
 - Khóa DNSE và payload Room mã hóa bằng Android Keystore; tắt backup và screenshot.
-- DNSE chỉ GET: lịch sử 30 ngày, lệnh trong ngày NORMAL/STOP, khớp lệnh, tiền và vị thế.
+- DNSE GET phục vụ đồng bộ lịch sử, lệnh, khớp lệnh, tiền và vị thế; app cũng hỗ trợ đặt/huỷ lệnh LO có xác nhận rõ ràng.
 - Upload orders/executions/positions/balances theo lô <=100 bản ghi; phí được gửi khi DNSE cung cấp.
 - Giữ nguyên batch ID/payload khi thử lại và chỉ ACK sau khi backend xác nhận commit.
 - WorkManager mỗi 6 giờ khi có mạng, nút đồng bộ ngay, thử lại Sheet, đăng ký FCM.
@@ -42,7 +42,10 @@ trong Firebase Console vì Google không cho tạo/sửa OAuth client bằng API
 được gửi khi phản hồi DNSE có fee/feeAmount/tradingFee/commission; nếu nguồn không cung cấp
 thì gửi null, không tự ước tính phí.
 Cấu hình giá mặc định là VND theo ví dụ API 2026-07-23; chỉ đổi nếu hợp đồng nguồn yêu cầu.
-Sandbox không được upload vào backend production.
+Sau khi DNSE xác nhận đặt lệnh, app gọi `POST /v1/orders/placed`. Payload ghi rõ
+`environment=production` hoặc `environment=sandbox`; backend ghi vào bộ sưu tập và Sheet
+tương ứng. Yêu cầu được lưu mã hoá trước khi gửi và giữ nguyên `request_id` khi thử lại,
+tránh tạo bản ghi Planning trùng nếu backend đã commit nhưng phản hồi bị gián đoạn.
 
 Xem [đối chiếu API và yêu cầu backend](docs/API-COVERAGE.md).
 Room instrumented test nằm trong OutboxPersistenceTest; cần emulator/thiết bị để chạy.
@@ -104,3 +107,24 @@ Quản trị chia thành Tổng quan (quyền admin, số dữ liệu đã tải
 Đang đợi và Lịch sử đọc Room mã hóa theo tài khoản Google trước khi xác minh backend hoàn tất, nếu phiên đã được xác minh trước đó. Đã có cache (kể cả danh sách rỗng) thì mở app/đưa app về foreground/chuyển tab không tải lại API planning. Thiếu cache thì tải một lần và lưu. Backend trả 404 được lưu thành trạng thái chưa có kế hoạch để không gọi lặp mỗi lần mở; lỗi mạng không thay cache đang có.
 
 Mỗi tab có nút Làm mới kế hoạch; bấm từ bất kỳ tab nào cũng GET upcoming và history, lưu cả hai và cập nhật thời điểm lưu. Không tự lọc/chuyển kế hoạch giữa Đang đợi/Lịch sử theo ngày trên máy; danh sách giữ kết quả lần tải gần nhất cho tới khi làm mới. Quản trị → Làm mới và nhập planning là thao tác chủ động cập nhật cả phiên bản chung và hai danh sách. Trước khi đặt lệnh DNSE, app vẫn bắt buộc lấy upcoming mới nhất để kiểm tra tính hợp lệ; không dùng cache để bỏ qua kiểm tra trước giao dịch. Trở lại foreground chỉ khôi phục cache, không gọi refreshAll; xác minh backend và đăng ký FCM khi đăng nhập/khởi động vẫn giữ nguyên, dùng lại response syncStatus để tránh gọi trùng.
+
+### Bố cục theo kích thước cửa sổ
+
+- Điện thoại và cửa sổ hẹp: một cột, thanh điều hướng dưới.
+- Tablet dọc: nội dung căn giữa (tối đa 840 dp), thanh điều hướng dưới gọn, danh sách lệnh/thông báo/quản trị tự chia cột khi mỗi thẻ đủ rộng.
+- Tablet ngang (cửa sổ từ 900 dp, chiều cao từ 480 dp): điều hướng bên trái; Cài đặt chia hai vùng cuộn độc lập (tài khoản/kết nối/khóa DNSE và đồng bộ/dữ liệu DNSE/hàng đợi). Nội dung tối đa 1440 dp; các danh sách tự chia cột, thẻ tối thiểu 340 dp.
+- Bố cục dựa trên cửa sổ app nên thu gọn khi dùng chia đôi màn hình. Xoay màn hình không tự gọi lại API kế hoạch.
+
+Navigation dùng SVG Lucide (clipboard-list, settings, shield-user), chuyển thành Android VectorDrawable; SVG gốc và giấy phép nằm trong `docs/icons/lucide`. Cả bottom navigation và navigation rail dùng cùng bộ icon.
+
+### Kiểm thử DNSE Sandbox
+
+Cài đặt → Kết nối DNSE → Sandbox: lưu bộ API Key/API Secret riêng. Nút **Kiểm thử đặt / huỷ lệnh Sandbox** luôn dùng host `sb-openapi.dnse.com.vn` và slot khóa Sandbox, không phụ thuộc môi trường đang chọn và không dùng khóa Production.
+
+Chọn tiểu khoản, mã, số lượng, giá VND, tải số dư/gói giao dịch và chọn gói. Trước POST, app gọi balances/loan-packages/ppse và lấy trading token bằng OTP mô phỏng `666666`. Nút đặt lệnh có bước xem lại các thông số. Sau đó dùng nút đọc trạng thái hoặc huỷ chính lệnh thử đã tạo. HTTP status và JSON phản hồi từng bước xuất hiện trong màn hình kiểm thử, không ghi log; token, khóa và OTP được che. HTTP lỗi vẫn giữ code/message của DNSE để chẩn đoán.
+
+Journal mã hóa trong Room theo UID và fingerprint khóa Sandbox giữ order ID qua lần mở lại. Kết quả POST chưa xác định chặn gửi lại; không tự retry. Chỉ bắt đầu bài thử mới khi lệnh cũ ở trạng thái kết thúc hoặc POST bị từ chối rõ ràng. Sandbox tự mô phỏng khớp lệnh nên huỷ có thể trả lỗi nếu lệnh đã khớp; kết quả huỷ không được suy ra chỉ từ HTTP 200, phải đọc trạng thái.
+
+Tuỳ chọn **Huỷ ngay sau khi đặt** dùng cùng trading token để gọi DELETE ngay sau POST thành công. Trước DELETE, journal được lưu là `CANCEL_UNKNOWN`; app không tự gửi lại khi mất kết nối. Sau phản hồi huỷ, app đọc lại chi tiết lệnh và lưu trạng thái terminal. Cách này tăng cơ hội kiểm thử được nhánh huỷ trước khi vòng đời Sandbox tự chuyển lệnh sang `Filled`, nhưng máy chủ vẫn có quyền từ chối nếu mô phỏng đã hoàn tất.
+
+Tài liệu: https://developers.dnse.com.vn/docs/guide/sandbox/ và https://developers.dnse.com.vn/docs/dnse/cancel-order/ . Chưa có khóa Sandbox thì chỉ kiểm thử giao thức bằng mock, chưa thể kết luận kết quả từ máy chủ DNSE.

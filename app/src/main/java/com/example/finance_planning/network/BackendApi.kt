@@ -23,6 +23,7 @@ class BackendApi(private val transport: Transport, private val headers: suspend 
     suspend fun retryProjection() = call("/v1/sync/retry", "POST")
     suspend fun reconcile() = call("/v1/sheets/reconcile", "POST")
     suspend fun upload(batch: JSONObject) = call("/v1/sync/batches", "POST", batch)
+    suspend fun placedOrder(payload: JSONObject) = call("/v1/orders/placed", "POST", payload)
     private fun page(path: String, cursor: String?) =
         path + "?limit=20" + (cursor?.let { "&cursor=" + URLEncoder.encode(it, "UTF-8") } ?: "")
     suspend fun batches(cursor: String? = null) = call(scoped(page("/v1/sync/batches", cursor)))

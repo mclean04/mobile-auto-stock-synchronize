@@ -18,7 +18,12 @@ import java.util.concurrent.TimeUnit
 
 /** Separate client: OTP, signatures and trading tokens must never enter HTTP debug logs. */
 class DnseTradingApi(private val key: String, private val secret: String, production: Boolean,
-                     internal val client: OkHttpClient = tradingClient()) {
+                     internal val client: OkHttpClient = tradingClient(),
+                     private val diagnostic: ((BrokerResponse) -> Unit)? = null) {
+    init {
+        require(com.example.finance_planning.core.DnseCredentialFormat.valid(key, secret)) { "Invalid DNSE credential format" }
+        require(!production || diagnostic == null)
+    }
     private val host = if (production) "https://openapi.dnse.com.vn" else "https://sb-openapi.dnse.com.vn"
     companion object {
         private fun tradingClient() = OkHttpClient.Builder().connectTimeout(20, TimeUnit.SECONDS)
@@ -39,12 +44,14 @@ class DnseTradingApi(private val key: String, private val secret: String, produc
         token?.let { request.header("trading-token", it) }
         request.method(method, if (method == "POST") (body?.toString() ?: "").toRequestBody("application/json".toMediaType()) else null)
         client.newCall(request.build()).execute().use { response ->
-            // Do not surface broker bodies: they can contain credentials or private account data.
-            if (!response.isSuccessful) throw TradeHttpFailure(response.code)
+            if (diagnostic == null && !response.isSuccessful) throw TradeHttpFailure(response.code)
             val source = response.body?.source()
             source?.request(65537)
             val raw = source?.buffer?.readUtf8(minOf(source.buffer.size, 65537)) ?: ""
             require(raw.toByteArray().size <= 65536)
+            diagnostic?.invoke(BrokerResponse(method, path + suffix, response.code,
+                BrokerResponseRedaction.body(raw, listOfNotNull(key, secret, token, body?.optString("passcode")))))
+            if (!response.isSuccessful) throw TradeHttpFailure(response.code)
             if (raw.isBlank()) JSONObject() else JSONTokener(raw).nextValue()
         }
     }
@@ -60,6 +67,17 @@ class DnseTradingApi(private val key: String, private val secret: String, produc
     }
     suspend fun place(account: String, draft: TradeDraft, token: String): JSONObject = call("/accounts/${id(account)}/orders", "POST",
         mapOf("marketType" to "STOCK", "orderCategory" to "NORMAL"), draft.body(), token) as JSONObject
+    suspend fun orders(account: String) = call("/accounts/${id(account)}/orders",
+        query = mapOf("marketType" to "STOCK", "orderCategory" to "NORMAL"))
+    suspend fun order(account: String, order: String) = call("/accounts/${id(account)}/orders/${id(order)}",
+        query = mapOf("marketType" to "STOCK", "orderCategory" to "NORMAL"))
+    suspend fun ppse(account: String, draft: TradeDraft) = call("/accounts/${id(account)}/ppse",
+        query = mapOf("marketType" to "STOCK", "symbol" to draft.symbol,
+            "price" to draft.price.toString(), "loanPackageId" to draft.packageId.toString()))
+    suspend fun cancel(account: String, order: String, token: String) = call(
+        "/accounts/${id(account)}/orders/${id(order)}", "DELETE",
+        mapOf("marketType" to "STOCK", "orderCategory" to "NORMAL"), token = token)
+
 }
 class TradeHttpFailure(val status: Int) : Exception("HTTP $status")
 
