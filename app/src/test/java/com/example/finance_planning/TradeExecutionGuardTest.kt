@@ -108,4 +108,19 @@ class TradeExecutionGuardTest {
         } }
         assertEquals(0, brokerCalls)
     }
+
+    @Test fun grantExpiringDuringDurableMarkerNeverCallsBroker() = runBlocking {
+        val ticks = ArrayDeque(listOf(0L, 1L, java.time.Duration.ofMinutes(5).toNanos()))
+        var persistenceCalls = 0
+        var brokerCalls = 0
+        assertThrows(PlanningPreflightUnavailable::class.java) { runBlocking {
+            TradeExecutionGuard.execute(PlanningIntent.parse(intent()), "012345", Instant.now(),
+                readCurrent = { intent() }, runPreflight = { preflight() },
+                beforeBrokerWrite = { persistenceCalls++ }, brokerWrite = { brokerCalls++; "never" },
+                clock = { Instant.parse("2026-10-01T02:10:01Z") },
+                monotonicNanos = { ticks.removeFirst() })
+        } }
+        assertEquals(1, persistenceCalls)
+        assertEquals(0, brokerCalls)
+    }
 }

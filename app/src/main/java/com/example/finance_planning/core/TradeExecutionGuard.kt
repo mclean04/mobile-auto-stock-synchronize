@@ -45,13 +45,20 @@ object TradeExecutionGuard {
         val validityNanos = preflight.expiresAt?.let {
             runCatching { Duration.between(preflight.serverTime, it).toNanos() }.getOrNull()
         }
-        val elapsedNanos = monotonicNanos() - preflightStartedAt
-        if (preflight.preflightId == null || preflight.expiresAt == null || validityNanos == null ||
-            validityNanos <= 0 || elapsedNanos !in 0 until validityNanos ||
-            !clock().isBefore(preflight.expiresAt))
+        fun authorizationStillValid(): Boolean {
+            val elapsedNanos = monotonicNanos() - preflightStartedAt
+            return preflight.preflightId != null && preflight.expiresAt != null &&
+                validityNanos != null && validityNanos > 0 &&
+                elapsedNanos in 0 until validityNanos && clock().isBefore(preflight.expiresAt)
+        }
+        if (!authorizationStillValid())
             throw PlanningPreflightUnavailable()
 
         beforeBrokerWrite(preflight)
+        // Local durable persistence can cross the grant boundary. Recheck after it so the
+        // following statement remains the only broker mutation and never uses an expired grant.
+        if (!authorizationStillValid())
+            throw PlanningPreflightUnavailable()
         return GuardedBrokerResult(brokerWrite(), preflight)
     }
 
