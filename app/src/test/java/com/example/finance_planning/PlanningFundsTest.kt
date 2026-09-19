@@ -5,6 +5,7 @@ import org.json.JSONObject
 import org.junit.Assert.*
 import org.junit.Test
 import java.math.BigDecimal
+import org.json.JSONArray
 
 class PlanningFundsTest {
     private fun plan(side: String = "MUA") = JSONObject("""{"fields":{"Mã":"REE","Mua/Bán":"$side","Số lượng":20,"Giá LO tối đa":45000,"Giá trị kế hoạch":900000,"Phí dự phòng":1800,"Tổng chi ngân sách":901800}}""")
@@ -38,5 +39,20 @@ class PlanningFundsTest {
         assertEquals(BigDecimal("901800"), PlanningFunds.required(plan(), BigDecimal("100")))
         val understated = plan(); understated.getJSONObject("fields").put("Tổng chi ngân sách", 1)
         assertEquals(BigDecimal("901800"), PlanningFunds.required(understated))
+    }
+    @Test fun typedIntentWithoutCanonicalFeeBudgetFailsClosed() {
+        val typed = JSONObject().put("contract_version", "2.0")
+            .put("plan_id", "59c827db-79fa-4a56-943d-291831f28f51")
+            .put("intent_id", "792f0b94-ad11-492b-b375-91916fa4ec68")
+            .put("version", 3).put("authoring_state", "APPROVED").put("execution_state", "NOT_STARTED")
+            .put("environment", "production").put("recipient_uid", "uid").put("account", "0")
+            .put("symbol", "REE").put("side", "BUY").put("quantity", "20")
+            .put("limit_price_vnd", "45000").put("scheduled_at", "2026-10-01T09:00:00+07:00")
+            .put("window_starts_at", "2026-10-01T09:00:00+07:00")
+            .put("window_ends_at", "2026-10-01T14:30:00+07:00")
+            .put("eligibility", JSONObject().put("eligible", true).put("reasons", JSONArray()))
+        assertEquals(BigDecimal("900000"), PlanningFunds.principal(typed))
+        assertNull(PlanningFunds.required(typed))
+        assertFalse(PlanningFunds.affordable(snapshot(999999999), typed))
     }
 }

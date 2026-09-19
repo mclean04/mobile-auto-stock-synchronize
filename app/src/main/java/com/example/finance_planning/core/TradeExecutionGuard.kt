@@ -1,6 +1,7 @@
 package com.example.finance_planning.core
 
 import org.json.JSONObject
+import java.time.Duration
 import java.time.Instant
 
 class PlanningPreflightUnavailable(cause: Throwable? = null) : Exception("Planning preflight unavailable", cause)
@@ -18,7 +19,9 @@ object TradeExecutionGuard {
         readCurrent: suspend () -> JSONObject,
         runPreflight: suspend (JSONObject) -> JSONObject,
         beforeBrokerWrite: suspend (PreflightAuthorization) -> Unit,
-        brokerWrite: suspend () -> T
+        brokerWrite: suspend () -> T,
+        clock: () -> Instant = Instant::now,
+        monotonicNanos: () -> Long = System::nanoTime
     ): GuardedBrokerResult<T> {
         val current = try { PlanningIntent.parse(readCurrent()) }
             catch (e: kotlinx.coroutines.CancellationException) { throw e }
@@ -26,6 +29,9 @@ object TradeExecutionGuard {
         if (!sameExecutionContract(expected, current) || current.account != account)
             throw PlanningVersionChanged()
 
+        // Start the monotonic validity budget before the request so transport delay can only
+        // shorten a grant. Server time defines the budget; the device clock is an extra fail-safe.
+        val preflightStartedAt = monotonicNanos()
         val preflight = try {
             PreflightAuthorization.parse(runPreflight(
                 PlanningContract.preflightRequest(current, account, observedAt)), current)
@@ -36,7 +42,13 @@ object TradeExecutionGuard {
             throw PlanningVersionChanged()
         if (!preflight.eligibility.eligible)
             throw PlanningGateFailure(preflight.eligibility.reasons)
-        if (preflight.preflightId == null)
+        val validityNanos = preflight.expiresAt?.let {
+            runCatching { Duration.between(preflight.serverTime, it).toNanos() }.getOrNull()
+        }
+        val elapsedNanos = monotonicNanos() - preflightStartedAt
+        if (preflight.preflightId == null || preflight.expiresAt == null || validityNanos == null ||
+            validityNanos <= 0 || elapsedNanos !in 0 until validityNanos ||
+            !clock().isBefore(preflight.expiresAt))
             throw PlanningPreflightUnavailable()
 
         beforeBrokerWrite(preflight)

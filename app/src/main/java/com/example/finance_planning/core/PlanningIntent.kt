@@ -6,6 +6,7 @@ import org.json.JSONObject
 import java.math.BigDecimal
 import java.time.Instant
 import java.time.OffsetDateTime
+import java.time.Duration
 import java.util.UUID
 
 enum class AuthoringState { DRAFT, TENTATIVE, READY_FOR_REVIEW, APPROVED, REJECTED, WITHDRAWN, SUPERSEDED }
@@ -130,7 +131,8 @@ data class PreflightAuthorization(
             val serverTime = OffsetDateTime.parse(json.getString("server_time")).toInstant()
             val expiresAt = json.optString("preflight_expires_at")
                 .takeIf { it.isNotBlank() && it != "null" }?.let { OffsetDateTime.parse(it).toInstant() }
-            if (eligibility.eligible) require(expiresAt != null && expiresAt > serverTime)
+            if (eligibility.eligible) require(expiresAt != null && expiresAt > serverTime &&
+                Duration.between(serverTime, expiresAt) <= Duration.ofMinutes(5))
             return PreflightAuthorization(
                 preflightId, intentId, version, serverTime, expiresAt, eligibility
             )

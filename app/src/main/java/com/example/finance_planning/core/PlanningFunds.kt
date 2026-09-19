@@ -28,10 +28,10 @@ object PlanningFunds {
         return listOfNotNull(computed, stated).maxOrNull()
     }
     fun required(plan: JSONObject, actualPrincipal: BigDecimal? = null): BigDecimal? {
-        PlanningIntent.parseOrNull(plan)?.let {
-            val canonical = BigDecimal(it.limitPriceVnd).multiply(BigDecimal(it.quantity))
-            return (actualPrincipal ?: canonical).max(canonical)
-        }
+        // Contract v2 currently carries principal but no fee reserve or approved total budget.
+        // Treating the absent fee as zero would weaken the existing cash-only rule, so typed
+        // BUY intents remain read-only until those canonical budget fields are contracted.
+        if (PlanningIntent.parseOrNull(plan) != null) return null
         val f = fields(plan)
         val principal = principal(plan) ?: return null
         val fee = number(f, "Phí dự phòng") ?: BigDecimal.ZERO

@@ -82,4 +82,30 @@ class TradeExecutionGuardTest {
             assertEquals(0, brokerCalls)
         }
     }
+
+    @Test fun authorizationThatExpiresBeforeBrokerWriteNeverPersistsOrCallsBroker() = runBlocking {
+        var persistenceCalls = 0
+        var brokerCalls = 0
+        assertThrows(PlanningPreflightUnavailable::class.java) { runBlocking {
+            TradeExecutionGuard.execute(PlanningIntent.parse(intent()), "012345", Instant.now(),
+                readCurrent = { intent() }, runPreflight = { preflight() },
+                beforeBrokerWrite = { persistenceCalls++ }, brokerWrite = { brokerCalls++; "never" },
+                clock = { Instant.parse("2026-10-01T02:15:00Z") })
+        } }
+        assertEquals(0, persistenceCalls)
+        assertEquals(0, brokerCalls)
+    }
+
+    @Test fun transportAndDialogDelayConsumeServerGrantedValidityBudget() = runBlocking {
+        var tick = 0L
+        var brokerCalls = 0
+        assertThrows(PlanningPreflightUnavailable::class.java) { runBlocking {
+            TradeExecutionGuard.execute(PlanningIntent.parse(intent()), "012345", Instant.now(),
+                readCurrent = { intent() }, runPreflight = { preflight() },
+                beforeBrokerWrite = {}, brokerWrite = { brokerCalls++; "never" },
+                clock = { Instant.parse("2026-10-01T02:10:01Z") },
+                monotonicNanos = { tick.also { tick = java.time.Duration.ofMinutes(5).toNanos() } })
+        } }
+        assertEquals(0, brokerCalls)
+    }
 }
