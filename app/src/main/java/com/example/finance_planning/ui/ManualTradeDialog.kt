@@ -16,6 +16,7 @@ import com.example.finance_planning.core.AppText
 import com.example.finance_planning.core.PlanningFunds
 import com.example.finance_planning.core.OrderContent
 import com.example.finance_planning.core.NotificationContent
+import com.example.finance_planning.core.PlanningSection
 import com.example.finance_planning.data.PlanningRepository
 import com.example.finance_planning.network.DnseApi
 import com.example.finance_planning.network.TradeDraft
@@ -26,7 +27,7 @@ import org.json.JSONObject
 import java.math.BigDecimal
 
 @Composable
-fun ManualTradeDialog(plan: JSONObject, repo: PlanningRepository, dismiss: () -> Unit) {
+fun ManualTradeDialog(plan: JSONObject, repo: PlanningRepository, section: PlanningSection, dismiss: () -> Unit) {
     val scope = rememberCoroutineScope()
     var busy by remember { mutableStateOf(false) }
     var message by remember { mutableStateOf("") }
@@ -68,7 +69,7 @@ fun ManualTradeDialog(plan: JSONObject, repo: PlanningRepository, dismiss: () ->
     LaunchedEffect(plan) {
         busy = true
         try {
-            val opened = repo.manualTrade(plan)
+            val opened = repo.manualTrade(plan, section)
             session = opened; result = opened.result(); funds = opened.funds()
             if (result == null) accounts = opened.accounts()
         } catch (e: Exception) { message = if (e is AppFailure) e.message.orEmpty() else AppText.get(R.string.trade_prepare_failed) }

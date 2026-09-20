@@ -32,11 +32,15 @@ fun PlanningOrderCard(row: JSONObject, snapshot: JSONObject?, upcoming: Boolean,
     val required = PlanningFunds.required(row)
     val balances = PlanningFunds.balances(snapshot)
     val gateReasons = decision.reasons
-    val gateReady = decision.canExecute
-    val symbol = intent?.symbol ?: row.optString("symbol", fields.optString("Mã", text(R.string.plan)))
-    val planned = (intent?.raw ?: row).optString("scheduled_at").takeIf { it.isNotBlank() }
-        ?.let(NotificationContent::time)
-        ?: row.optString("scheduled_date", fields.optString("Ngày dự kiến"))
+    val gateReady = upcoming && decision.canExecute
+    fun displayValue(key: String, fallback: String): String = row.optString(key)
+        .takeIf { !row.isNull(key) && it.isNotBlank() } ?: fallback
+    val symbol = intent?.symbol ?: displayValue("symbol", fields.optString("Mã", text(R.string.plan)))
+    val scheduled = PlanningTimeline.scheduledAt(row)
+    val planned = if (scheduled != null) NotificationContent.time(scheduled.toString())
+        else if (row.optString("time_status") == "DATE_ONLY")
+            text(R.string.planning_time_date_only, displayValue("scheduled_date", fields.optString("Ngày dự kiến")))
+        else text(R.string.planning_time_unknown)
     Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(22.dp),
         colors = CardDefaults.cardColors(containerColor = background, contentColor = foreground)) {
         Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -52,7 +56,8 @@ fun PlanningOrderCard(row: JSONObject, snapshot: JSONObject?, upcoming: Boolean,
             }
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 PlanMetric(text(R.string.trade_quantity), intent?.quantity?.toString()
-                    ?: row.optString("quantity", fields.optString("Số lượng", text(R.string.no_data_available))),
+                    ?: displayValue("quantity", fields.optString("Số lượng").takeIf { it.isNotBlank() }
+                        ?: text(R.string.no_data_available)),
                     Modifier.weight(1f), panel, foreground, secondary)
                 PlanMetric(text(R.string.trade_price_vnd), OrderContent.money(PlanningFunds.price(row)), Modifier.weight(1f), panel, foreground, secondary)
             }
@@ -67,21 +72,27 @@ fun PlanningOrderCard(row: JSONObject, snapshot: JSONObject?, upcoming: Boolean,
                     style = MaterialTheme.typography.bodySmall, color = secondary)
                 Text(text(R.string.planning_source_generation, intent.sourceContext.sourceGeneration),
                     style = MaterialTheme.typography.bodySmall, color = secondary)
-            } else fields.optString("Trạng thái").takeIf { it.isNotBlank() }?.let {
+            } else displayValue("legacy_status", fields.optString("Trạng thái")).takeIf { it.isNotBlank() }?.let {
                 Text(it, style = MaterialTheme.typography.labelLarge, color = accent)
+            }
+            if (intent == null && row.optString("record_kind") == "CANONICAL") {
+                Text(listOf("authoring_state", "execution_state").map { displayValue(it, "") }
+                    .filter { it.isNotBlank() }.joinToString(" · "),
+                    style = MaterialTheme.typography.labelLarge, color = accent)
             }
             Surface(color = panel, contentColor = foreground, shape = RoundedCornerShape(16.dp)) {
                 Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     Text(text(R.string.planning_gate_heading), style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.Bold)
                     Text(when {
+                        !upcoming -> text(R.string.planning_read_only_tab)
                         gateReady -> text(R.string.planning_gate_ready)
                         decision.cachedReadOnly ->
                             text(R.string.planning_cache_read_only_gate)
                         else -> PlanningGateText.message(gateReasons)
                     },
                         style = MaterialTheme.typography.bodySmall, fontStyle = FontStyle.Italic,
-                        color = if (gateReady) accent else warning)
+                        color = if (gateReady || !upcoming) accent else warning)
                 }
             }
             if (upcoming && side == "NB" && !cancelled) {
@@ -112,7 +123,7 @@ fun PlanningOrderCard(row: JSONObject, snapshot: JSONObject?, upcoming: Boolean,
                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFB0E5C7), contentColor = Color(0xFF103426),
                     disabledContainerColor = Color(0xFF355947), disabledContentColor = Color(0xFFD1DDD7))) { Text(text(R.string.trade_title)) }
             val primary = setOf("Mã", "Ngày dự kiến", "Số lượng", "Giá LO tối đa", "Giá LO", "Giá LO (VND)", "Giá trị kế hoạch", "Tổng chi ngân sách", "Mua/Bán", "Trạng thái")
-            val extra = if (intent != null) listOf("thesis", "conditions").filter {
+            val extra = if (row.optString("record_kind") == "CANONICAL" || intent != null) listOf("thesis", "conditions").filter {
                 row.optString(it).isNotBlank()
             } else fields.keys().asSequence().filter { it !in primary && !fields.isNull(it) && fields.optString(it).isNotBlank() }.toList()
             extra.filter { fields.optString(it).length <= 100 }.chunked(2).forEach { pair ->

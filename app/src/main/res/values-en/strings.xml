@@ -112,8 +112,8 @@
     <string name="average_cost">"Average cost: %1$s"</string>
     <string name="pending">"Pending"</string>
     <string name="history">"History"</string>
-    <string name="pending_orders_explanation">Upcoming plans from planning. Tap Place order to review and submit manually through DNSE immediately, without waiting for the planned date.</string>
-    <string name="order_history_explanation">"Earlier plans from planning. Planning history does not confirm executed DNSE trades."</string>
+    <string name="pending_orders_explanation">Plans scheduled at or after the current device time. Only this tab allows orders; approval, execution window, source and cash are still verified before calling DNSE.</string>
+    <string name="order_history_explanation">Plans scheduled before the current device time, for viewing only. Appearing here does not mean an order was executed or filled.</string>
     <string name="no_orders_or_plans_in_this_group_yet">"No orders or plans in this group yet."</string>
     <string name="load_more_orders_from_the_backend">"Load more orders from the backend"</string>
     <string name="sell">"Sell"</string>
@@ -262,7 +262,7 @@
     <string name="sync_dnse_now">"Sync DNSE now"</string>
     <string name="refresh_planning_orders">Refresh plans</string>
     <string name="planned_date">"Planned date: %1$s"</string>
-    <string name="planning_orders_unavailable">"Plans are unavailable. Sign in and refresh; if no data has been imported, import planning in Admin."</string>
+    <string name="planning_orders_unavailable">No plans are saved on this device. Sign in and tap Refresh plans to load them for the first time.</string>
     <string name="sync_now_explanation">"Read fresh DNSE data, save it on this device and upload it to the backend for the signed-in account. Sandbox data stays on this device. This does not place orders."</string>
     <string name="sync_upload_queue">"Uploads and queue"</string>
     <string name="retry_upload_explanation">"Retry batches saved on this device that the backend has not acknowledged. DNSE is not read again. The button shows the number of pending batches; batches requiring review are retained for review."</string>
@@ -289,7 +289,7 @@
     <string name="trade_title">Place order</string>
     <string name="trade_live_notice">DNSE Production · Real trading order</string>
     <string name="trade_sandbox_notice">DNSE Sandbox · Test order</string>
-    <string name="trade_manual_notice">Places immediately when you confirm, without waiting for the planning date. Supports stock limit orders (LO). Enter the full VND price (e.g. VND 25,950 → 25950).</string>
+    <string name="trade_manual_notice">Submits after your confirmation and backend execution checks. Supports stock limit orders (LO). Enter the full VND price (e.g. VND 25,950 → 25950).</string>
     <string name="trade_account">Choose DNSE sub-account</string>
     <string name="trade_no_account">No trading sub-account (dealAccount) found. Check the API key and DNSE environment.</string>
     <string name="trade_quantity">Number of shares</string>
@@ -405,9 +405,9 @@
     <string name="admin_record_time">Updated at: %1$s</string>
 
     <string name="planning_cache_saved_at">Saved on this device at: %1$s</string>
-    <string name="planning_cache_display_note">The app uses data saved on this device. Plans remain as last loaded; tap Refresh to get backend updates.</string>
-    <string name="planning_cache_refresh_note">Reloads both Upcoming and History, then saves them in the local database. Future app launches use the saved data.</string>
-    <string name="planning_cache_refreshed">Upcoming and History refreshed and saved on this device.</string>
+    <string name="planning_cache_display_note">All three tabs share data saved on this device. Upcoming and History follow the device clock; opening the app or switching tabs does not reload plans.</string>
+    <string name="planning_cache_refresh_note">Loads every plan, then saves all three tabs together. If loading fails, the previous data is retained.</string>
+    <string name="planning_cache_refreshed">All plans refreshed and saved on this device for all three tabs.</string>
 
     <string name="connection_summary_title">Connection and notifications</string>
     <string name="connection_backend_label">Backend access</string>
@@ -454,7 +454,7 @@
     <string name="sandbox_cancel_unknown">The previous cancellation outcome is unknown or the request was already sent. Read the order status; the app will not automatically send DELETE again.</string>
     <string name="trade_backend_reported">The order was updated in the backend and the Planning Sheet for this environment.</string>
     <string name="trade_backend_pending">DNSE accepted the order. The backend or Planning Sheet has not confirmed it yet; the app saved the request and will retry with the same ID to avoid duplicates.</string>
-    <string name="planning_legacy_read_only">This legacy plan is read-only. The backend has not provided contract v2, so the app cannot place an order.</string>
+    <string name="planning_legacy_read_only">This legacy plan is read-only and has no verified execution data, so it cannot place an order.</string>
     <string name="planning_preflight_unavailable">The app could not verify the latest execution conditions with the backend. The plan remains readable, but no DNSE order can be sent.</string>
     <string name="planning_gate_execution_disabled">The backend execution path is disabled.</string>
     <string name="planning_gate_stale_version">A newer plan version exists. Refresh and review it before taking action.</string>
@@ -480,4 +480,10 @@
     <string name="planning_cache_read_only_gate">This is locally cached data and is read-only. Refresh the plans while online to check eligibility before taking action.</string>
     <string name="planning_contract_version">Contract %1$s · version %2$d</string>
     <string name="planning_source_generation">Backend-confirmed planning source · generation %1$d</string>
+    <string name="planning_all_tab">Planning (All)</string>
+    <string name="planning_all_explanation">All saved plans, including executed, unexecuted and planning-only entries. This tab is read-only.</string>
+    <string name="planning_time_date_only">%1$s · Execution time not specified</string>
+    <string name="planning_time_unknown">Execution time is unknown</string>
+    <string name="planning_read_only_tab">This tab is read-only. Order actions are available only in Upcoming when all execution conditions are met.</string>
+    <string name="planning_action_pending_only">Orders can only be placed from Upcoming with an exact scheduled time that has not passed.</string>
 </resources>

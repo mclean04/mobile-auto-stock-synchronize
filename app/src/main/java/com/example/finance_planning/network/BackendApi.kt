@@ -16,11 +16,8 @@ class BackendApi(private val transport: Transport, private val headers: suspend 
         JSONObject(transport.request(Contracts.BACKEND + path, method, headers(), body))
     suspend fun health() = JSONObject(transport.request(Contracts.BACKEND + "/health"))
     suspend fun syncStatus() = call("/v1/sync/status")
-    suspend fun upcomingPlanning() = call("/v1/planning/upcoming")
-    suspend fun planningHistory() = call("/v1/planning/history")
-    suspend fun planningIntents(view: String, cursor: String? = null): JSONObject {
-        require(view in setOf("upcoming", "history"))
-        val path = "/v2/planning/intents?view=$view&limit=100" +
+    suspend fun allPlanning(cursor: String? = null): JSONObject {
+        val path = "/v2/planning/intents?view=all&limit=100" +
             (cursor?.let { "&cursor=" + URLEncoder.encode(it, "UTF-8") } ?: "")
         return call(path)
     }
@@ -29,7 +26,6 @@ class BackendApi(private val transport: Transport, private val headers: suspend 
     suspend fun planningSource() = call("/v2/planning/source")
     suspend fun planningPreflight(id: String, payload: JSONObject) =
         call("/v2/planning/intents/" + java.util.UUID.fromString(id) + "/preflight", "POST", payload)
-    suspend fun latestPlanning() = call("/v1/planning/latest")
     suspend fun importPlanning() = call("/v1/planning/import", "POST")
     suspend fun retryProjection() = call("/v1/sync/retry", "POST")
     suspend fun reconcile() = call("/v1/sheets/reconcile", "POST")

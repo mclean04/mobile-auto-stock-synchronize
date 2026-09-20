@@ -125,6 +125,8 @@ data class PlanningIntent(
 
         fun parse(json: JSONObject): PlanningIntent {
             require(json.getString("contract_version") == "2.0")
+            if (json.has("record_kind")) require(json.getString("record_kind") == "CANONICAL")
+            if (json.has("time_status")) require(json.getString("time_status") == "EXACT")
             val version = json.getInt("version").also { require(it > 0) }
             val environment = when (json.getString("environment")) {
                 "sandbox" -> TradingEnvironment.SANDBOX

@@ -39,6 +39,13 @@ import androidx.core.content.ContextCompat
 import com.example.finance_planning.core.objects
 import com.example.finance_planning.core.NotificationContent
 import com.example.finance_planning.core.OrderContent
+import com.example.finance_planning.core.PlanningTimeline
+import com.example.finance_planning.core.PlanningSection
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.repeatOnLifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import kotlinx.coroutines.delay
+import java.time.Instant
 import androidx.compose.runtime.saveable.rememberSaveable
 import com.example.finance_planning.ui.PlanningViewModel
 import com.example.finance_planning.ui.ScreenState
@@ -723,36 +730,53 @@ private fun DnseAccount(s: ScreenState) {
 @Composable
 private fun Orders(s: ScreenState, model: PlanningViewModel) {
     var tradePlan by remember { mutableStateOf<JSONObject?>(null) }
-    tradePlan?.let { com.example.finance_planning.ui.ManualTradeDialog(it, model.repo) { tradePlan = null } }
     var section by rememberSaveable { mutableIntStateOf(0) }
-    val response = if (section == 0) s.upcomingPlanning else s.planningHistory
-    val rows = response?.objects("items").orEmpty()
+    val selected = PlanningSection.entries[section]
+    val lifecycle = LocalLifecycleOwner.current
+    var now by remember { mutableStateOf(Instant.now()) }
+    LaunchedEffect(lifecycle) {
+        lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+            while (true) { now = Instant.now(); delay(1000) }
+        }
+    }
+    val snapshot = s.planning
+    val rows = remember(snapshot, selected, now) { PlanningTimeline.rows(snapshot, selected, now) }
+    LaunchedEffect(snapshot, selected) { tradePlan = null }
+    LaunchedEffect(now) {
+        if (tradePlan?.let { !PlanningTimeline.mayOpenAction(selected, it, now) } == true) tradePlan = null
+    }
+    tradePlan?.takeIf { PlanningTimeline.mayOpenAction(selected, it, now) }?.let {
+        com.example.finance_planning.ui.ManualTradeDialog(it, model.repo, selected) { tradePlan = null }
+    }
     Column {
         SecondaryTabRow(selectedTabIndex = section) {
-            listOf(text(R.string.pending), text(R.string.history)).forEachIndexed { i, label ->
-                Tab(selected = section == i, onClick = { section = i }, text = { Text(label) })
+            listOf(text(R.string.planning_all_tab), text(R.string.pending), text(R.string.history)).forEachIndexed { i, label ->
+                Tab(selected = section == i, onClick = { tradePlan = null; section = i }, text = { Text(label) })
             }
         }
         LazyVerticalGrid(columns = GridCells.Adaptive(if (LocalAdaptiveLayout.current.tablet) 340.dp else 1000.dp),
             horizontalArrangement = Arrangement.spacedBy(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp),
             contentPadding = PaddingValues(bottom = 24.dp)) {
             item(span = { GridItemSpan(maxLineSpan) }) { Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(if (section == 0) text(R.string.pending_orders_explanation)
-                    else text(R.string.order_history_explanation), modifier = Modifier.padding(vertical = 12.dp))
-                val savedAt = if (section == 0) s.upcomingSavedAt else s.historySavedAt
-                savedAt?.let { SyncNote(text(R.string.planning_cache_saved_at, NotificationContent.time(it))) }
+                Text(text(when(selected) {
+                    PlanningSection.ALL -> R.string.planning_all_explanation
+                    PlanningSection.UPCOMING -> R.string.pending_orders_explanation
+                    PlanningSection.HISTORY -> R.string.order_history_explanation
+                }), modifier = Modifier.padding(vertical = 12.dp))
+                s.planningSavedAt?.let { SyncNote(text(R.string.planning_cache_saved_at, NotificationContent.time(it))) }
                 SyncNote(text(R.string.planning_cache_display_note))
                 FilledTonalButton(onClick = model::refreshPlanning, enabled = s.approved && !s.busy,
                     modifier = Modifier.padding(top = 8.dp)) { Text(text(R.string.refresh_planning_orders)) }
                 SyncNote(text(R.string.planning_cache_refresh_note))
              } }
             items(rows) { row ->
-                com.example.finance_planning.ui.PlanningOrderCard(row, s.dnse, section == 0,
+                com.example.finance_planning.ui.PlanningOrderCard(row, s.dnse, selected == PlanningSection.UPCOMING,
                     s.approved && s.hasDnse && !s.busy, s.dnseProduction,
-                    freshForAction = s.planningExecutionFresh) { tradePlan = row }
+                    freshForAction = s.planningExecutionFresh && PlanningTimeline.mayOpenAction(selected, row, now)) {
+                    if (PlanningTimeline.mayOpenAction(selected, row, Instant.now())) tradePlan = row
+                }
             }
-            if (!s.busy && (response == null || response.optBoolean("_not_available"))) item(span = { GridItemSpan(maxLineSpan) }) { Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {  Text(text(if (s.approved && !s.admin)
-                R.string.this_feature_requires_admin_access else R.string.planning_orders_unavailable))  } }
+            if (!s.busy && snapshot == null) item(span = { GridItemSpan(maxLineSpan) }) { Text(text(R.string.planning_orders_unavailable)) }
             else if (!s.busy && rows.isEmpty()) item(span = { GridItemSpan(maxLineSpan) }) { Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {  Text(text(R.string.no_orders_or_plans_in_this_group_yet))  } }
         }
     }

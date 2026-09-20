@@ -112,8 +112,8 @@
     <string name="average_cost">"Giá vốn: %1$s"</string>
     <string name="pending">"Đang đợi"</string>
     <string name="history">"Lịch sử"</string>
-    <string name="pending_orders_explanation">Kế hoạch sắp tới từ planning. Bấm Đặt lệnh để kiểm tra và gửi thủ công ngay qua DNSE, không chờ ngày planning.</string>
-    <string name="order_history_explanation">"Kế hoạch trước đây từ planning. Đây là lịch sử kế hoạch, không xác nhận lệnh đã khớp trên DNSE."</string>
+    <string name="pending_orders_explanation">Kế hoạch có thời điểm bằng hoặc sau giờ hiện tại trên thiết bị. Chỉ tab này cho đặt lệnh; app vẫn kiểm tra phê duyệt, cửa sổ thực thi, nguồn và tiền mặt trước khi gửi DNSE.</string>
+    <string name="order_history_explanation">Kế hoạch có thời điểm trước giờ hiện tại trên thiết bị, chỉ để xem. Việc xuất hiện ở đây không có nghĩa lệnh đã được thực hiện hoặc khớp.</string>
     <string name="no_orders_or_plans_in_this_group_yet">"Chưa có lệnh hoặc kế hoạch trong nhóm này."</string>
     <string name="load_more_orders_from_the_backend">"Tải thêm lệnh từ backend"</string>
     <string name="sell">"Bán"</string>
@@ -262,7 +262,7 @@
     <string name="sync_dnse_now">"Đồng bộ DNSE ngay"</string>
     <string name="refresh_planning_orders">Làm mới kế hoạch</string>
     <string name="planned_date">"Ngày dự kiến: %1$s"</string>
-    <string name="planning_orders_unavailable">"Chưa lấy được kế hoạch. Hãy đăng nhập và cập nhật; nếu chưa có dữ liệu, nhập planning trong Quản trị."</string>
+    <string name="planning_orders_unavailable">Chưa có kế hoạch lưu trên thiết bị. Đăng nhập rồi bấm Làm mới kế hoạch để tải dữ liệu lần đầu.</string>
     <string name="sync_now_explanation">"Đọc dữ liệu mới từ DNSE, lưu trên máy và gửi lên backend cho tài khoản đang đăng nhập. Dữ liệu sandbox chỉ lưu trên máy. Thao tác này không đặt lệnh."</string>
     <string name="sync_upload_queue">"Gửi dữ liệu và hàng đợi"</string>
     <string name="retry_upload_explanation">"Gửi lại các đợt dữ liệu đã lưu trên máy nhưng chưa được backend xác nhận. Không đọc lại DNSE. Số trong nút là số đợt đang chờ; đợt cần kiểm tra sẽ được giữ lại để xử lý."</string>
@@ -289,7 +289,7 @@
     <string name="trade_title">Đặt lệnh</string>
     <string name="trade_live_notice">DNSE Production · Lệnh giao dịch thật</string>
     <string name="trade_sandbox_notice">DNSE Sandbox · Lệnh thử nghiệm</string>
-    <string name="trade_manual_notice">Đặt ngay khi bạn xác nhận, không chờ đến ngày planning. Chỉ hỗ trợ cổ phiếu với lệnh LO. Nhập giá theo VND (ví dụ 25.950 đồng → 25950).</string>
+    <string name="trade_manual_notice">Gửi lệnh khi bạn xác nhận và backend xác minh đủ điều kiện thực thi. Chỉ hỗ trợ cổ phiếu với lệnh LO. Nhập giá theo VND (ví dụ 25.950 đồng → 25950).</string>
     <string name="trade_account">Chọn tiểu khoản DNSE</string>
     <string name="trade_no_account">Không tìm thấy tiểu khoản giao dịch (dealAccount). Kiểm tra API key và môi trường DNSE.</string>
     <string name="trade_quantity">Số lượng cổ phiếu</string>
@@ -405,9 +405,9 @@
     <string name="admin_record_time">Cập nhật lúc: %1$s</string>
 
     <string name="planning_cache_saved_at">Đã lưu trên máy lúc: %1$s</string>
-    <string name="planning_cache_display_note">App dùng dữ liệu đã lưu trên máy. Kế hoạch được giữ theo lần tải gần nhất; bấm Làm mới để lấy thay đổi từ backend.</string>
-    <string name="planning_cache_refresh_note">Tải lại cả Đang đợi và Lịch sử, rồi lưu vào local DB. Lần mở app sau sẽ dùng dữ liệu đã lưu.</string>
-    <string name="planning_cache_refreshed">Đã làm mới cả Đang đợi và Lịch sử, lưu dữ liệu trên máy.</string>
+    <string name="planning_cache_display_note">Cả ba tab dùng cùng dữ liệu lưu trên máy. Đang đợi và Lịch sử tự lọc theo giờ thiết bị; mở app hoặc chuyển tab không tải lại kế hoạch.</string>
+    <string name="planning_cache_refresh_note">Tải toàn bộ kế hoạch rồi lưu cùng lúc cho cả ba tab. Nếu tải lỗi, dữ liệu cũ được giữ nguyên.</string>
+    <string name="planning_cache_refreshed">Đã tải toàn bộ kế hoạch và lưu trên máy cho cả ba tab.</string>
 
     <string name="connection_summary_title">Kết nối và thông báo</string>
     <string name="connection_backend_label">Truy cập backend</string>
@@ -454,7 +454,7 @@
     <string name="sandbox_cancel_unknown">Kết quả yêu cầu huỷ trước đó chưa xác định hoặc đã được gửi. Hãy đọc trạng thái lệnh; app không tự gửi lại DELETE.</string>
     <string name="trade_backend_reported">Đã cập nhật lệnh lên backend và Planning Sheet đúng môi trường.</string>
     <string name="trade_backend_pending">DNSE đã nhận lệnh. Backend hoặc Planning Sheet chưa xác nhận; app đã lưu yêu cầu và sẽ gửi lại cùng mã để không ghi trùng.</string>
-    <string name="planning_legacy_read_only">Kế hoạch cũ chỉ được xem. Backend chưa cung cấp contract v2 nên app không cho đặt lệnh.</string>
+    <string name="planning_legacy_read_only">Kế hoạch legacy chỉ để xem, chưa có dữ liệu thực thi đã xác minh nên không được đặt lệnh.</string>
     <string name="planning_preflight_unavailable">Không thể xác minh điều kiện thực thi mới nhất với backend. Kế hoạch vẫn xem được nhưng không được gửi lệnh DNSE.</string>
     <string name="planning_gate_execution_disabled">Backend đang tắt đường thực thi lệnh.</string>
     <string name="planning_gate_stale_version">Kế hoạch đã có phiên bản mới. Hãy làm mới và xem lại trước khi thao tác.</string>
@@ -480,4 +480,10 @@
     <string name="planning_cache_read_only_gate">Đây là dữ liệu đã lưu trên máy và chỉ dùng để xem. Bấm Làm mới kế hoạch khi có mạng để kiểm tra điều kiện trước khi thao tác.</string>
     <string name="planning_contract_version">Contract %1$s · phiên bản %2$d</string>
     <string name="planning_source_generation">Nguồn planning do backend xác nhận · thế hệ %1$d</string>
+    <string name="planning_all_tab">Planning (All)</string>
+    <string name="planning_all_explanation">Tất cả kế hoạch đã lưu, gồm đã thực hiện, chưa thực hiện và chỉ planning. Tab này chỉ để xem.</string>
+    <string name="planning_time_date_only">%1$s · Chưa xác định giờ thực thi</string>
+    <string name="planning_time_unknown">Chưa xác định thời gian thực thi</string>
+    <string name="planning_read_only_tab">Tab này chỉ để xem kế hoạch. Thao tác đặt lệnh chỉ có trong Đang đợi khi đáp ứng đủ điều kiện.</string>
+    <string name="planning_action_pending_only">Chỉ được đặt lệnh có giờ thực thi xác định và chưa qua thời điểm kế hoạch trong tab Đang đợi.</string>
 </resources>

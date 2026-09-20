@@ -60,36 +60,24 @@ class PlanningRepository(val identity: MobileIdentity, private val vault: Vault,
     suspend fun cachedTime(key: String): String? = dao.cached(owner(), key)?.let {
         java.time.Instant.ofEpochMilli(it.savedAt).toString()
     }
-    private suspend fun planningRead(key: String, refresh: Boolean, fetch: suspend () -> JSONObject): JSONObject = planningCacheLock.withLock {
-        val uid = owner()
-        CacheFirstRead.load(refresh, { cached(key) }, {
-            try { fetch() } catch (e: HttpFailure) {
-                if (e.status != 404) throw e
-                JSONObject().put("items", JSONArray()).put("_not_available", true)
-            }
-        }, { result ->
-            if (identity.uid() != uid) throw AppFailure(AppText.get(R.string.the_sign_in_session_has_changed))
-            dao.cache(CacheRow(uid, key, vault.seal(result.toString()), System.currentTimeMillis()))
-        })
-    }
-    suspend fun planning(refresh: Boolean = true) = planningRead("planning", refresh) { api.latestPlanning() }
-    private suspend fun intentPlanning(key: String, view: String, refresh: Boolean): JSONObject =
-        planningRead(key, refresh) {
-            try {
-                api.planningIntents(view).also { page ->
-                    require(page.optString("contract_version") == "2.0")
-                    // Older v2 payloads remain readable. ExecutionPageReady requires the additive
-                    // source/cash contract before any action is exposed.
-                    page.objects("items").forEach { PlanningIntent.parseOrNull(it) }
+    private fun planningStore(uid: String) =
+        PlanningAllStore(read = { dao.cached(uid, "planning_all")?.let { JSONObject(vault.open(it.ciphertext)) } },
+            fetchPage = { cursor ->
+                if (identity.uid() != uid || !approved())
+                    throw AppFailure(AppText.get(R.string.the_sign_in_session_has_changed))
+                api.allPlanning(cursor)
+            },
+            replaceAtomically = { result ->
+                db.withTransaction {
+                    if (identity.uid() != uid || !approved())
+                        throw AppFailure(AppText.get(R.string.the_sign_in_session_has_changed))
+                    dao.cache(CacheRow(uid, "planning_all", vault.seal(result.toString()), System.currentTimeMillis()))
                 }
-            } catch (e: HttpFailure) {
-                if (e.status != 404) throw e
-                val legacy = if (view == "upcoming") api.upcomingPlanning() else api.planningHistory()
-                PlanningContract.legacyReadOnly(legacy)
-            }
-        }
-    suspend fun upcomingPlanning(refresh: Boolean = false) = intentPlanning("planning_upcoming", "upcoming", refresh)
-    suspend fun planningHistory(refresh: Boolean = false) = intentPlanning("planning_history", "history", refresh)
+            })
+    suspend fun localPlanningAll(): JSONObject? = planningStore(owner()).local()
+    suspend fun refreshPlanningAll(): JSONObject = planningCacheLock.withLock {
+        planningStore(owner()).refresh()
+    }
     fun observeNotifications(uid: String) = dao.observeNotificationInbox(uid).map { rows ->
         rows.map { JSONObject(vault.open(it.event.ciphertext)).put("_opened", it.opened) }
             .sortedByDescending { it.optString("created_at") }
@@ -218,6 +206,10 @@ class PlanningRepository(val identity: MobileIdentity, private val vault: Vault,
             if (identity.uid() != uid || !approved() || dnseCredentials.config(uid) != config)
                 throw AppFailure(AppText.get(R.string.the_sign_in_session_has_changed))
         }
+        private fun requirePendingTime() {
+            if (!PlanningTimeline.mayOpenAction(PlanningSection.UPCOMING, plan, java.time.Instant.now()))
+                throw AppFailure(AppText.get(R.string.planning_action_pending_only))
+        }
         init {
             require(production == (intent.environment == TradingEnvironment.PRODUCTION))
             require(intent.executable)
@@ -257,6 +249,7 @@ class PlanningRepository(val identity: MobileIdentity, private val vault: Vault,
         }
         fun close() { tradingToken = null; verifiedAt = 0 }
         suspend fun place(account: String, draft: TradeDraft): JSONObject = lock.withLock {
+            requirePendingTime()
             check(); draft.body()
             require(intent.matchesDraft(draft.symbol, if (draft.side == "NB") "BUY" else "SELL",
                 draft.quantity, draft.price))
@@ -295,7 +288,7 @@ class PlanningRepository(val identity: MobileIdentity, private val vault: Vault,
                         save(journalKey, journal)
                     },
                     readActiveSource = { api.planningSource() },
-                    brokerWrite = { check(); broker.place(account, draft, token) })
+                    brokerWrite = { check(); requirePendingTime(); broker.place(account, draft, token) })
                 val response = guarded.value
                 val preflight = guarded.preflight
                 val placed = response.optJSONObject("data") ?: response.optJSONObject("order") ?: response
@@ -327,7 +320,9 @@ class PlanningRepository(val identity: MobileIdentity, private val vault: Vault,
             } finally { close() }
         }
     }
-    fun manualTrade(plan: JSONObject): ManualTradeSession {
+    fun manualTrade(plan: JSONObject, section: PlanningSection): ManualTradeSession {
+        if (!PlanningTimeline.mayOpenAction(section, plan, java.time.Instant.now()))
+            throw AppFailure(AppText.get(R.string.planning_action_pending_only))
         if (!approved()) throw AppFailure(AppText.get(R.string.backend_mobile_not_verified))
         val uid = owner()
         val config = dnseCredentials.config(uid) ?: throw AppFailure(AppText.get(R.string.save_the_api_key_and_secret_first))

@@ -41,6 +41,12 @@ class PlanningActionPolicyTest {
     }
 
     @Test fun legacyAndMalformedV2RemainReadOnly() {
+        val disguisedLegacy = intent().put("record_kind", "LEGACY").put("time_status", "EXACT")
+        assertFalse(PlanningActionPolicy.evaluate(disguisedLegacy, true, true).canExecute)
+        assertEquals(listOf(EligibilityReason.LEGACY_READ_ONLY),
+            PlanningActionPolicy.evaluate(disguisedLegacy, true, true).reasons)
+        val dateOnly = intent().put("record_kind", "CANONICAL").put("time_status", "DATE_ONLY")
+        assertFalse(PlanningActionPolicy.evaluate(dateOnly, true, true).canExecute)
         assertEquals(listOf(EligibilityReason.LEGACY_READ_ONLY),
             PlanningActionPolicy.evaluate(JSONObject().put("fields", JSONObject()), true, true).reasons)
         assertEquals(listOf(EligibilityReason.INVALID_INTENT),

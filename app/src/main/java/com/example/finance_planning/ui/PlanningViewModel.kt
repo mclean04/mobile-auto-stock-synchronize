@@ -30,9 +30,8 @@ data class ScreenState(
     val sourceCursor: String? = null, val selectedSource: String? = null,
     val adminRecords: List<JSONObject> = emptyList(), val recordCursor: String? = null,
     val scheduleEnabled: Boolean = false,
-    val upcomingPlanning: JSONObject? = null, val planningHistory: JSONObject? = null,
     val planningExecutionFresh: Boolean = false,
-    val upcomingSavedAt: String? = null, val historySavedAt: String? = null,
+    val planningSavedAt: String? = null,
     val planning: JSONObject? = null, val notifications: List<JSONObject> = emptyList(),
     val orders: List<JSONObject> = emptyList(), val batches: List<JSONObject> = emptyList(),
     val notificationCursor: String? = null, val orderCursor: String? = null, val batchCursor: String? = null,
@@ -92,7 +91,7 @@ class PlanningViewModel(application: Application) : AndroidViewModel(application
             repo.api.readSource = null
             mutable.value = mutable.value.copy(admin = false, sources = emptyList(),
                 selectedSource = null, adminRecords = emptyList(), planning = null,
-                upcomingPlanning = null, planningHistory = null, planningExecutionFresh = false,
+                planningSavedAt = null, planningExecutionFresh = false,
                 notifications = emptyList(), orders = emptyList(), batches = emptyList())
         }
         mutable.value = mutable.value.copy(signedIn = repo.identity.uid() != null,
@@ -143,56 +142,40 @@ class PlanningViewModel(application: Application) : AndroidViewModel(application
         else AppText.get(R.string.sandbox_environment_saved_with_existing_keys)
     }
     fun health() = run { AppText.get(R.string.server, repo.api.health().optString("status")) }
-    fun refresh() = run { val status = repo.verifySession(); refreshAll(refreshPlanning = true, knownStatus = status) }
+    fun refresh() = run { val status = repo.verifySession(); refreshAll(knownStatus = status) }
     fun resume() = run {
         if (repo.approved()) { queue(); restoreCachedPlanning() }
         mutable.value.message
     }
     private suspend fun restoreCachedPlanning() {
         if (!repo.approved()) return
-        mutable.value = mutable.value.copy(planning = repo.cached("planning"),
-            upcomingPlanning = repo.cached("planning_upcoming"), planningHistory = repo.cached("planning_history"),
+        mutable.value = mutable.value.copy(planning = repo.localPlanningAll(),
             planningExecutionFresh = false,
-            upcomingSavedAt = repo.cachedTime("planning_upcoming"), historySavedAt = repo.cachedTime("planning_history"))
+            planningSavedAt = repo.cachedTime("planning_all"))
     }
     fun refreshPlanning() = run {
-        if (!repo.approved() || !mutable.value.admin) throw AppFailure(AppText.get(R.string.this_feature_requires_admin_access))
+        if (!repo.approved()) throw AppFailure(AppText.get(R.string.backend_mobile_not_verified))
         mutable.value = mutable.value.copy(planningExecutionFresh = false)
-        val upcoming = repo.upcomingPlanning(refresh = true)
-        mutable.value = mutable.value.copy(upcomingPlanning = upcoming, upcomingSavedAt = repo.cachedTime("planning_upcoming"))
-        val history = repo.planningHistory(refresh = true)
-        mutable.value = mutable.value.copy(planningHistory = history, historySavedAt = repo.cachedTime("planning_history"),
-            planningExecutionFresh = executionPagesReady(upcoming, history))
+        val all = repo.refreshPlanningAll()
+        mutable.value = mutable.value.copy(planning = all, planningSavedAt = repo.cachedTime("planning_all"),
+            planningExecutionFresh = true)
         AppText.get(R.string.planning_cache_refreshed)
     }
     fun deleteDnse(production: Boolean) = run { repo.deleteDnse(production); queue(); AppText.get(R.string.dnse_keys_deleted) }
-    private suspend fun refreshAll(refreshPlanning: Boolean = false, knownStatus: JSONObject? = null): String {
-        if (refreshPlanning) mutable.value = mutable.value.copy(planningExecutionFresh = false)
+    private suspend fun refreshAll(knownStatus: JSONObject? = null): String {
+        restoreCachedPlanning()
         val status = knownStatus ?: repo.api.syncStatus()
         val admin = status.optString("role") == "admin"
         if (!admin) repo.api.readSource = null
         val sources = if (admin) repo.api.adminSources() else JSONObject()
         val records = if (admin && repo.api.readSource != null)
             repo.api.adminRecords(repo.api.readSource!!) else JSONObject()
-        val planning = if (admin) try { repo.planning(refresh = refreshPlanning) } catch (e: HttpFailure) {
-            if (e.status == 404) null else throw e
-        } else null
-        val upcoming = if (admin) try { repo.upcomingPlanning(refresh = refreshPlanning) } catch (e: HttpFailure) {
-            if (e.status == 404) null else throw e
-        } else null
-        val history = if (admin) try { repo.planningHistory(refresh = refreshPlanning) } catch (e: HttpFailure) {
-            if (e.status == 404) null else throw e
-        } else null
         val events = repo.notifications()
         val orders = repo.api.orders()
         val batches = repo.api.batches()
         mutable.value = mutable.value.copy(status = status, admin = admin, sources = sources.objects("items"),
             sourceCursor = cursor(sources), selectedSource = repo.api.readSource,
             adminRecords = records.objects("items"), recordCursor = cursor(records),
-            planning = planning, upcomingPlanning = upcoming, planningHistory = history,
-            planningExecutionFresh = refreshPlanning && executionPagesReady(upcoming, history),
-            upcomingSavedAt = if (admin) repo.cachedTime("planning_upcoming") else null,
-            historySavedAt = if (admin) repo.cachedTime("planning_history") else null,
             notificationCursor = cursor(events),
             orders = orders.objects("items"), orderCursor = cursor(orders),
             batches = batches.objects("items"), batchCursor = cursor(batches))
@@ -200,9 +183,6 @@ class PlanningViewModel(application: Application) : AndroidViewModel(application
         return if (admin) AppText.get(R.string.admin_access_verified)
         else AppText.get(R.string.data_updated_for_the_signed_in_account)
     }
-    private fun executionPagesReady(upcoming: JSONObject?, history: JSONObject?): Boolean =
-        PlanningContract.executionPageReady(upcoming) && PlanningContract.executionPageReady(history) &&
-            PlanningContract.pageSource(upcoming!!) == PlanningContract.pageSource(history!!)
     private fun cursor(json: JSONObject): String? = if (json.isNull("next_cursor")) null else json.optString("next_cursor").takeIf { it.isNotBlank() }
     fun more(kind: String) = run {
         val s = mutable.value
@@ -285,7 +265,7 @@ class PlanningViewModel(application: Application) : AndroidViewModel(application
     private suspend fun queue() {
         mutable.value = mutable.value.copy(dnse = repo.dnseSnapshot(), localQueue = repo.localQueueSummary())
     }
-    fun importPlanning() = run { repo.api.importPlanning(); refreshAll(refreshPlanning = true) }
+    fun importPlanning() = run { repo.api.importPlanning(); refreshAll() }
     fun reconcile() = run { AppText.get(R.string.sheet_status, repo.api.reconcile().optString("state")) }
     fun schedule(enabled: Boolean) = run {
         if (enabled) {

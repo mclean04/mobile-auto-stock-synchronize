@@ -16,6 +16,7 @@ object PlanningActionPolicy {
         val environmentMatches = intent != null && activeProduction != null &&
             activeProduction == (intent.environment == TradingEnvironment.PRODUCTION)
         val reasons = when {
+            row.optString("record_kind") == "LEGACY" -> listOf(EligibilityReason.LEGACY_READ_ONLY)
             intent == null && row.optString("contract_version") == "2.0" ->
                 listOf(EligibilityReason.INVALID_INTENT)
             intent == null -> listOf(EligibilityReason.LEGACY_READ_ONLY)

@@ -6,7 +6,7 @@ import java.util.Locale
 
 /** Cash-only comparison per sub-account. Never combine cash across accounts or use margin buying power. */
 object PlanningFunds {
-    fun fields(plan: JSONObject) = plan.optJSONObject("fields") ?: plan
+    fun fields(plan: JSONObject) = plan.optJSONObject("legacy_fields") ?: plan.optJSONObject("fields") ?: plan
     fun side(plan: JSONObject): String = when (fields(plan).optString("Mua/Bán").trim().uppercase(Locale.ROOT)) {
         "MUA", "BUY", "NB" -> "NB"; "BÁN", "BAN", "SELL", "NS" -> "NS"; else -> ""
     }.ifBlank { when (PlanningIntent.parseOrNull(plan)?.side ?: plan.optString("side")) {
