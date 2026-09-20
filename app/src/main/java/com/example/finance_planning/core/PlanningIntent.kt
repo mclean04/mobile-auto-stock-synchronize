@@ -31,6 +31,63 @@ data class IntentEligibility(val eligible: Boolean, val reasons: List<Eligibilit
     init { require(!eligible || reasons.isEmpty()) }
 }
 
+data class PlanningSourceContext(val sourceId: String, val sourceGeneration: Long) {
+    init {
+        require(Regex("[A-Za-z0-9_-]{10,200}").matches(sourceId))
+        require(sourceGeneration > 0)
+    }
+    fun json(): JSONObject = JSONObject().put("source_id", sourceId)
+        .put("source_generation", sourceGeneration)
+    companion object {
+        fun parse(json: JSONObject): PlanningSourceContext {
+            val generation = json.get("source_generation")
+            require(generation is Int || generation is Long)
+            return PlanningSourceContext(json.getString("source_id"), (generation as Number).toLong())
+        }
+    }
+}
+
+data class CashRequirements(
+    val principalVnd: BigDecimal,
+    val feeReserveVnd: BigDecimal,
+    val requiredCashVnd: BigDecimal,
+    val feeReserveRate: BigDecimal
+) {
+    fun sameAs(other: CashRequirements): Boolean =
+        principalVnd.compareTo(other.principalVnd) == 0 &&
+            feeReserveVnd.compareTo(other.feeReserveVnd) == 0 &&
+            requiredCashVnd.compareTo(other.requiredCashVnd) == 0 &&
+            feeReserveRate.compareTo(other.feeReserveRate) == 0
+
+    companion object {
+        private fun decimalString(json: JSONObject, key: String): BigDecimal {
+            require(json.get(key) is String)
+            return BigDecimal(json.getString(key)).also { require(it.signum() >= 0 && it.scale() <= 8) }
+        }
+        fun parse(json: JSONObject, side: String, quantity: Int, price: Long): CashRequirements {
+            require(json.getString("currency") == "VND")
+            require(json.getString("policy_version") == "cash-v1")
+            require(json.getBoolean("cash_only"))
+            val principal = decimalString(json, "principal_vnd")
+            val fee = decimalString(json, "fee_reserve_vnd")
+            val required = decimalString(json, "required_cash_vnd")
+            val rate = decimalString(json, "fee_reserve_rate").also {
+                require(it.signum() > 0 && it <= BigDecimal("0.1"))
+            }
+            val canonicalPrincipal = BigDecimal(price).multiply(BigDecimal(quantity))
+            require(principal.compareTo(canonicalPrincipal) == 0)
+            val canonicalFee = principal.multiply(rate).setScale(0, java.math.RoundingMode.CEILING)
+            require(fee.compareTo(canonicalFee) == 0)
+            if (side == "BUY") {
+                require(required.compareTo(principal.add(fee)) == 0)
+            } else {
+                require(required.signum() == 0)
+            }
+            return CashRequirements(principal, fee, required, rate)
+        }
+    }
+}
+
 data class PlanningIntent(
     val planId: UUID,
     val intentId: UUID,
@@ -47,6 +104,8 @@ data class PlanningIntent(
     val scheduledAt: Instant,
     val windowStartsAt: Instant,
     val windowEndsAt: Instant,
+    val sourceContext: PlanningSourceContext,
+    val cashRequirements: CashRequirements,
     val eligibility: IntentEligibility,
     val raw: JSONObject
 ) {
@@ -59,8 +118,10 @@ data class PlanningIntent(
 
     companion object {
         private fun instant(value: String): Instant = OffsetDateTime.parse(value).toInstant()
-        private fun decimalText(json: JSONObject, key: String): BigDecimal =
-            BigDecimal(json.get(key).toString()).also { require(it.signum() > 0 && it.scale() <= 8) }
+        private fun decimalText(json: JSONObject, key: String): BigDecimal {
+            require(json.get(key) is String)
+            return BigDecimal(json.getString(key)).also { require(it.signum() > 0 && it.scale() <= 8) }
+        }
 
         fun parse(json: JSONObject): PlanningIntent {
             require(json.getString("contract_version") == "2.0")
@@ -80,6 +141,9 @@ data class PlanningIntent(
             val price = decimalText(json, "limit_price_vnd").longValueExact().also {
                 require(it in 1..1_000_000_000L)
             }
+            val sourceContext = PlanningSourceContext.parse(json.getJSONObject("source_context"))
+            val cashRequirements = CashRequirements.parse(json.getJSONObject("cash_requirements"),
+                side, quantity, price)
             val starts = instant(json.getString("window_starts_at"))
             val ends = instant(json.getString("window_ends_at"))
             require(ends > starts)
@@ -94,7 +158,7 @@ data class PlanningIntent(
                 version, AuthoringState.valueOf(json.getString("authoring_state")),
                 ExecutionState.valueOf(json.getString("execution_state")), environment,
                 nullableText("recipient_uid"), nullableText("account"), symbol, side, quantity, price,
-                instant(json.getString("scheduled_at")), starts, ends, eligibility,
+                instant(json.getString("scheduled_at")), starts, ends, sourceContext, cashRequirements, eligibility,
                 JSONObject(json.toString())
             )
         }
@@ -109,6 +173,8 @@ data class PreflightAuthorization(
     val currentVersion: Int,
     val serverTime: Instant,
     val expiresAt: Instant?,
+    val sourceContext: PlanningSourceContext,
+    val cashRequirements: CashRequirements,
     val eligibility: IntentEligibility
 ) {
     companion object {
@@ -133,18 +199,29 @@ data class PreflightAuthorization(
                 .takeIf { it.isNotBlank() && it != "null" }?.let { OffsetDateTime.parse(it).toInstant() }
             if (eligibility.eligible) require(expiresAt != null && expiresAt > serverTime &&
                 Duration.between(serverTime, expiresAt) <= Duration.ofMinutes(5))
+            val sourceContext = PlanningSourceContext.parse(json.getJSONObject("source_context"))
+            val cashRequirements = CashRequirements.parse(json.getJSONObject("cash_requirements"),
+                expected.side, expected.quantity, expected.limitPriceVnd)
             return PreflightAuthorization(
-                preflightId, intentId, version, serverTime, expiresAt, eligibility
+                preflightId, intentId, version, serverTime, expiresAt, sourceContext,
+                cashRequirements, eligibility
             )
         }
     }
 }
 
 object PlanningContract {
+    fun activeSource(payload: JSONObject): PlanningSourceContext {
+        require(payload.getString("contract_version") == "2.0")
+        require(payload.getString("state") == "ACTIVE")
+        return PlanningSourceContext.parse(payload.getJSONObject("source_context"))
+    }
+
     fun preflightRequest(intent: PlanningIntent, account: String, observedAt: Instant): JSONObject =
         JSONObject().put("expected_version", intent.version)
             .put("environment", intent.environment.name.lowercase()).put("account", account)
             .put("quantity", intent.quantity.toString()).put("limit_price_vnd", intent.limitPriceVnd.toString())
+            .put("source_context", intent.sourceContext.json())
             .put("observed_at", observedAt.toString())
 
     fun legacyReadOnly(payload: JSONObject): JSONObject = JSONObject(payload.toString())
@@ -153,6 +230,16 @@ object PlanningContract {
     fun page(items: List<JSONObject>, nextCursor: String? = null): JSONObject = JSONObject()
         .put("contract_version", "2.0").put("items", JSONArray(items))
         .put("next_cursor", nextCursor ?: JSONObject.NULL)
+
+    fun pageSource(page: JSONObject): PlanningSourceContext? = runCatching {
+        PlanningSourceContext.parse(page.getJSONObject("source_context"))
+    }.getOrNull()
+
+    fun executionPageReady(page: JSONObject?): Boolean {
+        if (page == null || page.optString("contract_version") != "2.0") return false
+        val source = pageSource(page) ?: return false
+        return page.objects("items").all { PlanningIntent.parseOrNull(it)?.sourceContext == source }
+    }
 }
 
 object PlanningGateText {

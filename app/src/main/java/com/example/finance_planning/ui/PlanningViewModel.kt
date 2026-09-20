@@ -157,16 +157,17 @@ class PlanningViewModel(application: Application) : AndroidViewModel(application
     }
     fun refreshPlanning() = run {
         if (!repo.approved() || !mutable.value.admin) throw AppFailure(AppText.get(R.string.this_feature_requires_admin_access))
+        mutable.value = mutable.value.copy(planningExecutionFresh = false)
         val upcoming = repo.upcomingPlanning(refresh = true)
         mutable.value = mutable.value.copy(upcomingPlanning = upcoming, upcomingSavedAt = repo.cachedTime("planning_upcoming"))
         val history = repo.planningHistory(refresh = true)
         mutable.value = mutable.value.copy(planningHistory = history, historySavedAt = repo.cachedTime("planning_history"),
-            planningExecutionFresh = upcoming.optString("contract_version") == "2.0" &&
-                history.optString("contract_version") == "2.0")
+            planningExecutionFresh = executionPagesReady(upcoming, history))
         AppText.get(R.string.planning_cache_refreshed)
     }
     fun deleteDnse(production: Boolean) = run { repo.deleteDnse(production); queue(); AppText.get(R.string.dnse_keys_deleted) }
     private suspend fun refreshAll(refreshPlanning: Boolean = false, knownStatus: JSONObject? = null): String {
+        if (refreshPlanning) mutable.value = mutable.value.copy(planningExecutionFresh = false)
         val status = knownStatus ?: repo.api.syncStatus()
         val admin = status.optString("role") == "admin"
         if (!admin) repo.api.readSource = null
@@ -189,8 +190,7 @@ class PlanningViewModel(application: Application) : AndroidViewModel(application
             sourceCursor = cursor(sources), selectedSource = repo.api.readSource,
             adminRecords = records.objects("items"), recordCursor = cursor(records),
             planning = planning, upcomingPlanning = upcoming, planningHistory = history,
-            planningExecutionFresh = refreshPlanning && upcoming?.optString("contract_version") == "2.0" &&
-                history?.optString("contract_version") == "2.0",
+            planningExecutionFresh = refreshPlanning && executionPagesReady(upcoming, history),
             upcomingSavedAt = if (admin) repo.cachedTime("planning_upcoming") else null,
             historySavedAt = if (admin) repo.cachedTime("planning_history") else null,
             notificationCursor = cursor(events),
@@ -200,6 +200,9 @@ class PlanningViewModel(application: Application) : AndroidViewModel(application
         return if (admin) AppText.get(R.string.admin_access_verified)
         else AppText.get(R.string.data_updated_for_the_signed_in_account)
     }
+    private fun executionPagesReady(upcoming: JSONObject?, history: JSONObject?): Boolean =
+        PlanningContract.executionPageReady(upcoming) && PlanningContract.executionPageReady(history) &&
+            PlanningContract.pageSource(upcoming!!) == PlanningContract.pageSource(history!!)
     private fun cursor(json: JSONObject): String? = if (json.isNull("next_cursor")) null else json.optString("next_cursor").takeIf { it.isNotBlank() }
     fun more(kind: String) = run {
         val s = mutable.value

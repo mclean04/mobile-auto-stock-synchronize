@@ -36,6 +36,8 @@ object PlacedOrderReport {
                      preflight: PreflightAuthorization, account: String, draft: TradeDraft,
                      response: JSONObject, observedAt: Instant): JSONObject {
         require(preflight.intentId == intent.intentId && preflight.currentVersion == intent.version)
+        require(preflight.sourceContext == intent.sourceContext)
+        require(preflight.cashRequirements.sameAs(intent.cashRequirements))
         require(preflight.eligibility.eligible && intent.executable)
         require(intent.account == account)
         require(intent.matchesDraft(draft.symbol, if (draft.side == "NB") "BUY" else "SELL",
@@ -47,6 +49,7 @@ object PlacedOrderReport {
             .put("device_id", base.getString("device_id"))
             .put("intent_id", intent.intentId.toString()).put("expected_version", intent.version)
             .put("environment", base.getString("environment")).put("account", account)
+            .put("source_context", intent.sourceContext.json())
             .put("preflight_id", requireNotNull(preflight.preflightId).toString())
             .put("order", base.getJSONObject("order"))
     }

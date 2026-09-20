@@ -26,6 +26,7 @@ class BackendApi(private val transport: Transport, private val headers: suspend 
     }
     suspend fun planningIntent(id: String) =
         call("/v2/planning/intents/" + java.util.UUID.fromString(id))
+    suspend fun planningSource() = call("/v2/planning/source")
     suspend fun planningPreflight(id: String, payload: JSONObject) =
         call("/v2/planning/intents/" + java.util.UUID.fromString(id) + "/preflight", "POST", payload)
     suspend fun latestPlanning() = call("/v1/planning/latest")

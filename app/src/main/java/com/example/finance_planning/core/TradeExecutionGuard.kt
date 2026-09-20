@@ -19,6 +19,7 @@ object TradeExecutionGuard {
         readCurrent: suspend () -> JSONObject,
         runPreflight: suspend (JSONObject) -> JSONObject,
         beforeBrokerWrite: suspend (PreflightAuthorization) -> Unit,
+        readActiveSource: suspend () -> JSONObject,
         brokerWrite: suspend () -> T,
         clock: () -> Instant = Instant::now,
         monotonicNanos: () -> Long = System::nanoTime
@@ -40,6 +41,9 @@ object TradeExecutionGuard {
 
         if (preflight.intentId != current.intentId || preflight.currentVersion != current.version)
             throw PlanningVersionChanged()
+        if (preflight.sourceContext != current.sourceContext ||
+            !preflight.cashRequirements.sameAs(current.cashRequirements))
+            throw PlanningVersionChanged()
         if (!preflight.eligibility.eligible)
             throw PlanningGateFailure(preflight.eligibility.reasons)
         val validityNanos = preflight.expiresAt?.let {
@@ -59,6 +63,11 @@ object TradeExecutionGuard {
         // following statement remains the only broker mutation and never uses an expired grant.
         if (!authorizationStillValid())
             throw PlanningPreflightUnavailable()
+        val activeSource = try { PlanningContract.activeSource(readActiveSource()) }
+            catch (e: kotlinx.coroutines.CancellationException) { throw e }
+            catch (e: Exception) { throw PlanningPreflightUnavailable(e) }
+        if (activeSource != current.sourceContext) throw PlanningVersionChanged()
+        if (!authorizationStillValid()) throw PlanningPreflightUnavailable()
         return GuardedBrokerResult(brokerWrite(), preflight)
     }
 
@@ -69,5 +78,7 @@ object TradeExecutionGuard {
             expected.recipientUid == current.recipientUid && expected.account == current.account &&
             expected.symbol == current.symbol && expected.side == current.side &&
             expected.quantity == current.quantity && expected.limitPriceVnd == current.limitPriceVnd &&
+            expected.sourceContext == current.sourceContext &&
+            expected.cashRequirements.sameAs(current.cashRequirements) &&
             expected.windowStartsAt == current.windowStartsAt && expected.windowEndsAt == current.windowEndsAt
 }

@@ -9,7 +9,9 @@ object PlanningFunds {
     fun fields(plan: JSONObject) = plan.optJSONObject("fields") ?: plan
     fun side(plan: JSONObject): String = when (fields(plan).optString("Mua/Bán").trim().uppercase(Locale.ROOT)) {
         "MUA", "BUY", "NB" -> "NB"; "BÁN", "BAN", "SELL", "NS" -> "NS"; else -> ""
-    }.ifBlank { when (PlanningIntent.parseOrNull(plan)?.side) { "BUY" -> "NB"; "SELL" -> "NS"; else -> "" } }
+    }.ifBlank { when (PlanningIntent.parseOrNull(plan)?.side ?: plan.optString("side")) {
+        "BUY" -> "NB"; "SELL" -> "NS"; else -> ""
+    } }
     fun cancelled(plan: JSONObject): Boolean {
         val f = fields(plan)
         return plan.optString("action").uppercase(Locale.ROOT) == "CANCEL_ORDER" ||
@@ -18,9 +20,14 @@ object PlanningFunds {
     }
     private fun number(f: JSONObject, key: String): BigDecimal? = f.optString(key).toBigDecimalOrNull()?.takeIf { it.signum() >= 0 }
     fun price(plan: JSONObject) = PlanningIntent.parseOrNull(plan)?.let { BigDecimal(it.limitPriceVnd) }
+        ?: plan.optString("limit_price_vnd").toBigDecimalOrNull()?.takeIf { it.signum() > 0 }
         ?: listOf("Giá LO tối đa", "Giá LO", "Giá LO (VND)").firstNotNullOfOrNull { number(fields(plan), it)?.takeIf { n -> n.signum() > 0 } }
     fun principal(plan: JSONObject): BigDecimal? {
         PlanningIntent.parseOrNull(plan)?.let { return BigDecimal(it.limitPriceVnd).multiply(BigDecimal(it.quantity)) }
+        if (plan.optString("contract_version") == "2.0") {
+            val quantity = plan.optString("quantity").toBigDecimalOrNull()?.takeIf { it.signum() > 0 }
+            return quantity?.let { q -> price(plan)?.multiply(q) }
+        }
         val f = fields(plan)
         val quantity = number(f, "Số lượng")?.takeIf { it.signum() > 0 }
         val computed = quantity?.let { q -> price(plan)?.multiply(q) }
@@ -28,10 +35,12 @@ object PlanningFunds {
         return listOfNotNull(computed, stated).maxOrNull()
     }
     fun required(plan: JSONObject, actualPrincipal: BigDecimal? = null): BigDecimal? {
-        // Contract v2 currently carries principal but no fee reserve or approved total budget.
-        // Treating the absent fee as zero would weaken the existing cash-only rule, so typed
-        // BUY intents remain read-only until those canonical budget fields are contracted.
-        if (PlanningIntent.parseOrNull(plan) != null) return null
+        PlanningIntent.parseOrNull(plan)?.let { intent ->
+            if (actualPrincipal != null && actualPrincipal.compareTo(intent.cashRequirements.principalVnd) != 0)
+                return null
+            return intent.cashRequirements.requiredCashVnd
+        }
+        if (plan.optString("contract_version") == "2.0") return null
         val f = fields(plan)
         val principal = principal(plan) ?: return null
         val fee = number(f, "Phí dự phòng") ?: BigDecimal.ZERO
@@ -52,4 +61,9 @@ object PlanningFunds {
         val required = required(plan) ?: return false
         return balances(snapshot).any { it.second >= required }
     }
+}
+
+/** Accept a DNSE package only when its payload explicitly identifies cash-only trading. */
+object DnseCashPackage {
+    fun isCash(row: JSONObject): Boolean = row.optString("type") == "N"
 }

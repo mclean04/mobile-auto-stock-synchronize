@@ -1,6 +1,7 @@
 package com.example.finance_planning
 
 import com.example.finance_planning.core.Contracts
+import com.example.finance_planning.core.PlanningSourceContext
 import com.example.finance_planning.network.DnseApi
 import com.example.finance_planning.network.DnseSigning
 import org.json.JSONObject
@@ -9,6 +10,7 @@ import org.junit.Test
 import java.math.BigDecimal
 
 class ContractTest {
+    private val source = PlanningSourceContext("source-sheet-0001", 7)
     @org.junit.Before fun initializeTextResources() { TestText.install() }
     @Test fun signatureMatchesExistingPythonBackendVector() {
         val signature = DnseSigning.signature("local-test-key", "local-test-secret", "/accounts",
@@ -39,7 +41,7 @@ class ContractTest {
         assertTrue(runCatching { DnseApi.normalizeOrder("account", order().put("fillQuantity", 101), BigDecimal.ONE) }.isFailure)
     }
     @Test fun batchNeverExceedsFirestoreLimit() {
-        assertTrue(runCatching { Contracts.batch("device", List(101) { order() }, emptyList(), emptyList(), emptyList(), "batch") }.isFailure)
+        assertTrue(runCatching { Contracts.batch("device", List(101) { order() }, emptyList(), emptyList(), emptyList(), "batch", source) }.isFailure)
     }
     @Test fun executionPositionAndBalanceMapToBackendContract() {
         val execution = JSONObject("""{"id":"fill-1","orderId":"42","quantity":"20",
@@ -57,7 +59,7 @@ class ContractTest {
             """{"cash":"1000","buyingPower":"900"}"""), BigDecimal.ONE, observed)
         assertEquals("1000", balance.getString("cash_vnd"))
         val batch = Contracts.batch("00000000-0000-4000-8000-000000000001", emptyList(),
-            listOf(fill), listOf(position), listOf(balance), "00000000-0000-4000-8000-000000000002")
+            listOf(fill), listOf(position), listOf(balance), "00000000-0000-4000-8000-000000000002", source)
         assertEquals(1, batch.getJSONArray("executions").length())
         assertEquals(1, batch.getJSONArray("positions").length())
         assertEquals(1, batch.getJSONArray("balances").length())
@@ -94,9 +96,10 @@ class ContractTest {
         assertFalse(Contracts.mayReview(event))
     }
     @Test fun changingPayloadDoesNotMutatePreviouslySerializedBatch() {
-        val original = Contracts.batch("device", listOf(order()), emptyList(), emptyList(), emptyList(), "batch").toString()
+        val original = Contracts.batch("device", listOf(order()), emptyList(), emptyList(), emptyList(), "batch", source).toString()
         val retry = JSONObject(original).toString()
         assertEquals(JSONObject(original).getString("batch_id"), JSONObject(retry).getString("batch_id"))
+        assertEquals(7, JSONObject(retry).getJSONObject("source_context").getLong("source_generation"))
         assertEquals(original, retry)
     }
 }

@@ -78,7 +78,9 @@ class PlanningRepository(val identity: MobileIdentity, private val vault: Vault,
             try {
                 api.planningIntents(view).also { page ->
                     require(page.optString("contract_version") == "2.0")
-                    page.objects("items").forEach { PlanningIntent.parse(it) }
+                    // Older v2 payloads remain readable. ExecutionPageReady requires the additive
+                    // source/cash contract before any action is exposed.
+                    page.objects("items").forEach { PlanningIntent.parseOrNull(it) }
                 }
             } catch (e: HttpFailure) {
                 if (e.status != 404) throw e
@@ -160,11 +162,19 @@ class PlanningRepository(val identity: MobileIdentity, private val vault: Vault,
                 require(response.optString("intent_id") == payload.getString("intent_id"))
                 require(response.optInt("reported_version", -1) == payload.getInt("expected_version"))
                 require(response.optString("environment") == payload.getString("environment"))
+                require(PlanningSourceContext.parse(response.getJSONObject("source_context")) ==
+                    PlanningSourceContext.parse(payload.getJSONObject("source_context")))
+                val destination = response.getJSONObject("report_destination")
+                require(PlanningSourceContext.parse(destination.getJSONObject("source_context")) ==
+                    PlanningSourceContext.parse(payload.getJSONObject("source_context")))
+                require(destination.getString("state") in setOf("CURRENT_PRIMARY", "QUARANTINED_SOURCE_CHANGED"))
                 require(response.optString("database") == "committed")
             }
             report.put("state", "REPORTED")
         } catch (e: CancellationException) {
             cancellation = e
+        } catch (e: HttpFailure) {
+            report.put("state", if (e.status == 409 || e.status == 422) "REVIEW_REQUIRED" else "PENDING")
         } catch (_: Exception) {
             report.put("state", "PENDING")
         }
@@ -184,7 +194,7 @@ class PlanningRepository(val identity: MobileIdentity, private val vault: Vault,
         val uid = owner()
         for (row in dao.placedReports(uid)) {
             val report = runCatching { JSONObject(vault.open(row.ciphertext)) }.getOrNull() ?: continue
-            if (report.optString("state") != "REPORTED") sendPlacedOrderReport(uid, row.key, report)
+            if (report.optString("state") == "PENDING") sendPlacedOrderReport(uid, row.key, report)
         }
     }
     private fun tradeHash(value: String) = java.security.MessageDigest.getInstance("SHA-256")
@@ -212,7 +222,9 @@ class PlanningRepository(val identity: MobileIdentity, private val vault: Vault,
             require(production == (intent.environment == TradingEnvironment.PRODUCTION))
             require(intent.executable)
         }
-        private val journalKey = "manual_trade:v2:" + intent.environment.name.lowercase() + ":" + intent.intentId
+        private val journalKey = "manual_trade:v2:" + intent.environment.name.lowercase() + ":" +
+            intent.sourceContext.sourceGeneration + ":" + tradeHash(intent.sourceContext.sourceId).take(16) +
+            ":" + intent.intentId
         suspend fun result(): JSONObject? { check(); return cached(journalKey)?.takeUnless { it.optString("state") == "REJECTED" } }
         suspend fun funds(): JSONObject? { check(); return dnseSnapshot() }
         suspend fun requireFunds(account: String, draft: TradeDraft) {
@@ -234,7 +246,8 @@ class PlanningRepository(val identity: MobileIdentity, private val vault: Vault,
         suspend fun packages(account: String, symbol: String): List<JSONObject> {
             check()
             require(accounts().any { DnseApi.text(it, "id", "accountNo") == account })
-            return broker.packages(account, symbol)
+            require(account == intent.account && symbol == intent.symbol)
+            return broker.packages(account, symbol).filter(DnseCashPackage::isCash)
         }
         suspend fun emailOtp() { check(); broker.emailOtp(); check() }
         suspend fun verify(type: String, otp: String) {
@@ -267,6 +280,7 @@ class PlanningRepository(val identity: MobileIdentity, private val vault: Vault,
             check()
             val reportingDevice = device()
             val journal = JSONObject().put("state", "UNKNOWN").put("account", account)
+                .put("source_context", intent.sourceContext.json())
                 .put("draft", draft.body()).put("created_at", java.time.Instant.now().toString())
             try {
                 // Cache/list eligibility is display-only. The guard performs a fresh detail read and
@@ -280,6 +294,7 @@ class PlanningRepository(val identity: MobileIdentity, private val vault: Vault,
                         // Durable UNKNOWN marker precedes the network write. A timeout never permits retry.
                         save(journalKey, journal)
                     },
+                    readActiveSource = { api.planningSource() },
                     brokerWrite = { check(); broker.place(account, draft, token) })
                 val response = guarded.value
                 val preflight = guarded.preflight
@@ -485,6 +500,7 @@ class PlanningRepository(val identity: MobileIdentity, private val vault: Vault,
         val configRaw = dnseCredentials.config(uid) ?: throw AppFailure(AppText.get(R.string.save_your_dnse_keys_first))
         val config = JSONObject(configRaw)
         val production = config.getBoolean("production")
+        val sourceContext = if (production) PlanningContract.activeSource(api.planningSource()) else null
         val dnse = DnseApi(config.getString("key"), config.getString("secret"), production)
         val now = LocalDate.now(ZoneId.of("Asia/Ho_Chi_Minh"))
         val orders = linkedMapOf<String, JSONObject>()
@@ -571,7 +587,8 @@ class PlanningRepository(val identity: MobileIdentity, private val vault: Vault,
                 records.filter { it.first == "order" }.map { it.second },
                 records.filter { it.first == "execution" }.map { it.second },
                 records.filter { it.first == "position" }.map { it.second },
-                records.filter { it.first == "balance" }.map { it.second }, batchId)
+                records.filter { it.first == "balance" }.map { it.second }, batchId,
+                requireNotNull(sourceContext))
             PendingBatch(uid, batchId, vault.seal(payload.toString()), System.currentTimeMillis())
         } else emptyList()
         db.withTransaction {
@@ -596,9 +613,16 @@ class PlanningRepository(val identity: MobileIdentity, private val vault: Vault,
         for (row in dao.pending(uid)) {
             if (owner() != uid || !approved()) throw AppFailure(AppText.get(R.string.the_sign_in_session_has_changed))
             try {
-                val result = api.upload(JSONObject(vault.open(row.ciphertext)))
+                val payload = JSONObject(vault.open(row.ciphertext))
+                val result = api.upload(payload)
                 if (result.optString("database") != "committed" || result.optString("batch_id") != row.id)
                     throw AppFailure(AppText.get(R.string.backend_commit_unconfirmed), true)
+                result.optJSONObject("report_destination")?.let { destination ->
+                    require(PlanningSourceContext.parse(destination.getJSONObject("source_context")) ==
+                        PlanningSourceContext.parse(payload.getJSONObject("source_context")))
+                    require(destination.getString("state") in
+                        setOf("CURRENT_PRIMARY", "QUARANTINED_SOURCE_CHANGED"))
+                }
                 dao.mark(uid, row.id, "COMMITTED", "")
             } catch (e: HttpFailure) {
                 if (e.status == 409 || e.status == 422)

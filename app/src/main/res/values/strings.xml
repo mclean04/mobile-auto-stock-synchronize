@@ -295,7 +295,7 @@
     <string name="trade_quantity">Số lượng cổ phiếu</string>
     <string name="trade_price_vnd">Giá giới hạn LO (VND / cổ phiếu)</string>
     <string name="trade_package">Chọn gói giao dịch</string>
-    <string name="trade_package_note">Gói lấy trực tiếp từ DNSE theo tiểu khoản và mã cổ phiếu. Kiểm tra thông tin lãi suất/phí trước khi chọn; app không tự chọn gói vay.</string>
+    <string name="trade_package_note">Chỉ hiển thị gói DNSE loại N (không vay). Gói M hoặc payload thiếu loại sẽ bị chặn để không dùng margin.</string>
     <string name="trade_plan_summary">%1$s · %2$s</string>
     <string name="trade_review">Tiểu khoản: %1$s\n%2$s · %3$s · LO\nSố lượng: %4$d cổ phiếu\nGiá: %5$s / cổ phiếu\nGiá trị dự kiến: %6$s (chưa gồm phí)\nGói giao dịch: %7$s</string>
     <string name="trade_otp_note">Dùng phương thức OTP đã đăng ký với DNSE. Smart OTP lấy trong EntradeX: “Lấy mã OTP cho thiết bị khác”. Xác minh OTP chưa đặt lệnh; chỉ nút xác nhận cuối cùng mới gửi lệnh.</string>
@@ -479,4 +479,5 @@
     <string name="planning_gate_ready">Backend xác nhận kế hoạch đủ điều kiện ở lần tải gần nhất. App vẫn sẽ kiểm tra lại ngay trước khi gửi DNSE.</string>
     <string name="planning_cache_read_only_gate">Đây là dữ liệu đã lưu trên máy và chỉ dùng để xem. Bấm Làm mới kế hoạch khi có mạng để kiểm tra điều kiện trước khi thao tác.</string>
     <string name="planning_contract_version">Contract %1$s · phiên bản %2$d</string>
+    <string name="planning_source_generation">Nguồn planning do backend xác nhận · thế hệ %1$d</string>
 </resources>

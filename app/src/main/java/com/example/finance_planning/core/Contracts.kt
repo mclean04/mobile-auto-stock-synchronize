@@ -15,9 +15,11 @@ object Contracts {
         return value
     }
     fun batch(device: String, orders: List<JSONObject>, executions: List<JSONObject>,
-              positions: List<JSONObject>, balances: List<JSONObject>, batchId: String): JSONObject {
+              positions: List<JSONObject>, balances: List<JSONObject>, batchId: String,
+              sourceContext: PlanningSourceContext): JSONObject {
         require(orders.size + executions.size + positions.size + balances.size <= 100)
         return JSONObject().put("batch_id", batchId).put("device_id", device)
+            .put("source_context", sourceContext.json())
             .put("orders", JSONArray(orders)).put("executions", JSONArray(executions))
             .put("positions", JSONArray(positions)).put("balances", JSONArray(balances))
     }

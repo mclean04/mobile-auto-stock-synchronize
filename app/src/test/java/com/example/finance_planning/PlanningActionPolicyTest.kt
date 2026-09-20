@@ -20,6 +20,11 @@ class PlanningActionPolicyTest {
         .put("limit_price_vnd", "90000").put("scheduled_at", "2026-10-01T09:00:00+07:00")
         .put("window_starts_at", "2026-10-01T09:00:00+07:00")
         .put("window_ends_at", "2026-10-01T14:30:00+07:00")
+        .put("source_context", JSONObject().put("source_id", "source-sheet-0001").put("source_generation", 7))
+        .put("cash_requirements", JSONObject().put("currency", "VND")
+            .put("principal_vnd", "9000000").put("fee_reserve_vnd", "18000")
+            .put("required_cash_vnd", "9018000").put("fee_reserve_rate", "0.002")
+            .put("policy_version", "cash-v1").put("cash_only", true))
         .put("eligibility", JSONObject().put("eligible", true).put("reasons", JSONArray()))
 
     @Test fun cachedIntentNeverGrantsExecution() {

@@ -295,7 +295,7 @@
     <string name="trade_quantity">Number of shares</string>
     <string name="trade_price_vnd">LO limit price (VND / share)</string>
     <string name="trade_package">Choose trading package</string>
-    <string name="trade_package_note">Packages come directly from DNSE for the selected account and symbol. Review interest and fees before choosing; the app does not select a loan package automatically.</string>
+    <string name="trade_package_note">Only DNSE type N (no-loan) packages are shown. Type M or a missing type is blocked to prevent margin use.</string>
     <string name="trade_plan_summary">%1$s · %2$s</string>
     <string name="trade_review">Sub-account: %1$s\n%2$s · %3$s · LO\nQuantity: %4$d shares\nPrice: %5$s / share\nEstimated value: %6$s (excluding fees)\nTrading package: %7$s</string>
     <string name="trade_otp_note">Use the OTP method registered with DNSE. Get Smart OTP in EntradeX using the OTP for another device option. OTP verification does not place an order; only the final confirmation sends it.</string>
@@ -479,4 +479,5 @@
     <string name="planning_gate_ready">The backend marked this plan eligible when last loaded. The app will still check again immediately before calling DNSE.</string>
     <string name="planning_cache_read_only_gate">This is locally cached data and is read-only. Refresh the plans while online to check eligibility before taking action.</string>
     <string name="planning_contract_version">Contract %1$s · version %2$d</string>
+    <string name="planning_source_generation">Backend-confirmed planning source · generation %1$d</string>
 </resources>

@@ -33,8 +33,9 @@ fun PlanningOrderCard(row: JSONObject, snapshot: JSONObject?, upcoming: Boolean,
     val balances = PlanningFunds.balances(snapshot)
     val gateReasons = decision.reasons
     val gateReady = decision.canExecute
-    val symbol = intent?.symbol ?: fields.optString("Mã", text(R.string.plan))
-    val planned = intent?.raw?.optString("scheduled_at")?.let(NotificationContent::time)
+    val symbol = intent?.symbol ?: row.optString("symbol", fields.optString("Mã", text(R.string.plan)))
+    val planned = (intent?.raw ?: row).optString("scheduled_at").takeIf { it.isNotBlank() }
+        ?.let(NotificationContent::time)
         ?: row.optString("scheduled_date", fields.optString("Ngày dự kiến"))
     Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(22.dp),
         colors = CardDefaults.cardColors(containerColor = background, contentColor = foreground)) {
@@ -51,7 +52,8 @@ fun PlanningOrderCard(row: JSONObject, snapshot: JSONObject?, upcoming: Boolean,
             }
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 PlanMetric(text(R.string.trade_quantity), intent?.quantity?.toString()
-                    ?: fields.optString("Số lượng", text(R.string.no_data_available)), Modifier.weight(1f), panel, foreground, secondary)
+                    ?: row.optString("quantity", fields.optString("Số lượng", text(R.string.no_data_available))),
+                    Modifier.weight(1f), panel, foreground, secondary)
                 PlanMetric(text(R.string.trade_price_vnd), OrderContent.money(PlanningFunds.price(row)), Modifier.weight(1f), panel, foreground, secondary)
             }
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -62,6 +64,8 @@ fun PlanningOrderCard(row: JSONObject, snapshot: JSONObject?, upcoming: Boolean,
                 Text("${intent.authoringState.name} · ${intent.executionState.name}",
                     style = MaterialTheme.typography.labelLarge, color = accent)
                 Text(text(R.string.planning_contract_version, "2.0", intent.version),
+                    style = MaterialTheme.typography.bodySmall, color = secondary)
+                Text(text(R.string.planning_source_generation, intent.sourceContext.sourceGeneration),
                     style = MaterialTheme.typography.bodySmall, color = secondary)
             } else fields.optString("Trạng thái").takeIf { it.isNotBlank() }?.let {
                 Text(it, style = MaterialTheme.typography.labelLarge, color = accent)
