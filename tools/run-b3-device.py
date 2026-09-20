@@ -12,13 +12,18 @@ p = argparse.ArgumentParser()
 p.add_argument("--config", type=Path, required=True, help="Local test service config; contains only test auth")
 p.add_argument("--transport-id", required=True)
 p.add_argument("--phase", required=True, choices=[
-    "accepted", "resume_accepted", "unknown", "kill_unknown", "resume_unknown", "stale", "late", "resume_late"])
+    "readiness", "accepted", "resume_accepted", "unknown", "kill_unknown", "resume_unknown", "stale", "late", "resume_late"])
 p.add_argument("--output", type=Path, required=True)
 p.add_argument("--install", action="store_true")
 p.add_argument("--adb", default="/Users/tuanh/Library/Android/sdk/platform-tools/adb")
 a = p.parse_args()
 root = Path(__file__).resolve().parents[1]
 config = json.loads(a.config.read_text())
+if "service_url" in config:
+    config.setdefault("evidence_kind", "native_qa_readiness" if a.phase == "readiness" else "native_qa_http")
+if a.phase != "readiness":
+    scenario = "unknown" if a.phase == "kill_unknown" else a.phase.removeprefix("resume_")
+    assert config["intents"].get(scenario), "Business fixture intent is not ready; BA must supply captured canonical ID"
 assert re.fullmatch(r"[A-Za-z0-9-]{1,60}", config["run_id"])
 base = urlparse(config["base_url"])
 assert base.scheme == "http" and base.hostname == "127.0.0.1" and 1024 <= base.port <= 65535

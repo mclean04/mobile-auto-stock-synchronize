@@ -144,7 +144,7 @@ internal class B3DeviceFixture(val context: Context, val config: JSONObject, val
         val start = System.nanoTime()
         Socket(base.host, base.port).use { socket ->
             socket.soTimeout = 45000
-            val head = "$method $path HTTP/1.1\r\nHost: 127.0.0.1:${base.port}\r\n$authHeader: Bearer $token\r\nContent-Type: application/json\r\nContent-Length: ${bytes.size}\r\nConnection: close\r\n\r\n"
+            val head = "$method $path HTTP/1.1\r\nHost: 127.0.0.1:${base.port}\r\n$authHeader: Bearer $token\r\nX-QA-Correlation: b3-$run-$phase\r\nContent-Type: application/json\r\nContent-Length: ${bytes.size}\r\nConnection: close\r\n\r\n"
             socket.getOutputStream().apply { write(head.toByteArray(Charsets.UTF_8)); write(bytes); flush() }
             val input = socket.getInputStream().buffered()
             fun line(): String {
@@ -195,7 +195,10 @@ internal class B3DeviceFixture(val context: Context, val config: JSONObject, val
         val control = config.getJSONObject("switch")
         return http(control.getString("path"), "POST", control.getJSONObject("body")).also { lastSwitch = it }
     }
-    suspend fun readback(): JSONObject = http(config.getString("readback_path"))
+    suspend fun readback(): JSONObject = if (config.has("service_url")) {
+        JSONObject().put("A", http("/qa/readback/A")).put("B", http("/qa/readback/B"))
+            .put("trace", http("/qa/trace"))
+    } else http(config.getString("readback_path"))
     suspend fun reports() = db.dao().placedReports(uid).map { JSONObject(vault.open(it.ciphertext)) }
     suspend fun journal(): JSONObject? {
         val intentId = config.getJSONObject("intents").getString(scenario)

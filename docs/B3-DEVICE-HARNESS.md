@@ -81,6 +81,15 @@ summary. Both JUnit success and a final trace PASS are required, except for
 kill_unknown: it requires the explicit durable-marker crash checkpoint and
 must be followed by a passing resume_unknown in a new process.
 
+For the Backend handoff config (with service_url), run `--phase readiness`
+first. This only GETs /qa/status and verifies run, actor, account, fake broker
+mode and zero clock offset. It performs no arm/import/approval or Google write.
+Business phases reject null intent IDs before launch and reject DISARMED status
+before requesting planning. X-QA-Correlation carries the nonsecret run/phase label.
+Native retry phases read both /qa/readback/A and /B plus /qa/trace, require empty
+production orders, and check that the accepted order exists or the quarantined
+order is absent in bounded, untruncated native sandbox readback.
+
 ## Cases
 
 | Phase | Checks |

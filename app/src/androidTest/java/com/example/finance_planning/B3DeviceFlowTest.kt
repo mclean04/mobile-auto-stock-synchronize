@@ -40,18 +40,34 @@ class B3DeviceFlowTest {
         val file = File(context.filesDir, args.getString("b3_config", "b3-config.json"))
         val config = JSONObject(file.readText())
         val phase = requireNotNull(args.getString("b3_phase"))
-        require(phase in setOf("accepted", "resume_accepted", "late", "resume_late", "stale", "unknown", "kill_unknown", "resume_unknown"))
+        require(phase in setOf("readiness", "accepted", "resume_accepted", "late", "resume_late", "stale", "unknown", "kill_unknown", "resume_unknown"))
         f = B3DeviceFixture(context, config, phase)
         f.scenario = if (phase == "kill_unknown") "unknown" else phase.removePrefix("resume_")
         try {
+            compose.activityRule.scenario.onActivity {
+                it.window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
+            }
+            if (config.has("service_url")) {
+                val status = f.http("/qa/status")
+                assertEquals("QA_ONLY", status.getString("mode"))
+                assertEquals(config.getString("run_id"), status.getString("run_id"))
+                assertEquals(config.getString("uid"), status.getString("actor_uid"))
+                assertEquals(config.getString("account"), status.getString("account"))
+                assertEquals("ANDROID_INJECTED_FAKE_ONLY", status.getString("broker"))
+                assertEquals(0, status.getInt("clock_offset_seconds"))
+                f.trace("native_http_readiness", JSONObject().put("armed", status.getBoolean("armed"))
+                    .put("business_flow_run", false))
+                if (phase == "readiness") {
+                    f.trace("PASS", JSONObject().put("boundary", "native HTTP status only; no Google/business proof"))
+                    return@runBlocking
+                }
+                check(status.getBoolean("armed")) { "BA has not armed the QA fixture" }
+            } else require(phase != "readiness")
             f.saveFunds()
             val stored = f.repo.localPlanningAll()
             val funds = f.repo.dnseSnapshot()
             screen = mutableStateOf(ScreenState(planning = stored, dnse = funds,
                 approved = true, admin = true, signedIn = true, hasDnse = true, dnseProduction = false))
-            compose.activityRule.scenario.onActivity {
-                it.window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
-            }
             rootContent = {
                 MaterialTheme {
                     val scope = rememberCoroutineScope()
@@ -239,7 +255,25 @@ class B3DeviceFlowTest {
         assertEquals(original, reported.getJSONObject("payload").toString())
         assertEquals(0, f.brokerCalls.get())
         assertEquals(0, f.listCalls.get())
+        val readback = f.readback()
+        if (f.config.has("service_url")) {
+            val orderId = reported.getJSONObject("payload").getJSONObject("order").getString("order_id")
+            var found = false
+            for (alias in listOf("A", "B")) {
+                val sheet = readback.getJSONObject(alias)
+                assertTrue(sheet.getJSONArray("production_orders").length() <= 1)
+                for (key in listOf("sandbox_orders", "sandbox_journal")) {
+                    val rows = sheet.getJSONArray(key)
+                    check(rows.length() < 100) { "Readback may be truncated; cannot prove absence" }
+                    for (i in 0 until rows.length()) {
+                        val cells = rows.getJSONArray(i)
+                        if ((0 until cells.length()).any { cells.optString(it) == orderId }) found = true
+                    }
+                }
+            }
+            assertEquals("Native QA order presence", phase != "resume_late", found)
+        }
         f.trace("pending_report_retried_immutable", JSONObject().put("report", reported)
-            .put("journal", f.journal()).put("readback", f.readback()))
+            .put("journal", f.journal()).put("readback", readback))
     }
 }
