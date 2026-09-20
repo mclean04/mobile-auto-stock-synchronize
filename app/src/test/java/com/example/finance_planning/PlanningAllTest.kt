@@ -166,6 +166,34 @@ class PlanningAllTest {
         }
     }
 
+    @Test fun upcomingSortsDeviceDateThenInstantThenIdentityWithoutMutatingOtherTabs() {
+        val rows = listOf(
+            row("tomorrow", "2026-09-20T18:00:00Z"),
+            row("b", "2026-09-20T17:30:00+01:00"),
+            row("a", "2026-09-20T23:30:00+07:00"),
+            row("earliest", "2026-09-20T10:00:00+07:00"),
+            row("past", now.minusSeconds(1).toString()),
+            row("date-only", null, "DATE_ONLY"))
+        val all = page(rows)
+        val before = all.toString()
+        for (zone in listOf("Asia/Ho_Chi_Minh", "America/Los_Angeles", "Pacific/Auckland")) {
+            assertEquals(listOf("earliest", "a", "b", "tomorrow"),
+                PlanningTimeline.rows(all, PlanningSection.UPCOMING, now, java.time.ZoneId.of(zone))
+                    .map { it.getString("intent_id") })
+        }
+        assertEquals(rows.map { it.getString("intent_id") }, ids(all, PlanningSection.ALL))
+        assertEquals(listOf("past"), ids(all, PlanningSection.HISTORY))
+        assertEquals(before, all.toString())
+        val shuffled = page(rows.reversed())
+        assertEquals(ids(all, PlanningSection.UPCOMING), ids(shuffled, PlanningSection.UPCOMING))
+    }
+
+    @Test fun upcomingDoesNotGuessPriorityFromNotesOrSheetPosition() {
+        val later = row("later", now.plusSeconds(60).toString()).put("thesis", "highest priority")
+        val first = row("first")
+        assertEquals(listOf("first", "later"), ids(page(listOf(later, first)), PlanningSection.UPCOMING))
+    }
+
     @Test fun actionIsOnlyCanonicalExactUpcomingAndRechecksCurrentClock() {
         val future = row("future", now.plusSeconds(1).toString())
         assertTrue(PlanningTimeline.mayOpenAction(PlanningSection.UPCOMING, future, now))

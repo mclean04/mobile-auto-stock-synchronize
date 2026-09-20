@@ -486,4 +486,6 @@
     <string name="planning_time_unknown">Chưa xác định thời gian thực thi</string>
     <string name="planning_read_only_tab">Tab này chỉ để xem kế hoạch. Thao tác đặt lệnh chỉ có trong Đang đợi khi đáp ứng đủ điều kiện.</string>
     <string name="planning_action_pending_only">Chỉ được đặt lệnh có giờ thực thi xác định và chưa qua thời điểm kế hoạch trong tab Đang đợi.</string>
+    <string name="planning_card_expand">Chạm để xem chi tiết</string>
+    <string name="planning_card_collapse">Chạm để thu gọn</string>
 </resources>

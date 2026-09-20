@@ -152,6 +152,9 @@ class B3DeviceFlowTest {
         switchTab(R.string.pending)
         val tag = "planning-card-$id"
         compose.onNode(hasScrollToIndexAction()).performScrollToNode(hasTestTag(tag))
+        val card = compose.onNodeWithTag(tag)
+        if (card.fetchSemanticsNode().config[androidx.compose.ui.semantics.SemanticsProperties.StateDescription] ==
+            text(R.string.planning_card_expand)) card.performClick()
         compose.onNode(hasText(text(R.string.trade_title)) and hasAnyAncestor(hasTestTag(tag)))
             .performScrollTo().performClick()
         compose.waitUntil(15000) {

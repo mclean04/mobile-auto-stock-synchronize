@@ -4,6 +4,7 @@ import org.json.JSONArray
 import org.json.JSONObject
 import java.time.Instant
 import java.time.OffsetDateTime
+import java.time.ZoneId
 
 enum class PlanningSection { ALL, UPCOMING, HISTORY }
 
@@ -14,14 +15,23 @@ object PlanningTimeline {
         OffsetDateTime.parse(row.getString("scheduled_at")).toInstant()
     }.getOrNull()
 
-    fun rows(snapshot: JSONObject?, section: PlanningSection, now: Instant): List<JSONObject> =
-        snapshot?.objects("items").orEmpty().filter { row ->
+    fun rows(snapshot: JSONObject?, section: PlanningSection, now: Instant,
+             zone: ZoneId = ZoneId.systemDefault()): List<JSONObject> {
+        val rows = snapshot?.objects("items").orEmpty().filter { row ->
             when (section) {
                 PlanningSection.ALL -> true
                 PlanningSection.UPCOMING -> scheduledAt(row)?.let { !it.isBefore(now) } == true
                 PlanningSection.HISTORY -> scheduledAt(row)?.isBefore(now) == true
             }
         }
+
+        // No priority field/rule exists in contract v2. Do not infer one from Sheet order.
+        return if (section == PlanningSection.UPCOMING) rows.sortedWith(
+            compareBy<JSONObject> { requireNotNull(scheduledAt(it)).atZone(zone).toLocalDate() }
+                .thenBy { requireNotNull(scheduledAt(it)) }
+                .thenBy { it.getString("intent_id") }
+        ) else rows
+    }
 
     fun mayOpenAction(section: PlanningSection, row: JSONObject, now: Instant): Boolean =
         section == PlanningSection.UPCOMING && row.optString("record_kind") == "CANONICAL" &&

@@ -740,7 +740,10 @@ internal fun Orders(s: ScreenState, repo: com.example.finance_planning.data.Plan
         }
     }
     val snapshot = s.planning
-    val rows = remember(snapshot, selected, now) { PlanningTimeline.rows(snapshot, selected, now) }
+    val zone = java.time.ZoneId.systemDefault()
+    val rows = remember(snapshot, selected, now, zone) { PlanningTimeline.rows(snapshot, selected, now, zone) }
+    val expandedCards = com.example.finance_planning.ui.rememberPlanningCardExpansion(
+        repo.identity.uid(), snapshot?.optJSONObject("source_context"), selected)
     LaunchedEffect(snapshot, selected) { tradePlan = null }
     LaunchedEffect(now) {
         if (tradePlan?.let { !PlanningTimeline.mayOpenAction(selected, it, now) } == true) tradePlan = null
@@ -769,10 +772,13 @@ internal fun Orders(s: ScreenState, repo: com.example.finance_planning.data.Plan
                     modifier = Modifier.padding(top = 8.dp)) { Text(text(R.string.refresh_planning_orders)) }
                 SyncNote(text(R.string.planning_cache_refresh_note))
              } }
-            items(rows) { row ->
+            items(rows, key = { com.example.finance_planning.ui.planningCardIdentity(it) }) { row ->
+                val cardId = com.example.finance_planning.ui.planningCardIdentity(row)
                 com.example.finance_planning.ui.PlanningOrderCard(row, s.dnse, selected == PlanningSection.UPCOMING,
                     s.approved && s.hasDnse && !s.busy, s.dnseProduction,
-                    freshForAction = s.planningExecutionFresh && PlanningTimeline.mayOpenAction(selected, row, now)) {
+                    freshForAction = s.planningExecutionFresh && PlanningTimeline.mayOpenAction(selected, row, now),
+                    expanded = expandedCards[cardId] == true,
+                    toggleExpanded = { expandedCards[cardId] = expandedCards[cardId] != true }) {
                     if (PlanningTimeline.mayOpenAction(selected, row, Instant.now())) tradePlan = row
                 }
             }
