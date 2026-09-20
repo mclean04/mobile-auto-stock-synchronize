@@ -18,7 +18,7 @@ import com.google.firebase.appcheck.FirebaseAppCheck
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.tasks.await
 
-class MobileIdentity(private val context: Context) {
+open class MobileIdentity(private val context: Context) {
     val configured: Boolean get() = BuildConfig.FIREBASE_APP_ID.isNotBlank() &&
         BuildConfig.FIREBASE_API_KEY.isNotBlank() && BuildConfig.GOOGLE_WEB_CLIENT_ID.isNotBlank()
     fun initialize() {
@@ -33,7 +33,7 @@ class MobileIdentity(private val context: Context) {
         val provider = AppCheckBuildProvider.create()
         FirebaseAppCheck.getInstance().installAppCheckProviderFactory(provider)
     }
-    fun uid(): String? = if (configured) FirebaseAuth.getInstance().currentUser?.uid else null
+    open fun uid(): String? = if (configured) FirebaseAuth.getInstance().currentUser?.uid else null
     suspend fun signIn(activity: Context) {
         if (!configured) throw AppFailure(AppText.get(R.string.firebase_sign_in_not_configured_build))
         val option = GetSignInWithGoogleOption.Builder(BuildConfig.GOOGLE_WEB_CLIENT_ID).build()

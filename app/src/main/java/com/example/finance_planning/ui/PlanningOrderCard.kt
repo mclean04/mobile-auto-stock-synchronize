@@ -5,6 +5,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.font.FontStyle
@@ -41,7 +42,7 @@ fun PlanningOrderCard(row: JSONObject, snapshot: JSONObject?, upcoming: Boolean,
         else if (row.optString("time_status") == "DATE_ONLY")
             text(R.string.planning_time_date_only, displayValue("scheduled_date", fields.optString("Ngày dự kiến")))
         else text(R.string.planning_time_unknown)
-    Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(22.dp),
+    Card(Modifier.fillMaxWidth().testTag("planning-card-" + row.optString("intent_id")), shape = RoundedCornerShape(22.dp),
         colors = CardDefaults.cardColors(containerColor = background, contentColor = foreground)) {
         Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {

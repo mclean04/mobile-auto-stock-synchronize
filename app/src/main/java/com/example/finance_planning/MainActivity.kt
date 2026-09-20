@@ -183,7 +183,7 @@ private fun PlanningScreen(model: PlanningViewModel) {
                             Text(s.message, style = MaterialTheme.typography.bodySmall,
                                 modifier = Modifier.padding(vertical = 8.dp))
                             if (showNotifications) NotificationList(s, model) else when (tab) {
-                                0 -> Orders(s, model)
+                                0 -> Orders(s, model.repo, model::refreshPlanning)
                                 1 -> Settings(s, model) { confirm = it }
                                 2 -> if (s.admin) AdminPanel(s, model) { confirm = "import" }
                             }
@@ -728,7 +728,7 @@ private fun DnseAccount(s: ScreenState) {
 }
 
 @Composable
-private fun Orders(s: ScreenState, model: PlanningViewModel) {
+internal fun Orders(s: ScreenState, repo: com.example.finance_planning.data.PlanningRepository, refreshPlanning: () -> Unit) {
     var tradePlan by remember { mutableStateOf<JSONObject?>(null) }
     var section by rememberSaveable { mutableIntStateOf(0) }
     val selected = PlanningSection.entries[section]
@@ -746,7 +746,7 @@ private fun Orders(s: ScreenState, model: PlanningViewModel) {
         if (tradePlan?.let { !PlanningTimeline.mayOpenAction(selected, it, now) } == true) tradePlan = null
     }
     tradePlan?.takeIf { PlanningTimeline.mayOpenAction(selected, it, now) }?.let {
-        com.example.finance_planning.ui.ManualTradeDialog(it, model.repo, selected) { tradePlan = null }
+        com.example.finance_planning.ui.ManualTradeDialog(it, repo, selected) { tradePlan = null }
     }
     Column {
         SecondaryTabRow(selectedTabIndex = section) {
@@ -765,7 +765,7 @@ private fun Orders(s: ScreenState, model: PlanningViewModel) {
                 }), modifier = Modifier.padding(vertical = 12.dp))
                 s.planningSavedAt?.let { SyncNote(text(R.string.planning_cache_saved_at, NotificationContent.time(it))) }
                 SyncNote(text(R.string.planning_cache_display_note))
-                FilledTonalButton(onClick = model::refreshPlanning, enabled = s.approved && !s.busy,
+                FilledTonalButton(onClick = refreshPlanning, enabled = s.approved && !s.busy,
                     modifier = Modifier.padding(top = 8.dp)) { Text(text(R.string.refresh_planning_orders)) }
                 SyncNote(text(R.string.planning_cache_refresh_note))
              } }

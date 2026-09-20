@@ -23,7 +23,9 @@ import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.withContext
 
 class PlanningRepository(val identity: MobileIdentity, private val vault: Vault,
-                         private val db: LocalDb, val api: BackendApi) {
+                         private val db: LocalDb, val api: BackendApi,
+                         private val manualBroker: (String, String, Boolean) -> DnseTradingApi =
+                             { key, secret, production -> DnseTradingApi(key, secret, production) }) {
     private val dnseCredentials = DnseCredentialStore(vault::get, vault::put, vault::remove)
     private val lock = Mutex()
     private val dao = db.dao()
@@ -178,7 +180,7 @@ class PlanningRepository(val identity: MobileIdentity, private val vault: Vault,
         }
         cancellation?.let { throw it }
     }
-    private suspend fun retryPlacedOrderReports() = placedReportLock.withLock {
+    internal suspend fun retryPlacedOrderReports() = placedReportLock.withLock {
         val uid = owner()
         for (row in dao.placedReports(uid)) {
             val report = runCatching { JSONObject(vault.open(row.ciphertext)) }.getOrNull() ?: continue
@@ -199,7 +201,7 @@ class PlanningRepository(val identity: MobileIdentity, private val vault: Vault,
         private val settings = JSONObject(config)
         val production = settings.getBoolean("production")
         val intent = PlanningIntent.parse(plan)
-        private val broker = DnseTradingApi(settings.getString("key"), settings.getString("secret"), production)
+        private val broker = manualBroker(settings.getString("key"), settings.getString("secret"), production)
         private var tradingToken: String? = null
         private var verifiedAt = 0L
         private fun check() {

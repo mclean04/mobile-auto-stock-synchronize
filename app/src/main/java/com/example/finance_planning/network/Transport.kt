@@ -10,9 +10,9 @@ import java.net.HttpURLConnection
 import java.net.URI
 import javax.net.ssl.HttpsURLConnection
 
-class Transport {
+open class Transport {
 
-    suspend fun request(url: String, method: String = "GET", headers: Map<String, String> = emptyMap(),
+    open suspend fun request(url: String, method: String = "GET", headers: Map<String, String> = emptyMap(),
                         body: JSONObject? = null): String = withContext(Dispatchers.IO) {
         val uri = URI(url)
         if (uri.scheme != "https" || uri.userInfo != null) throw AppFailure(AppText.get(R.string.invalid_connection_address))
