@@ -30,6 +30,7 @@ class PlanningRepository(val identity: MobileIdentity, private val vault: Vault,
     private val lock = Mutex()
     private val dao = db.dao()
     private val notificationLock = Mutex()
+    private val qaNotificationConfig = QaNotificationConfigStore(vault)
     private val planningCacheLock = Mutex()
     private val placedReportLock = Mutex()
     fun owner() = identity.uid() ?: throw AppFailure(AppText.get(R.string.sign_in_to_access_data_on_this_device))
@@ -84,24 +85,89 @@ class PlanningRepository(val identity: MobileIdentity, private val vault: Vault,
         rows.map { JSONObject(vault.open(it.event.ciphertext)).put("_opened", it.opened) }
             .sortedByDescending { it.optString("created_at") }
     }
-    suspend fun cacheNotifications(page: JSONObject, uid: String) {
+    private suspend fun cacheNotifications(page: JSONObject, uid: String,
+                                           route: (JSONObject) -> NotificationDelivery) {
         if (identity.uid() != uid || !approved()) throw AppFailure(AppText.get(R.string.the_sign_in_session_has_changed))
         db.withTransaction {
             for (event in page.objects("items")) {
                 val id = event.optString("event_id", event.optString("id"))
                 UUID.fromString(id)
+                val delivery = route(event)
+                NotificationDeliveryPolicy.validateCanonical(event, delivery)
                 dao.cache(CacheRow(uid, "notification:" + id, vault.seal(event.toString()), System.currentTimeMillis()))
+                dao.cache(CacheRow(uid, "notification-route:" + id,
+                    vault.seal(delivery.json().toString()), System.currentTimeMillis()))
             }
         }
     }
+    suspend fun cacheNotifications(page: JSONObject, uid: String) = cacheNotifications(page, uid) { event ->
+        NotificationDelivery.production(event.optString("event_id", event.optString("id")), uid)
+    }
+
+    private fun currentQaNotificationConfig(uid: String = owner()): QaNotificationConfig? =
+        if (qaNotificationConfig.present()) qaNotificationConfig.current(uid, device()) else null
+
+    private fun checkedQaNotificationConfig(uid: String = owner()): QaNotificationConfig? {
+        val config = currentQaNotificationConfig(uid)
+        if (qaNotificationConfig.present() && config == null)
+            throw AppFailure(AppText.get(R.string.backend_data_format_invalid))
+        return config
+    }
+
+    fun qaNotificationsConfigured(): Boolean = identity.uid()?.let { currentQaNotificationConfig(it) } != null
+    fun qaNotificationIsolationEnabled(): Boolean = qaNotificationConfig.present()
+
+    fun notificationPush(data: Map<String, String>): NotificationDelivery? {
+        val uid = identity.uid() ?: return null
+        val config = currentQaNotificationConfig(uid)
+        if (qaNotificationConfig.present() && config == null) return null
+        return NotificationDeliveryPolicy.push(data, uid, config)
+    }
+
+    internal fun installQaNotificationConfig(value: JSONObject) {
+        val uid = owner()
+        qaNotificationConfig.install(value, uid, device())
+    }
+
+    internal fun clearQaNotificationConfig() = qaNotificationConfig.clear()
+
+    private fun notificationApi(delivery: NotificationDelivery): BackendApi = when (delivery.endpoint) {
+        NotificationEndpoint.PRODUCTION -> api
+        NotificationEndpoint.QA -> {
+            val config = checkedQaNotificationConfig(delivery.targetUid)
+                ?: throw AppFailure(AppText.get(R.string.backend_data_format_invalid))
+            if (config.namespace != delivery.namespace)
+                throw AppFailure(AppText.get(R.string.backend_data_format_invalid))
+            BackendApi.qaNotifications(config)
+        }
+    }
+
+    suspend fun notificationDelivery(id: String): NotificationDelivery {
+        UUID.fromString(id)
+        dao.cached(owner(), "notification-route:$id")?.let {
+            return NotificationDelivery.parse(JSONObject(vault.open(it.ciphertext)))
+        }
+        if (checkedQaNotificationConfig() != null)
+            throw AppFailure(AppText.get(R.string.backend_data_format_invalid))
+        return NotificationDelivery.production(id, owner())
+    }
+
     suspend fun notifications(refresh: Boolean = true): JSONObject = notificationLock.withLock {
         val uid = owner()
+        val qa = checkedQaNotificationConfig(uid)
+        val endpoint = qa?.let(BackendApi::qaNotifications) ?: api
         if (refresh) {
             var next: String? = null
             val seen = mutableSetOf<String>()
             do {
-                val page = api.notifications(next)
-                cacheNotifications(page, uid)
+                val page = endpoint.notifications(next)
+                cacheNotifications(page, uid) { event ->
+                    if (qa == null) NotificationDelivery.production(
+                        event.optString("event_id", event.optString("id")), uid)
+                    else NotificationDelivery(NotificationEndpoint.QA,
+                        event.optString("event_id", event.optString("id")), uid,
+                        event.getString("plan_id"), event.get("version").toString(), qa.namespace)
+                }
                 next = page.optString("next_cursor").takeIf { it.isNotBlank() && it != "null" }
                 if (next != null && !seen.add(next)) throw AppFailure(AppText.get(R.string.backend_repeated_notification_page), true)
             } while (next != null)
@@ -109,20 +175,46 @@ class PlanningRepository(val identity: MobileIdentity, private val vault: Vault,
         }
         cached("notifications") ?: JSONObject()
     }
+
+    suspend fun notificationPage(cursor: String): JSONObject {
+        val uid = owner()
+        val qa = checkedQaNotificationConfig(uid)
+        val page = (qa?.let(BackendApi::qaNotifications) ?: api).notifications(cursor)
+        cacheNotifications(page, uid) { event ->
+            if (qa == null) NotificationDelivery.production(
+                event.optString("event_id", event.optString("id")), uid)
+            else NotificationDelivery(NotificationEndpoint.QA,
+                event.optString("event_id", event.optString("id")), uid,
+                event.getString("plan_id"), event.get("version").toString(), qa.namespace)
+        }
+        return page
+    }
     suspend fun openNotification(id: String): JSONObject {
         val uid = owner()
-        val event = cached("notification:" + id) ?: receiveNotification(id)
+        val delivery = notificationDelivery(id)
+        val event = cached("notification:" + id) ?: receiveNotification(id, delivery)
         if (identity.uid() != uid) throw AppFailure(AppText.get(R.string.the_sign_in_session_has_changed))
         save("notification-opened:" + id, JSONObject().put("opened", true))
         return event.put("_opened", true)
     }
     suspend fun notificationOpened(id: String): Boolean =
         cached("notification-opened:" + id)?.optBoolean("opened") == true
-    suspend fun receiveNotification(id: String): JSONObject {
+    suspend fun receiveNotification(id: String): JSONObject =
+        receiveNotification(id, notificationDelivery(id))
+
+    suspend fun receiveNotification(id: String, delivery: NotificationDelivery,
+                                    requireVisible: Boolean = false): JSONObject {
         val uid = owner()
-        val event = api.notification(id)
-        cacheNotifications(JSONObject().put("items", JSONArray().put(event)), uid)
+        require(delivery.eventId == id && delivery.targetUid == uid)
+        val event = notificationApi(delivery).notification(id)
+        NotificationDeliveryPolicy.validateCanonical(event, delivery, requireVisible)
+        cacheNotifications(JSONObject().put("items", JSONArray().put(event)), uid) { delivery }
         return event
+    }
+
+    suspend fun notificationReceipt(delivery: NotificationDelivery, state: String): JSONObject {
+        require(delivery.targetUid == owner())
+        return notificationApi(delivery).receipt(delivery.eventId, device(), state)
     }
     private suspend fun reportPlacedOrder(uid: String, journalKey: String, journal: JSONObject,
                                           payload: JSONObject, apiVersion: Int = 1) {
@@ -633,14 +725,21 @@ class PlanningRepository(val identity: MobileIdentity, private val vault: Vault,
         if (approved()) {
             val uid = owner()
             vault.remove("push_registered:$uid")
-            api.registerDevice(device(), FirebaseMessaging.getInstance().token.await())
+            val qa = checkedQaNotificationConfig(uid)
+            val endpoint = qa?.let(BackendApi::qaNotifications) ?: api
+            endpoint.registerDevice(device(), FirebaseMessaging.getInstance().token.await())
             if (owner() == uid) vault.put("push_registered:$uid", "true")
         }
     }
     suspend fun logout() = lock.withLock {
         val uid = owner()
-        // Revocation must succeed before claiming this device is disconnected.
-        if (approved()) api.removeDevice(device())
+        // Revoke through the endpoint that registered this device. A mismatched QA config
+        // fails closed: it must never redirect a QA device operation to Production.
+        if (approved()) {
+            val qa = currentQaNotificationConfig(uid)
+            if (qa != null) BackendApi.qaNotifications(qa).removeDevice(device())
+            else if (!qaNotificationConfig.present()) api.removeDevice(device())
+        }
         // Keep the installation token for repeated Firebase Console tests in debug builds.
         // Backend device revocation above still disconnects the signed-out account.
         if (!com.example.finance_planning.BuildConfig.DEBUG)

@@ -188,9 +188,7 @@ class PlanningViewModel(application: Application) : AndroidViewModel(application
         val s = mutable.value
         when (kind) {
             "notifications" -> s.notificationCursor?.let { cursor ->
-                val uid = repo.owner()
-                val p = repo.api.notifications(cursor)
-                repo.cacheNotifications(p, uid)
+                val p = repo.notificationPage(cursor)
                 mutable.value = mutable.value.copy(notificationCursor = cursor(p))
             }
             "orders" -> s.orderCursor?.let { cursor ->
@@ -220,7 +218,7 @@ class PlanningViewModel(application: Application) : AndroidViewModel(application
         getApplication<Application>().getSystemService(android.app.NotificationManager::class.java).cancel(id, 1)
         mutable.value = mutable.value.copy(detail = event, detailKind = DetailKind.NOTIFICATION)
         if (!event.optBoolean("local_only"))
-            SyncSchedule.receipt(getApplication(), id, "OPENED", repo.owner())
+            SyncSchedule.receipt(getApplication(), repo.notificationDelivery(id), "OPENED")
         AppText.get(R.string.notification_loaded)
     }
     fun source(id: String) = run {

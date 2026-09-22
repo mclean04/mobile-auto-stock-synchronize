@@ -4,7 +4,8 @@ import com.example.finance_planning.core.Contracts
 import org.json.JSONObject
 import java.net.URLEncoder
 
-class BackendApi(private val transport: Transport, private val headers: suspend () -> Map<String, String>) {
+class BackendApi(private val transport: Transport, private val headers: suspend () -> Map<String, String>,
+                 private val baseUrl: String = Contracts.BACKEND) {
     var readSource: String? = null
     private fun scoped(path: String): String = readSource?.let {
         path + (if ("?" in path) "&" else "?") + "source=" + URLEncoder.encode(it, "UTF-8")
@@ -13,8 +14,8 @@ class BackendApi(private val transport: Transport, private val headers: suspend 
     suspend fun adminRecords(source: String, cursor: String? = null) =
         call(page("/v1/admin/sources/" + Contracts.id(source) + "/records", cursor))
     private suspend fun call(path: String, method: String = "GET", body: JSONObject? = null): JSONObject =
-        JSONObject(transport.request(Contracts.BACKEND + path, method, headers(), body))
-    suspend fun health() = JSONObject(transport.request(Contracts.BACKEND + "/health"))
+        JSONObject(transport.request(baseUrl + path, method, headers(), body))
+    suspend fun health() = JSONObject(transport.request(baseUrl + "/health"))
     suspend fun syncStatus() = call("/v1/sync/status")
     suspend fun allPlanning(cursor: String? = null): JSONObject {
         val path = "/v2/planning/intents?view=all&limit=100" +
@@ -53,4 +54,10 @@ class BackendApi(private val transport: Transport, private val headers: suspend 
     // Publishing/preview belongs to the planning operator, never executed automatically on mobile.
     suspend fun publishInstruction(command: JSONObject) = call("/v1/notifications", "POST", command)
     suspend fun previewNotification(command: JSONObject) = call("/v1/notification-preview", "POST", command)
+
+    companion object {
+        fun qaNotifications(config: com.example.finance_planning.core.QaNotificationConfig) =
+            BackendApi(QaNotificationTransport(config.bearer), { emptyMap() },
+                com.example.finance_planning.core.NotificationDeliveryPolicy.QA_BASE_URL)
+    }
 }

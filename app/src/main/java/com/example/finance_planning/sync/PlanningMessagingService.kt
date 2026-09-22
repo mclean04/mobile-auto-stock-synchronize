@@ -28,6 +28,7 @@ class PlanningMessagingService : FirebaseMessagingService() {
         val uid = repo.identity.uid() ?: return
         if (message.data["target_uid"]?.let { it != uid } == true) return
         if (message.data["event_id"] == null && message.notification != null) {
+            if (repo.qaNotificationIsolationEnabled()) return
             val payload = message.notification!!
             val event = SyncSchedule.console(this, uid, message.messageId ?: UUID.randomUUID().toString(),
                 payload.title ?: AppText.get(R.string.new_notification), payload.body ?: "")
@@ -35,10 +36,8 @@ class PlanningMessagingService : FirebaseMessagingService() {
             show(this, event)
             return
         }
-        if (message.data["target_uid"] != uid || message.data["schema_version"] != "1") return
-        val event = message.data["event_id"] ?: return
-        if (runCatching { UUID.fromString(event) }.isFailure) return
-        SyncSchedule.receipt(this, event, "RECEIVED", uid)
+        val delivery = repo.notificationPush(message.data) ?: return
+        SyncSchedule.receipt(this, delivery, "RECEIVED")
     }
 
     companion object {

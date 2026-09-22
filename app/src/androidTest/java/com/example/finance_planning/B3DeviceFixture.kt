@@ -112,7 +112,7 @@ internal class B3DeviceFixture(val context: Context, val config: JSONObject, val
             .body(response.toString().toResponseBody("application/json".toMediaType())).build()
     }.build()
     val repo = PlanningRepository(object : MobileIdentity(isolated) { override fun uid() = this@B3DeviceFixture.uid },
-        vault, db, BackendApi(transport) { emptyMap() },
+        vault, db, BackendApi(transport, { emptyMap() }),
         manualBroker = { key, secret, production ->
             check(!production)
             DnseTradingApi(key, secret, false, client)

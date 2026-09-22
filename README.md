@@ -48,6 +48,7 @@ tương ứng. Yêu cầu được lưu mã hoá trước khi gửi và giữ ng
 tránh tạo bản ghi Planning trùng nếu backend đã commit nhưng phản hồi bị gián đoạn.
 
 Xem [đối chiếu API và yêu cầu backend](docs/API-COVERAGE.md).
+Luồng thông báo QA cục bộ được mô tả tại [docs/QA-NOTIFICATION.md](docs/QA-NOTIFICATION.md).
 Room instrumented test nằm trong OutboxPersistenceTest; cần emulator/thiết bị để chạy.
 
 ## App Check cho bản debug

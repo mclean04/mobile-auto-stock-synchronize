@@ -24,6 +24,6 @@ object Contracts {
             .put("positions", JSONArray(positions)).put("balances", JSONArray(balances))
     }
     fun mayReview(event: JSONObject): Boolean =
-        event.optBoolean("requires_review") && event.optBoolean("is_current") &&
+        !NotificationContent.isTest(event) && event.optBoolean("requires_review") && event.optBoolean("is_current") &&
             event.optBoolean("revision_is_current") && !event.optBoolean("broker_action_executed")
 }

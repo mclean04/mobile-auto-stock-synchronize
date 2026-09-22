@@ -43,4 +43,15 @@ class NotificationContentTest {
         assertTrue(NotificationContent.shouldDisplay(JSONObject().put("local_only", true), now))
         assertTrue(NotificationContent.shouldDisplay(JSONObject().put("requires_review", true), now))
     }
+
+    @Test fun testNotificationAlwaysHasVisiblePrefixAndCannotBecomeActionable() {
+        val event = JSONObject().put("sheet", JSONObject().put("mode", "TEST"))
+            .put("title", "Daily QA notification").put("requires_review", true)
+            .put("is_current", true).put("revision_is_current", true)
+            .put("broker_action_executed", false)
+        assertEquals("[TEST] Daily QA notification", NotificationContent.title(event))
+        assertFalse(com.example.finance_planning.core.Contracts.mayReview(event))
+        event.put("title", "[TEST] Monthly QA notification")
+        assertEquals("[TEST] Monthly QA notification", NotificationContent.title(event))
+    }
 }
