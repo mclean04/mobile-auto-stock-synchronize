@@ -36,7 +36,8 @@ result = call("shell", "am", "instrument", "-w", "-r", "-e", "class",
               package + ".QaNotificationConfigTest#" + methods[a.action],
               package + ".test/androidx.test.runner.AndroidJUnitRunner", text=True)
 if a.action == "metadata":
-    match = re.search(r"QA_NOTIFICATION_METADATA=(\{[^\r\n]+\})", result.stdout)
+    match = re.search(r"(?:INSTRUMENTATION_STATUS: )?qa_notification_metadata=(\{[^\r\n]+\})",
+                      result.stdout)
     if match is None:
         raise SystemExit("QA notification metadata marker was not produced")
     metadata = json.loads(match.group(1))
