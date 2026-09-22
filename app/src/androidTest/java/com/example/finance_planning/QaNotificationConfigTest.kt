@@ -5,6 +5,7 @@ import androidx.test.platform.app.InstrumentationRegistry
 import kotlinx.coroutines.runBlocking
 import org.json.JSONObject
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -45,15 +46,22 @@ class QaNotificationConfigTest {
     @Test fun verifiedTargetMetadata() {
         val repo = app.repository
         val allowed = androidx.core.app.NotificationManagerCompat.from(app).areNotificationsEnabled()
-        println("QA_NOTIFICATION_DEVICE=" + JSONObject().put("model", android.os.Build.MODEL)
-            .put("notification_permission", allowed).put("fcm_token_included", false))
-        val uid = requireNotNull(repo.identity.uid()) { "QA Firebase user is not signed in" }
+        val configured = repo.identity.configured
+        val uid = repo.identity.uid()
         val device = repo.device()
         UUID.fromString(device)
-        val metadata = JSONObject().put("target_uid", uid).put("target_device_id", device)
-            .put("approved", repo.approved()).put("fcm_token_included", false)
-        println("QA_NOTIFICATION_TARGET=" + metadata)
+        val metadata = JSONObject().put("model", android.os.Build.MODEL)
+            .put("notification_permission", allowed)
+            .put("firebase_configured", configured)
+            .put("firebase_user_present", uid != null)
+            .put("approved", repo.approved())
+            .put("target_device_id", device)
+            .put("fcm_token_included", false)
+        if (uid != null) metadata.put("target_uid", uid)
+        println("QA_NOTIFICATION_METADATA=$metadata")
         assertTrue(android.os.Build.MODEL == "SM-X730")
+        assertTrue("QA Firebase configuration is missing from this build", configured)
+        assertNotNull("QA Firebase user is not signed in", uid)
         assertTrue(repo.approved())
     }
 }

@@ -34,9 +34,11 @@ Lấy metadata không nhạy cảm trước:
 python3 tools/configure-qa-notification.py metadata --transport-id <adb-transport-id>
 ```
 
-Lệnh sẽ cho biết model, quyền thông báo, UID và device ID nếu phiên đăng nhập đã sẵn sàng.
-Nếu báo `QA Firebase user is not signed in`, hãy đăng nhập trong app trước. Công cụ không
-in FCM token hoặc bearer.
+Lệnh chỉ xuất một JSON đã giới hạn trường: model, quyền thông báo, trạng thái cấu hình
+Firebase, trạng thái current user, quyền backend, UID và device ID nếu có. Nếu
+`firebase_configured=false`, APK hiện tại thiếu cấu hình build; nếu
+`firebase_user_present=false`, Firebase Auth trong đúng package hiện không có current
+user. Công cụ không in email, FCM token, bearer, API key hay raw instrumentation output.
 
 Sau khi QA proxy được phát hành và chạy ở máy phát triển, nối cổng cho thiết bị:
 

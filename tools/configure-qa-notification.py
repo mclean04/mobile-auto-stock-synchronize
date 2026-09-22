@@ -2,6 +2,7 @@
 """Install/clear encrypted QA notification routing without printing secrets."""
 import argparse
 import json
+import re
 import stat
 import subprocess
 from pathlib import Path
@@ -34,6 +35,18 @@ if a.action == "install":
 result = call("shell", "am", "instrument", "-w", "-r", "-e", "class",
               package + ".QaNotificationConfigTest#" + methods[a.action],
               package + ".test/androidx.test.runner.AndroidJUnitRunner", text=True)
+if a.action == "metadata":
+    match = re.search(r"QA_NOTIFICATION_METADATA=(\{[^\r\n]+\})", result.stdout)
+    if match is None:
+        raise SystemExit("QA notification metadata marker was not produced")
+    metadata = json.loads(match.group(1))
+    allowed = {"model", "notification_permission", "firebase_configured",
+               "firebase_user_present", "approved", "target_device_id",
+               "target_uid", "fcm_token_included"}
+    if not set(metadata).issubset(allowed) or metadata.get("fcm_token_included") is not False:
+        raise SystemExit("QA notification metadata did not match the safe output contract")
+    print(json.dumps(metadata, separators=(",", ":"), sort_keys=True))
 if "OK (1 test)" not in result.stdout:
     raise SystemExit("QA notification configuration failed; inspect instrumentation locally")
-print(json.dumps({"action": a.action, "configured": a.action != "clear", "secret_output": False}))
+if a.action != "metadata":
+    print(json.dumps({"action": a.action, "configured": a.action != "clear", "secret_output": False}))
