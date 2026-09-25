@@ -73,8 +73,12 @@ The readback endpoint must identify native Google QA rows, not a fake writer.
 
 ```sh
 JAVA_HOME='/Applications/Android Studio.app/Contents/jbr/Contents/Home' bash gradlew :app:assembleDebug :app:assembleDebugAndroidTest --console=plain
-python3 tools/run-b3-device.py --config /private/tmp/b3-config.json --transport-id 7 --phase accepted --output /private/tmp/b3-evidence --install
-python3 tools/run-b3-device.py --config /private/tmp/b3-config.json --transport-id 7 --phase resume_accepted --output /private/tmp/b3-evidence
+python3 tools/run-b3-device.py --config /private/tmp/b3-config.json --transport-id 7 \
+  --phase accepted --output /private/tmp/b3-evidence --install \
+  --session-start-utc <T0-UTC> --session-end-utc <T0-plus-at-most-2h-UTC>
+python3 tools/run-b3-device.py --config /private/tmp/b3-config.json --transport-id 7 \
+  --phase resume_accepted --output /private/tmp/b3-evidence \
+  --session-start-utc <T0-UTC> --session-end-utc <T0-plus-at-most-2h-UTC>
 ```
 
 The concurrent case must use the host coordinator; two independent runner commands are
@@ -88,14 +92,25 @@ python3 tools/run-b3-two-device.py \
   --transport-one <tablet-transport> \
   --transport-two <phone-transport> \
   --output /private/tmp/b3-two-device-evidence \
+  --session-start-utc <T0-UTC> \
+  --session-end-utc <T0-plus-at-most-2h-UTC> \
   --install
 ```
 
 Each private config names the same `intents.concurrent`, run, UID, account and Backend
 loopback URL, but carries its own verified `device_id`. The runner starts one
 `ThreadingHTTPServer` bound to `127.0.0.1`, gives each device a separate ADB reverse,
-launches both instrumentation processes, and removes both coordinator reverses in
-`finally`. It never starts a cloud service or uploads evidence.
+and launches both instrumentation processes. The parent snapshots every existing Backend and
+coordinator reverse mapping and restores it exactly even when a participant fails, the operator
+cancels, or the deadline is reached. It also force-stops the isolated test flow and removes the
+temporary on-device B3 config. It never clears app data, changes the encrypted QA notification
+config, calls production device registration, starts a cloud service, or uploads evidence.
+
+All business phases require the exact timezone-aware Backend session start and end. The end must
+equal T0 plus two hours. A phase cannot start before T0 or at/after the deadline; the
+runners terminate outstanding instrumentation and execute teardown when the deadline arrives.
+The native flow also compares these values with `/qa/status`, including `ACTIVE` and 7200 seconds.
+Readiness may run before T0 without starting the clock. T0 is supplied only after BA/PO release.
 
 The barrier is reached inside the test transport after the production guard's fresh
 intent read and immediately before the Backend preflight request. It releases only when

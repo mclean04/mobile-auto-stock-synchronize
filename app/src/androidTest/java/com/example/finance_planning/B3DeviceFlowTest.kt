@@ -56,6 +56,14 @@ class B3DeviceFlowTest {
                 assertEquals(config.getString("account"), status.getString("account"))
                 assertEquals("ANDROID_INJECTED_FAKE_ONLY", status.getString("broker"))
                 assertEquals(0, status.getInt("clock_offset_seconds"))
+                if (phase != "readiness") {
+                    assertEquals("ACTIVE", status.getString("session_state"))
+                    assertEquals(7200, status.getInt("max_session_seconds"))
+                    assertEquals(Instant.parse(config.getString("session_start_utc")),
+                        Instant.parse(status.getString("session_started_at")))
+                    assertEquals(Instant.parse(config.getString("session_end_utc")),
+                        Instant.parse(status.getString("session_ends_at")))
+                }
                 f.trace("native_http_readiness", JSONObject().put("armed", status.getBoolean("armed"))
                     .put("business_flow_run", false))
                 if (phase == "readiness") {

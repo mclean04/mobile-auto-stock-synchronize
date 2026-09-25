@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run the concurrent B3 phase behind one deterministic localhost barrier."""
+"""Run the concurrent B3 phase within one bounded integrated QA session."""
 import argparse
 import hashlib
 import json
@@ -10,10 +10,19 @@ import subprocess
 import sys
 import tempfile
 import threading
-from pathlib import Path
-
-from two_device_coordinator import TwoDeviceCoordinator, make_handler
+import time
 from http.server import ThreadingHTTPServer
+from pathlib import Path
+from urllib.parse import urlparse
+
+from qa_session_guard import SessionWindow, parse_reverse_list, reverse_restore_args
+from two_device_coordinator import TwoDeviceCoordinator, make_handler
+
+
+def private_write(path: Path, value: str):
+    descriptor = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    with os.fdopen(descriptor, "w") as stream:
+        stream.write(value)
 
 
 parser = argparse.ArgumentParser()
@@ -22,12 +31,16 @@ parser.add_argument("--device-two-config", type=Path, required=True)
 parser.add_argument("--transport-one", required=True)
 parser.add_argument("--transport-two", required=True)
 parser.add_argument("--output", type=Path, required=True)
+parser.add_argument("--session-start-utc", required=True)
+parser.add_argument("--session-end-utc", required=True)
 parser.add_argument("--coordinator-port", type=int, default=0)
 parser.add_argument("--barrier-timeout-seconds", type=float, default=45)
 parser.add_argument("--install", action="store_true")
 parser.add_argument("--adb", default="/Users/tuanh/Library/Android/sdk/platform-tools/adb")
 args = parser.parse_args()
 
+session = SessionWindow.parse(args.session_start_utc, args.session_end_utc)
+session.require_active()
 if args.transport_one == args.transport_two:
     raise SystemExit("two distinct ADB transports are required")
 if args.output.exists() and (not args.output.is_dir() or any(args.output.iterdir())):
@@ -50,12 +63,19 @@ if None in device_ids or len(set(device_ids)) != 2:
     raise SystemExit("two distinct verified device UUIDs are required")
 if not re.fullmatch(r"[A-Za-z0-9-]{1,60}", configs[0]["run_id"]):
     raise SystemExit("invalid run ID")
+base = urlparse(configs[0]["base_url"])
+if not (base.scheme == "http" and base.hostname == "127.0.0.1" and 1024 <= base.port <= 65535):
+    raise SystemExit("Backend route must be an unprivileged loopback port")
 
 participants = ["device-one", "device-two"]
+transports = [args.transport_one, args.transport_two]
 coordinator = TwoDeviceCoordinator(configs[0]["run_id"], participants,
-                                   args.barrier_timeout_seconds)
+                                   min(args.barrier_timeout_seconds, session.remaining_seconds()))
 server = ThreadingHTTPServer(("127.0.0.1", args.coordinator_port), make_handler(coordinator))
 port = server.server_port
+if port == base.port:
+    server.server_close()
+    raise SystemExit("coordinator and Backend loopback ports must differ")
 server_thread = threading.Thread(target=server.serve_forever, daemon=True)
 server_thread.start()
 
@@ -65,76 +85,147 @@ root = Path(__file__).resolve().parents[1]
 runner = root / "tools/run-b3-device.py"
 processes = []
 summaries = []
+route_previous = {}
+teardown = {"processes_stopped": False, "device_configs_removed": False,
+            "reverse_routes_restored": False, "notification_routes_unchanged": True,
+            "qa_notification_configs_unchanged": True, "production_registration_called": False}
+failure = None
+
+
+def adb(transport, *command, check=False, timeout=10):
+    return subprocess.run([args.adb, "-t", transport, *command], check=check,
+                          capture_output=True, timeout=timeout)
+
+
+def snapshot(transport):
+    return parse_reverse_list(adb(transport, "reverse", "--list").stdout.decode(errors="replace"))
+
 
 try:
+    # The parent owns and restores every temporary reverse route, including child failures.
+    for transport in transports:
+        current = snapshot(transport)
+        for local in (f"tcp:{base.port}", f"tcp:{port}"):
+            route_previous[(transport, local)] = current.get(local)
+            adb(transport, "reverse", local, local, check=True)
+
     with tempfile.TemporaryDirectory(prefix="b3-two-device-") as private:
         os.chmod(private, 0o700)
         for index, config in enumerate(configs):
             config = dict(config)
             config["participant_id"] = participants[index]
             config["coordinator_url"] = f"http://127.0.0.1:{port}"
+            config["session_start_utc"] = session.manifest()["start_utc"]
+            config["session_end_utc"] = session.manifest()["end_utc"]
             path = Path(private) / f"device-{index + 1}.json"
-            descriptor = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
-            with os.fdopen(descriptor, "w") as stream:
-                json.dump(config, stream, separators=(",", ":"))
+            private_write(path, json.dumps(config, separators=(",", ":")))
             device_output = args.output / participants[index]
             device_output.mkdir(mode=0o700)
             command = [sys.executable, str(runner), "--config", str(path),
-                       "--transport-id", [args.transport_one, args.transport_two][index],
-                       "--phase", "concurrent", "--output", str(device_output),
+                       "--transport-id", transports[index], "--phase", "concurrent",
+                       "--output", str(device_output), "--session-start-utc", args.session_start_utc,
+                       "--session-end-utc", args.session_end_utc, "--routes-managed-by-parent",
                        "--adb", args.adb]
             if args.install:
                 command.append("--install")
             processes.append(subprocess.Popen(command, stdout=subprocess.PIPE,
                                                 stderr=subprocess.PIPE, text=True))
 
+        while any(process.poll() is None for process in processes):
+            if session.remaining_seconds() <= 0:
+                failure = "session_deadline_reached"
+                for participant in participants:
+                    try:
+                        coordinator.abort(participant, failure)
+                    except Exception:
+                        pass
+                break
+            failed = next((index for index, process in enumerate(processes)
+                           if process.poll() not in (None, 0)), None)
+            if failed is not None:
+                failure = "participant_process_failed"
+                try:
+                    coordinator.abort(participants[failed], failure)
+                except Exception:
+                    pass
+                break
+            time.sleep(0.05)
+
+        if failure:
+            for process in processes:
+                if process.poll() is None:
+                    process.terminate()
+
         for index, process in enumerate(processes):
             try:
-                stdout, stderr = process.communicate(timeout=240)
+                stdout, stderr = process.communicate(timeout=min(10, max(0.1, session.remaining_seconds())))
             except subprocess.TimeoutExpired:
-                coordinator.abort(participants[index], "participant_process_timeout")
-                process.terminate()
-                stdout, stderr = process.communicate(timeout=10)
+                process.kill()
+                stdout, stderr = process.communicate(timeout=5)
+                failure = failure or "participant_process_teardown_timeout"
             safe = {"participant_id": participants[index], "returncode": process.returncode,
                     "stdout_sha256": hashlib.sha256(stdout.encode()).hexdigest(),
                     "stderr_sha256": hashlib.sha256(stderr.encode()).hexdigest()}
-            if process.returncode != 0:
-                try:
-                    coordinator.abort(participants[index], "participant_process_failed")
-                except Exception:
-                    pass
             summary_path = args.output / participants[index] / "concurrent-summary.json"
             if summary_path.is_file():
                 safe["device_summary"] = json.loads(summary_path.read_text())
             summaries.append(safe)
 
     oracle = coordinator.oracle()
-    result = {"schema_version": 1, "run_id": configs[0]["run_id"],
-              "coordinator": {"host": "127.0.0.1", "port": port,
-                              "automatic_upload": False, "new_cloud_service": False},
-              "participants": summaries, "oracle": oracle,
-              "cases_executed": True, "real_broker_route": False}
-    result_path = args.output / "two-device-concurrent-summary.json"
-    descriptor = os.open(result_path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
-    with os.fdopen(descriptor, "w") as stream:
-        json.dump(result, stream, indent=2, sort_keys=True)
-    print(json.dumps({"run_id": result["run_id"], "pass": oracle["pass"],
-                      "output": str(args.output), "secrets_printed": False}, sort_keys=True))
     if any(item["returncode"] != 0 for item in summaries) or not oracle["pass"]:
-        raise SystemExit("Two-device aggregate oracle failed; inspect private evidence")
+        failure = failure or "aggregate_oracle_failed"
 except KeyboardInterrupt:
+    failure = "operator_cancelled"
     for participant in participants:
         try:
-            coordinator.abort(participant, "operator_cancelled")
+            coordinator.abort(participant, failure)
         except Exception:
             pass
-    raise
 finally:
     for process in processes:
         if process.poll() is None:
             process.terminate()
-    for transport in (args.transport_one, args.transport_two):
-        subprocess.run([args.adb, "-t", transport, "reverse", "--remove", f"tcp:{port}"],
-                       check=False, capture_output=True)
+    for process in processes:
+        if process.poll() is None:
+            try:
+                process.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                process.kill()
+                process.wait(timeout=5)
+    teardown["processes_stopped"] = all(process.poll() is not None for process in processes)
+    removed = []
+    for transport in transports:
+        adb(transport, "shell", "am", "force-stop", "com.example.finance_planning")
+        result = adb(transport, "shell", "run-as", "com.example.finance_planning",
+                     "rm", "-f", "files/b3-config.json")
+        removed.append(result.returncode == 0)
+    teardown["device_configs_removed"] = all(removed)
+    restored = []
+    for (transport, local), previous in reversed(list(route_previous.items())):
+        result = adb(transport, *reverse_restore_args(local, previous))
+        restored.append(result.returncode == 0)
+    for transport in transports:
+        after = snapshot(transport)
+        restored.extend(after.get(local) == previous for (saved_transport, local), previous
+                        in route_previous.items() if saved_transport == transport)
+    teardown["reverse_routes_restored"] = bool(route_previous) and all(restored)
     server.shutdown()
     server.server_close()
+
+oracle = coordinator.oracle()
+result = {"schema_version": 2, "run_id": configs[0]["run_id"], "session": session.manifest(),
+          "coordinator": {"host": "127.0.0.1", "port": port,
+                          "automatic_upload": False, "new_cloud_service": False},
+          "participants": summaries, "oracle": oracle, "teardown": teardown,
+          "cases_executed": bool(summaries), "real_broker_route": False,
+          "failure": failure}
+result_path = args.output / "two-device-concurrent-summary.json"
+private_write(result_path, json.dumps(result, indent=2, sort_keys=True))
+print(json.dumps({"run_id": result["run_id"], "pass": oracle["pass"] and not failure,
+                  "output": str(args.output), "secrets_printed": False}, sort_keys=True))
+teardown_ok = (teardown["processes_stopped"] and teardown["device_configs_removed"] and
+               teardown["reverse_routes_restored"] and teardown["notification_routes_unchanged"] and
+               teardown["qa_notification_configs_unchanged"] and
+               not teardown["production_registration_called"])
+if failure or not teardown_ok:
+    raise SystemExit(failure or "two-device teardown failed; inspect private evidence")

@@ -549,7 +549,8 @@ class PlanningRepository(val identity: MobileIdentity, private val vault: Vault,
                 val placed = response.optJSONObject("data") ?: response.optJSONObject("order") ?: response
                 val orderId = DnseApi.text(placed, "id", "orderId")
                 require(orderId.isNotBlank() && orderId != "null")
-                val brokerCorrelation = ObservationCorrelation.intent(intent, brokerOrderId = orderId)
+                val brokerCorrelation = ObservationCorrelation.intent(intent,
+                    requestId = preflightRequestId, brokerOrderId = orderId)
                 observation.record(ObservationComponent.BROKER, ObservationAction.PLACE_ORDER,
                     ObservationStage.BROKER_ACKNOWLEDGED, ObservationResult.ACCEPTED,
                     brokerCorrelation, ProductionObservationLog.elapsedMs(placeStarted))
