@@ -165,8 +165,8 @@ internal class B3DeviceFixture(val context: Context, val config: JSONObject, val
         vault, db, BackendApi(transport, { emptyMap() }),
         manualBroker = { key, secret, production ->
             check(!production)
-            DnseTradingApi(key, secret, false, client)
-        }, observation = observationLog)
+            DnseTradingApi(key, secret, false, client, qaInMemoryFakeOnly = true)
+        }, observation = observationLog, qaInMemoryFakeBusiness = true)
 
     init {
         trace("process", JSONObject().put("pid", android.os.Process.myPid())

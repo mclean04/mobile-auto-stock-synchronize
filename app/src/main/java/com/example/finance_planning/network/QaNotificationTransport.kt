@@ -4,6 +4,7 @@ import com.example.finance_planning.BuildConfig
 import com.example.finance_planning.core.NotificationDeliveryPolicy
 import com.example.finance_planning.core.QaNotificationConfig
 import com.example.finance_planning.core.QaCampaignOperation
+import com.example.finance_planning.core.QaStartupIsolation
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
@@ -24,6 +25,7 @@ class QaNotificationTransport(private val bearer: String, private val config: Qa
         require(headers.isEmpty())
         require(allowlisted(url, method))
         val uri = URI(url)
+        requireIsolatedTarget(uri, method, body)
         val path = uri.rawPath
         var caseId: String? = null
         config?.campaign?.let { campaign ->
@@ -58,9 +60,24 @@ class QaNotificationTransport(private val bearer: String, private val config: Qa
         }
     }
 
+    private fun requireIsolatedTarget(uri: URI, method: String, body: JSONObject?) {
+        QaStartupIsolation.requireTransportConfig(config)
+        if (QaStartupIsolation.active) {
+            val trusted = requireNotNull(config)
+            if (uri.path.startsWith("/v1/devices/"))
+                require(uri.path == "/v1/devices/${trusted.targetDeviceId}")
+            if (uri.path.startsWith("/v1/notifications/")) {
+                val event = uri.path.removePrefix("/v1/notifications/").removeSuffix("/receipts")
+                require(trusted.eventCases.containsKey(event))
+                if (method == "POST") require(body?.getString("device_id") == trusted.targetDeviceId)
+            }
+        }
+    }
+
     private fun exchange(url: String, method: String, body: JSONObject?, campaignHeaders: Map<String, String>): String {
         require(allowlisted(url, method))
         val uri = URI(url)
+        requireIsolatedTarget(uri, method, body)
         val payload = body?.toString()?.toByteArray(Charsets.UTF_8) ?: byteArrayOf()
         require(payload.size <= 2 * 1024 * 1024)
         Socket("127.0.0.1", 18766).use { socket ->

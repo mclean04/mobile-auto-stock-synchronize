@@ -14,6 +14,11 @@ class SyncWorker(context: Context, params: WorkerParameters) : CoroutineWorker(c
         else -> ObservationError.fromThrowable(error)
     }
     override suspend fun doWork(): Result {
+        val selectedDelivery = inputData.getString("delivery")?.let {
+            runCatching { NotificationDelivery.parse(org.json.JSONObject(it)) }.getOrNull()
+        }
+        if (QaStartupIsolation.policy.deferSavedWork(selectedDelivery?.endpoint,
+                selectedDelivery?.campaign != null)) return Result.retry()
         val app = applicationContext as PlanningApp
         val repo = app.repository
         if (!repo.approved()) return Result.failure()
@@ -77,7 +82,8 @@ class SyncWorker(context: Context, params: WorkerParameters) : CoroutineWorker(c
                         ProductionObservationLog.elapsedMs(receiptStarted), safeError(error))
                     throw error
                 }
-                repo.notifications()
+                // The admitted event is already cached. QA does not refresh the whole inbox per receipt.
+                if (!QaStartupIsolation.active) repo.notifications()
             } else {
                 repo.registerPush()
                 repo.notifications()
@@ -86,23 +92,24 @@ class SyncWorker(context: Context, params: WorkerParameters) : CoroutineWorker(c
             Result.success()
         } catch (e: CancellationException) { throw e }
         catch (e: HttpFailure) {
-            if (e.status == 429 || e.status >= 500) Result.retry() else Result.failure()
+            if (!QaStartupIsolation.active && (e.status == 429 || e.status >= 500)) Result.retry() else Result.failure()
         } catch (e: AppFailure) {
-            if (e.retryable) Result.retry() else Result.failure()
+            if (!QaStartupIsolation.active && e.retryable) Result.retry() else Result.failure()
         } catch (_: Exception) { Result.failure() }
     }
 }
 object SyncSchedule {
     private fun constraints() = Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build()
     fun enable(context: Context) {
+        QaStartupIsolation.requireBusiness()
         val task = PeriodicWorkRequestBuilder<SyncWorker>(6, TimeUnit.HOURS)
             .setConstraints(constraints()).setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 30, TimeUnit.SECONDS)
             .addTag("account-sync").build()
         WorkManager.getInstance(context).enqueueUniquePeriodicWork("planning-periodic",
             ExistingPeriodicWorkPolicy.UPDATE, task)
     }
-    fun cancel(context: Context) { WorkManager.getInstance(context).cancelUniqueWork("planning-periodic") }
-    fun cancelAccount(context: Context) { WorkManager.getInstance(context).cancelAllWorkByTag("account-sync") }
+    fun cancel(context: Context) { QaStartupIsolation.requireBusiness(); WorkManager.getInstance(context).cancelUniqueWork("planning-periodic") }
+    fun cancelAccount(context: Context) { QaStartupIsolation.requireBusiness(); WorkManager.getInstance(context).cancelAllWorkByTag("account-sync") }
     fun receipt(context: Context, delivery: NotificationDelivery, state: String) {
         val task = OneTimeWorkRequestBuilder<SyncWorker>().setConstraints(constraints())
             .apply {
@@ -136,6 +143,7 @@ object SyncSchedule {
                 .addTag("account-sync").build())
     }
     fun refresh(context: Context) {
+        if (QaStartupIsolation.active) return
         WorkManager.getInstance(context).enqueueUniqueWork("planning-refresh", ExistingWorkPolicy.KEEP,
             OneTimeWorkRequestBuilder<SyncWorker>().setConstraints(constraints()).addTag("account-sync").build())
     }
@@ -144,6 +152,7 @@ object SyncSchedule {
 /** Saves Console notification content even when the network is unavailable. */
 class ConsoleNotificationWorker(context: Context, params: WorkerParameters) : CoroutineWorker(context, params) {
     override suspend fun doWork(): Result {
+        if (QaStartupIsolation.active) return Result.retry()
         val repo = (applicationContext as PlanningApp).repository
         val uid = inputData.getString("uid") ?: return Result.failure()
         if (repo.identity.uid() != uid || !repo.approved()) return Result.failure()
@@ -164,6 +173,8 @@ class ConsoleNotificationWorker(context: Context, params: WorkerParameters) : Co
 }
 class NotificationRefreshWorker(context: Context, params: WorkerParameters) : CoroutineWorker(context, params) {
     override suspend fun doWork(): Result {
+        // Preserve queued ordinary refreshes; QA receipts fetch their own admitted events.
+        if (QaStartupIsolation.active) return Result.retry()
         val repo = (applicationContext as PlanningApp).repository
         val uid = inputData.getString("uid") ?: return Result.failure()
         if (repo.identity.uid() != uid || !repo.approved()) return Result.failure()

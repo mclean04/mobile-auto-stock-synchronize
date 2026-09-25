@@ -26,7 +26,12 @@ class PlanningRepository(val identity: MobileIdentity, private val vault: Vault,
                          private val db: LocalDb, val api: BackendApi,
                          private val manualBroker: (String, String, Boolean) -> DnseTradingApi =
                              { key, secret, production -> DnseTradingApi(key, secret, production) },
-                         val observation: ObservationSink = ObservationSink.NONE) {
+                         val observation: ObservationSink = ObservationSink.NONE,
+                         private val qaInMemoryFakeBusiness: Boolean = false) {
+    init { require(!qaInMemoryFakeBusiness || com.example.finance_planning.BuildConfig.DEBUG) }
+    private fun requireBusiness() {
+        if (!qaInMemoryFakeBusiness) QaStartupIsolation.requireBusiness()
+    }
     private val dnseCredentials = DnseCredentialStore(vault::get, vault::put, vault::remove)
     private val lock = Mutex()
     private val dao = db.dao()
@@ -71,11 +76,19 @@ class PlanningRepository(val identity: MobileIdentity, private val vault: Vault,
     internal fun existingDevice(): String? = identity.uid()?.let { vault.get("device:$it") }
     fun device(): String {
         val key = "device:" + owner()
-        return existingDevice() ?: UUID.randomUUID().toString().also { vault.put(key, it) }
+        return existingDevice() ?: run {
+            requireBusiness()
+            UUID.randomUUID().toString().also { vault.put(key, it) }
+        }
     }
-    fun invalidateSession() { vault.remove("approved") }
+    fun invalidateSession() { if (!QaStartupIsolation.active) vault.remove("approved") }
     fun approved(): Boolean = identity.uid()?.let { vault.get("approved") == it && vault.get("mobile_scope") == "uploader-v1:$it" } ?: false
     suspend fun verifySession(): JSONObject {
+        if (QaStartupIsolation.active && !qaInMemoryFakeBusiness) {
+            val config = requireNotNull(checkedQaNotificationConfig())
+            QaNotificationTransport(config.bearer, config).verifyCampaignBindings()
+            return JSONObject().put("qa_isolated", true)
+        }
         val status = api.syncStatus() // Firebase sign-in alone is not backend authorization.
         if (vault.get("mobile_scope") != "uploader-v1:${owner()}") save("dnse", JSONObject())
         vault.put("mobile_scope", "uploader-v1:${owner()}")
@@ -129,6 +142,7 @@ class PlanningRepository(val identity: MobileIdentity, private val vault: Vault,
         }
     }
     suspend fun refreshPlanningAll(): JSONObject = planningCacheLock.withLock {
+        requireBusiness()
         val store = planningStore(owner())
         val previous = runCatching { store.local() }.getOrNull()
         val started = System.nanoTime()
@@ -179,22 +193,31 @@ class PlanningRepository(val identity: MobileIdentity, private val vault: Vault,
         NotificationDelivery.production(event.optString("event_id", event.optString("id")), uid)
     }
 
-    private fun currentQaNotificationConfig(uid: String = owner()): QaNotificationConfig? =
-        if (qaNotificationConfig.present()) qaNotificationConfig.current(uid, device()) else null
+    private fun currentQaNotificationConfig(uid: String = owner()): QaNotificationConfig? {
+        if (!qaNotificationConfig.present()) return null
+        val device = if (QaStartupIsolation.active) existingDevice() ?: return null else device()
+        return qaNotificationConfig.current(uid, device)?.takeIf { config ->
+            !QaStartupIsolation.active || runCatching {
+                QaStartupIsolation.requireNotification(config, uid, device)
+            }.isSuccess
+        }
+    }
 
     private fun checkedQaNotificationConfig(uid: String = owner()): QaNotificationConfig? {
         val config = currentQaNotificationConfig(uid)
+        QaStartupIsolation.requireNotification(config, uid, existingDevice())
         if (qaNotificationConfig.present() && config == null)
             throw AppFailure(AppText.get(R.string.backend_data_format_invalid))
         return config
     }
 
     fun qaNotificationsConfigured(): Boolean = identity.uid()?.let { currentQaNotificationConfig(it) } != null
-    fun qaNotificationIsolationEnabled(): Boolean = qaNotificationConfig.present()
+    fun qaNotificationIsolationEnabled(): Boolean = QaStartupIsolation.active || qaNotificationConfig.present()
 
     fun notificationPush(data: Map<String, String>): NotificationDelivery? {
         val uid = identity.uid() ?: return null
         val config = currentQaNotificationConfig(uid)
+        if (QaStartupIsolation.active && config == null) return null
         if (qaNotificationConfig.present() && config == null) return null
         return NotificationDeliveryPolicy.push(data, uid, config)
     }
@@ -202,6 +225,7 @@ class PlanningRepository(val identity: MobileIdentity, private val vault: Vault,
     internal suspend fun installQaNotificationConfig(value: JSONObject) {
         val uid = owner()
         val config = QaNotificationConfig.parse(value)
+        QaStartupIsolation.requireNotification(config, uid, existingDevice())
         require(config.targetUid == uid && config.targetDeviceId == device())
         currentQaNotificationConfig(uid)?.let(config::requireAppendOnly)
         QaNotificationTransport(config.bearer, config).verifyCampaignBindings()
@@ -211,7 +235,7 @@ class PlanningRepository(val identity: MobileIdentity, private val vault: Vault,
     internal fun clearQaNotificationConfig() = qaNotificationConfig.clear()
 
     private fun notificationApi(delivery: NotificationDelivery): BackendApi = when (delivery.endpoint) {
-        NotificationEndpoint.PRODUCTION -> api
+        NotificationEndpoint.PRODUCTION -> { requireBusiness(); api }
         NotificationEndpoint.QA -> {
             val config = checkedQaNotificationConfig(delivery.targetUid)
                 ?: throw AppFailure(AppText.get(R.string.backend_data_format_invalid))
@@ -270,6 +294,7 @@ class PlanningRepository(val identity: MobileIdentity, private val vault: Vault,
     suspend fun openNotification(id: String): JSONObject {
         val uid = owner()
         val delivery = notificationDelivery(id)
+        notificationApi(delivery) // Enforce mode before changing an existing cached opened marker.
         val event = cached("notification:" + id) ?: receiveNotification(id, delivery)
         if (identity.uid() != uid) throw AppFailure(AppText.get(R.string.the_sign_in_session_has_changed))
         save("notification-opened:" + id, JSONObject().put("opened", true))
@@ -377,6 +402,7 @@ class PlanningRepository(val identity: MobileIdentity, private val vault: Vault,
         cancellation?.let { throw it }
     }
     internal suspend fun retryPlacedOrderReports() = placedReportLock.withLock {
+        requireBusiness()
         val uid = owner()
         for (row in dao.placedReports(uid)) {
             val report = runCatching { JSONObject(vault.open(row.ciphertext)) }.getOrNull() ?: continue
@@ -594,6 +620,7 @@ class PlanningRepository(val identity: MobileIdentity, private val vault: Vault,
         }
     }
     fun manualTrade(plan: JSONObject, section: PlanningSection): ManualTradeSession {
+        requireBusiness()
         if (!PlanningTimeline.mayOpenAction(section, plan, java.time.Instant.now()))
             throw AppFailure(AppText.get(R.string.planning_action_pending_only))
         if (!approved()) throw AppFailure(AppText.get(R.string.backend_mobile_not_verified))
@@ -729,6 +756,7 @@ class PlanningRepository(val identity: MobileIdentity, private val vault: Vault,
         }
     }
     fun sandboxTrade(): SandboxTradeSession {
+        requireBusiness()
         if (!approved()) throw AppFailure(AppText.get(R.string.backend_mobile_not_verified))
         val config = dnseCredentials.config(owner(), false) ?: throw AppFailure(AppText.get(R.string.sandbox_keys_required))
         val settings = JSONObject(config)
@@ -738,13 +766,15 @@ class PlanningRepository(val identity: MobileIdentity, private val vault: Vault,
     }
 
     fun saveDnse(key: String, secret: String, production: Boolean, vndPerUnit: String) {
+        requireBusiness()
         if (!DnseCredentialFormat.valid(key.trim(), secret.trim()))
             throw AppFailure(AppText.get(R.string.dnse_keys_invalid_format))
         dnseCredentials.save(owner(), key, secret, production, vndPerUnit)
     }
-    fun saveDnseEnvironment(production: Boolean) { dnseCredentials.select(owner(), production) }
+    fun saveDnseEnvironment(production: Boolean) { requireBusiness(); dnseCredentials.select(owner(), production) }
     fun dnseProduction(): Boolean? = identity.uid()?.let { dnseCredentials.production(it) }
     suspend fun deleteDnse(production: Boolean) = lock.withLock {
+        requireBusiness()
         val uid = owner()
         dnseCredentials.delete(uid, production)
         if (dnseCredentials.production(uid) == production) {
@@ -752,7 +782,8 @@ class PlanningRepository(val identity: MobileIdentity, private val vault: Vault,
             vault.remove("last_sync:$uid")
         }
     }
-    fun pushRegistered() = identity.uid()?.let { vault.get("push_registered:$it") == "true" } ?: false
+    private fun pushKey(uid: String) = if (QaStartupIsolation.active) "qa_push_registered:$uid" else "push_registered:$uid"
+    fun pushRegistered() = identity.uid()?.let { vault.get(pushKey(it)) == "true" } ?: false
     fun hasDnse() = identity.uid()?.let { dnseCredentials.config(it) != null } ?: false
     fun hasDnse(production: Boolean) = identity.uid()?.let { dnseCredentials.has(it, production) } ?: false
     suspend fun localQueueSummary(): List<String> = localBatches().filter { it.state != "COMMITTED" }.map { row ->
@@ -762,6 +793,7 @@ class PlanningRepository(val identity: MobileIdentity, private val vault: Vault,
     }
     suspend fun localBatches(): List<PendingBatch> = dao.batches(owner())
     suspend fun sync(): String = lock.withLock {
+        requireBusiness()
         if (!approved()) throw AppFailure(AppText.get(R.string.backend_mobile_not_verified))
         val uid = owner()
         flush(uid)
@@ -870,6 +902,7 @@ class PlanningRepository(val identity: MobileIdentity, private val vault: Vault,
         AppText.get(R.string.dnse_sync_complete, orderList.size, executionList.size, positionList.size, balanceList.size, sheet.optString("state"))
     }
     suspend fun retryPending(): String = lock.withLock {
+        requireBusiness()
         if (!approved()) throw AppFailure(AppText.get(R.string.backend_mobile_access_has_not_been_granted))
         flush(owner())
         val result = api.retryProjection()
@@ -903,14 +936,15 @@ class PlanningRepository(val identity: MobileIdentity, private val vault: Vault,
     suspend fun registerPush() {
         if (approved()) {
             val uid = owner()
-            vault.remove("push_registered:$uid")
             val qa = checkedQaNotificationConfig(uid)
+            vault.remove(pushKey(uid))
             val endpoint = qa?.let(BackendApi::qaNotifications) ?: api
             endpoint.registerDevice(device(), FirebaseMessaging.getInstance().token.await())
-            if (owner() == uid) vault.put("push_registered:$uid", "true")
+            if (owner() == uid) vault.put(pushKey(uid), "true")
         }
     }
     suspend fun logout() = lock.withLock {
+        requireBusiness()
         val uid = owner()
         // Revoke through the endpoint that registered this device. A mismatched QA config
         // fails closed: it must never redirect a QA device operation to Production.

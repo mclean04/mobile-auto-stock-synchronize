@@ -8,15 +8,28 @@ import okhttp3.mockwebserver.MockWebServer
 import org.json.JSONObject
 import org.junit.Assert.*
 import org.junit.Test
+import org.junit.Before
+import org.junit.After
+import java.io.File
 import java.net.InetAddress
 import java.util.concurrent.TimeUnit
 
 class QaCampaignTransportTest {
+    private lateinit var admissionFile: File
     private val event = "3e0f2b9b-62f9-49f7-954b-26a716a96e40"
     private val device = "d506628f-c0b8-4d6a-9c21-612128341ede"
     private val campaign = QaCampaign("campaign", "notifications", "a".repeat(64), "NOTIFICATION")
     private val config = QaNotificationConfig("qa-user", device, "qa-source-A0001:3",
         "local-test-only", campaign, mapOf(event to "N1"))
+    @Before fun isolate() {
+        admissionFile = File.createTempFile("qa-transport-admission-", ".json")
+        admissionFile.writeText(JSONObject().put("schema_version", "finance-qa-startup-admission.v1")
+            .put("mode", "QA_NOTIFICATION").put("firebase_project_id", "auto-stock-synchronization")
+            .put("target_uid", config.targetUid).put("target_device_id", device)
+            .put("notification_namespace", config.namespace).put("campaign", campaign.json()).toString())
+        QaStartupIsolation.loadPrivateSelection(admissionFile)
+    }
+    @After fun cleanup() { admissionFile.delete(); QaStartupIsolation.loadPrivateSelection(admissionFile) }
     private fun status(state: String = "ACTIVE") = campaign.json()
         .put("contract_version", "finance-qa-campaign.v1").put("session_state", state)
         .put("server_now", "2026-09-25T13:00:00Z").put("max_session_seconds", 7200)
@@ -68,6 +81,18 @@ class QaCampaignTransportTest {
             assertTrue(runCatching { BackendApi.qaNotifications(config).receipt(event, device, "RECEIVED") }.isFailure)
             assertEquals("/qa/status", server.takeRequest(1, TimeUnit.SECONDS)!!.path)
             assertEquals("/qa/cases/N1", server.takeRequest(1, TimeUnit.SECONDS)!!.path)
+            assertNull(server.takeRequest(20, TimeUnit.MILLISECONDS))
+        }
+    }
+
+    @Test fun missingAdmissionAndWrongTargetNeverReachEvenTheControlSocket() = runBlocking {
+        server().use { server ->
+            assertTrue(runCatching { BackendApi.qaNotifications(config)
+                .registerDevice("89b9e3dc-6408-40fa-9bb9-e30c734d47e1", "unit-only") }.isFailure)
+            assertNull(server.takeRequest(20, TimeUnit.MILLISECONDS))
+            admissionFile.writeText("{malformed")
+            QaStartupIsolation.loadPrivateSelection(admissionFile)
+            assertTrue(runCatching { BackendApi.qaNotifications(config).notifications() }.isFailure)
             assertNull(server.takeRequest(20, TimeUnit.MILLISECONDS))
         }
     }

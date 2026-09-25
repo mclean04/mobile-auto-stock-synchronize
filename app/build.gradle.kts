@@ -15,6 +15,9 @@ fun mobileValue(name: String): String {
     return "\"" + value + "\""
 }
 ksp { arg("room.schemaLocation", "$projectDir/schemas") }
+val qaStartupIsolation = providers.gradleProperty("qaStartupIsolation").orElse("false").get().also {
+    require(it in setOf("true", "false")) { "qaStartupIsolation must be true or false" }
+}
 android {
     namespace = "com.example.finance_planning"
     compileSdk { version = release(37) }
@@ -26,13 +29,19 @@ android {
         versionName = "0.2.0"
         testApplicationId = "com.example.finance_planning.qa.test"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        buildConfigField("boolean", "QA_STARTUP_ISOLATED", "false")
         buildConfigField("String", "FIREBASE_APP_ID", mobileValue("firebase.appId"))
         buildConfigField("String", "FIREBASE_API_KEY", mobileValue("firebase.apiKey"))
         buildConfigField("String", "FIREBASE_PROJECT_ID", mobileValue("firebase.projectId"))
         buildConfigField("String", "FIREBASE_SENDER_ID", mobileValue("firebase.senderId"))
         buildConfigField("String", "GOOGLE_WEB_CLIENT_ID", mobileValue("google.webClientId"))
     }
-    buildTypes { release { optimization { enable = false } } }
+    buildTypes {
+        debug {
+            buildConfigField("boolean", "QA_STARTUP_ISOLATED", qaStartupIsolation)
+        }
+        release { optimization { enable = false } }
+    }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11

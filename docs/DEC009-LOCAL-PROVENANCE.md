@@ -66,11 +66,11 @@ independent QA review. Do not manufacture unavailable fields to satisfy this sch
 - Runtime binding: `schema_version=finance-local-run-binding.v1`, campaign/session/
   case/backend_manifest_sha256, automation_id, config_file_sha256, guard_sha256,
   server_status_sha256, scheduled_at, accept_by, rrule, one_shot=true,
-  observed_next_run_at, substitutions, rendering_binding_sha256. P4 additionally
+  observed_next_run_at (nullable under the PO option2 sidecar below), substitutions, rendering_binding_sha256. P4 additionally
   needs p2_p3_gate_sha256; INDIRECT additionally needs indirect_review_sha256.
   Scheduling instants are derived from actual server T0 and the frozen offsets;
-  saved next-run evidence must agree. The consumer checks COUNT=1 but independent
-  QA still verifies the scheduler's interpretation and original next-run record.
+  any exposed saved next-run evidence must agree. Unexposed predictions are never
+  populated from arithmetic; independent QA reviews the intended scheduling contract.
 - Server status sidecar: state=ACTIVE, campaign_id, session_id, manifest_hash,
   started_at from captured Backend readback. No client clock substitutes for T0.
 - Rendering binding: reviewer_role=SYSTEM_BA, decision=ACCEPTED, exact campaign/
@@ -120,8 +120,9 @@ No path selection silently changes an accepted hash or supplies provenance.
 
 The campaign runner passes paths and pins through both single/two-device B3
 runners. Each campaign child requires a complete pair and verifies local hashes
-before device work; existing installed-hash checks remain. The accepted test pin
-is still 1fd1a4f9… and actual main candidate272397a2…. No APK is built or installed
+before device work; existing installed-hash checks remain. Historical accepted
+test1fd1a4f9/main272397a2 are superseded for future execution by the separately
+pinned startup-isolated pair in the Android handoff. No APK is built or installed
 by offline evaluation. The existing runtime/install gates remain mandatory.
 
 ## Independent notification disposition
@@ -151,3 +152,41 @@ P1/P4 cannot use this exception; P1-P6 and fixture-dependent cases stay held und
 their own disposition. All existing provenance, owner, clock, resource, and
 readback checks still apply. These changes neither arm a schedule nor retry,
 retarget, reproduce or reidentify the historical rejected fixture operation.
+
+## Unexposed schedule prediction (PO option2)
+
+Append `schedule_evidence_ref` (path, sha256, explicit normalization and media type)
+to the separate runtime ledger, resolving a completed
+`finance-dec009-local-schedule-runtime-sidecar.v1` record under
+`Planning/DEC009-local-schedule-runtime-sidecar.schema.json`. Include every referenced
+document in the packet evidence collection. This does not change frozen package,
+guard or evidence schema pins. The exact schedule PO document bytes must resolve to
+`dc1754514db037a0af88507d49a6b712409510c38adfcb73e2037c8cc4d44765`.
+
+`UNKNOWN_UNEXPOSED` requires both scheduler-resolved fields and ledger
+`observed_next_run_at` to be null/absent, with the schema's exact unavailability
+reason. Intended timezone is separately Asia/Ho_Chi_Minh. The intended absolute
+instant, local wall clock (ISO local datetime with optional +07:00), and saved
+COUNT=1 RRULE must agree with released server-T0 offsets. The saved config reference
+must be the same typed SAVED_CONFIG reference already verified by provenance.
+Pre-arm supported-contract/wall-clock checks require nonempty hash-resolved evidence;
+QA reviews their contents. Neither host timezone nor calculated next occurrence is
+an observed scheduler value.
+
+The actual run reference must equal SCHEDULER_RUN_RECORD; all existing parsed
+native/accepted-indirect linkage, scheduled origin, task/config/artifact and timing
+checks still run. Missing actual evidence is not accepted. No manual/catchup run,
+invented exact firing time, inferred publication time or late replacement is allowed.
+
+`artifact_admission.case_window_start/end` are the artifact acceptance interval:
+N1 `[server T0,T0+1200s)`, N2 `[server T0,T0+3900s)`. These are distinct from worker
+processing windows N1 +1500..2400 / N2 +4200..5400. The independently observed
+artifact readback must precede or equal server admission, before the exclusive
+acceptance cutoff. `readback_ref` is an ARTIFACT_READBACK reference to captured
+server case-open readback (or declared normalization preserving originals), containing
+campaign_id, session_id, case_id, manifest_sha256, admitted_at, nonempty evidence,
+and for N1/N2 bindings.event_id matching the artifact. The server's artifact evidence
+hash has its own wire normalization; do not equate it to the outer provenance
+envelope's byte hash. For other cases use the actual artifact-admission readback,
+not P4's earlier dependency/preparation case-open. Unavailable admission remains
+UNKNOWN/NOT_ACCEPTED. PENDING/late/manual/mismatched records never pass.

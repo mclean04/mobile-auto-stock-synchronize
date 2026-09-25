@@ -3,6 +3,7 @@ import hashlib
 import json
 import re
 from datetime import datetime, timezone, timedelta
+from zoneinfo import ZoneInfo
 
 CASES = {"P1": "monthly", "P4": "daily", "N1": "daily", "N2": "monthly"}
 AUTOMATIONS = {"monthly": "k-ho-ch-c-phi-u-dnse-th-ng-test",
@@ -16,6 +17,10 @@ HISTORICAL_UNRESOLVED = "NOT_ESTABLISHED_FOR_HISTORICAL_REJECTED_OPERATION"
 INDEPENDENT_SCOPE = "CASE_SCOPED_NOTIFICATION"
 PO_DISPOSITION_PATH = "Planning/PO-DEC009-independent-runtime-disposition-20260925.md"
 PO_DISPOSITION_SHA256 = "0709cd1f986b3dceef53611c9432f0b5a0bce89184f345e8456b7d80961c2944"
+SCHEDULE_PO_PATH = "Planning/PO-DEC009-local-schedule-evidence-disposition-20260925.md"
+SCHEDULE_PO_SHA256 = "dc1754514db037a0af88507d49a6b712409510c38adfcb73e2037c8cc4d44765"
+UNEXPOSED_REASON = ("Supported automation_update view returned only Rendered automation card in the app. "
+                    "and exposed no model-readable timezone or next-run fields.")
 
 
 def digest(raw):
@@ -96,6 +101,92 @@ def safety_disposition(guard, binding, identities, blobs):
         value = normalized_bytes(ref, blobs[ref["path"]])
         if not value or digest(value) != ref["sha256"]:
             raise ValueError("independence_evidence_digest_mismatch")
+    return True
+
+
+def schedule_sidecar(ledger, proof, identities, blobs, start, scheduled, cutoff, rule):
+    """Prediction absence is allowed only with the exact PO policy and actual admission.
+
+    This does not infer a firing/publication time. The normal actual-run and artifact
+    checks still execute below. All normalized evidence needs independent QA review.
+    """
+    def read(ref):
+        value = normalized_bytes(ref, blobs[ref["path"]])
+        if not value or digest(value) != ref["sha256"]:
+            raise ValueError("schedule_evidence_digest_mismatch")
+        return value
+
+    sidecar = json.loads(read(ledger["schedule_evidence_ref"]))
+    if (sidecar["schema_version"] != "finance-dec009-local-schedule-runtime-sidecar.v1" or
+            sidecar["decision"] != "PO-DEC-009" or
+            any(sidecar[k] != identities[k] for k in ("case_id", "campaign_id", "session_id")) or
+            sidecar["automation_id"] != ledger["automation_id"] or
+            sidecar["po_disposition"] != {"path": SCHEDULE_PO_PATH, "sha256": SCHEDULE_PO_SHA256,
+                "policy": "OPTION_2_UNKNOWN_PREDICTION_FIELDS_ALLOWED"}):
+        return False
+    if not any(digest(value) == SCHEDULE_PO_SHA256 for value in blobs.values()):
+        raise ValueError("missing_hashed_schedule_PO_disposition")
+    intent = sidecar["intended_schedule"]
+    local_time = scheduled.astimezone(ZoneInfo("Asia/Ho_Chi_Minh"))
+    wall_clock = datetime.fromisoformat(intent["intended_local_wall_clock"])
+    # The separately requested wall clock may explicitly carry +07:00 or be naive.
+    if wall_clock.tzinfo is not None and wall_clock.utcoffset() != local_time.utcoffset():
+        return False
+    recurrence = re.fullmatch(r"FREQ=DAILY;COUNT=1;BYHOUR=([0-9]{1,2});BYMINUTE=([0-9]{1,2});BYSECOND=([0-9]{1,2})", ledger["rrule"])
+    saved_ref = next(r for r in proof["scheduled_provenance"]["evidence_refs"] if r["kind"] == "SAVED_CONFIG")
+    if (intent["requested_timezone"] != "Asia/Ho_Chi_Minh" or
+            utc(intent["intended_absolute_instant"]) != scheduled or
+            wall_clock.replace(tzinfo=None) != local_time.replace(tzinfo=None) or
+            intent["saved_rrule"] != ledger["rrule"] or recurrence is None or
+            tuple(map(int, recurrence.groups())) != (local_time.hour, local_time.minute, local_time.second) or
+            intent["saved_config_sha256"] != ledger["config_file_sha256"] or
+            intent["config_readback_ref"] != saved_ref):
+        return False
+    read(saved_ref)
+    observation = sidecar["scheduler_observation"]
+    if observation["availability"] == "UNKNOWN_UNEXPOSED":
+        if (observation["resolved_next_run_at"] is not None or observation["resolved_timezone"] is not None or
+                observation["unavailability_reason"] != UNEXPOSED_REASON or ledger.get("observed_next_run_at") is not None):
+            return False
+        if observation["evidence_ref"] is not None:
+            read(observation["evidence_ref"])
+    elif observation["availability"] == "OBSERVED":
+        read(observation["evidence_ref"])
+        if (utc(observation["resolved_next_run_at"]) != scheduled or
+                observation["resolved_timezone"] != "Asia/Ho_Chi_Minh" or
+                observation["unavailability_reason"] is not None or utc(ledger["observed_next_run_at"]) != scheduled):
+            return False
+    else:
+        return False
+    pre_arm = sidecar["pre_arm_verification"]
+    if (pre_arm["supported_contract_verified"] is not True or pre_arm["intended_wall_clock_verified"] is not True or
+            not pre_arm["evidence_refs"]):
+        raise ValueError("missing_pre_arm_schedule_verification")
+    for ref in pre_arm["evidence_refs"]:
+        read(ref)
+    if sidecar["actual_scheduled_run_ref"] != proof["run"]["record_source"]:
+        return False
+    read(sidecar["actual_scheduled_run_ref"])
+    admission = sidecar["artifact_admission"]
+    if admission["acceptance_result"] != "ACCEPTED" or admission["in_window"] is not True:
+        return False
+    # Artifact acceptance starts at server T0, NOT the later worker case_opens_at.
+    end = start + timedelta(seconds=rule["artifact_accept_before_seconds"])
+    admitted = utc(admission["admitted_at"])
+    if (utc(admission["case_window_start"]) != start or utc(admission["case_window_end"]) != end or
+            not start <= utc(proof["artifact"]["readback_at"]) <= admitted < min(end, cutoff)):
+        return False
+    if admission["readback_ref"]["kind"] != "ARTIFACT_READBACK":
+        return False
+    actual = json.loads(read(admission["readback_ref"]))
+    if (any(actual[k] != identities[k] for k in ("case_id", "campaign_id", "session_id")) or
+            actual["manifest_sha256"] != identities["backend_manifest_sha256"] or
+            actual["admitted_at"] != admission["admitted_at"] or not actual["evidence"]):
+        return False
+    if identities["case_id"] in {"N1", "N2"}:
+        artifact = next(r for r in proof["scheduled_provenance"]["evidence_refs"] if r["kind"] == "ARTIFACT_READBACK")
+        if actual["bindings"]["event_id"] != json.loads(read(artifact))["event_id"]:
+            return False
     return True
 
 
@@ -233,8 +324,11 @@ def verify(proof, packet, bound, blobs):
     recurrence = config["rrule"].removeprefix("RRULE:").split(";")
     if recurrence.count("COUNT=1") != 1 or sum(item.startswith("COUNT=") for item in recurrence) != 1:
         return False
-    # Scheduler's saved one-shot next-run observation must agree with the released instant.
-    if utc(ledger["observed_next_run_at"]) != scheduled:
+    # Unexposed predictions stay null; actual scheduled origin/admission are still mandatory.
+    if "schedule_evidence_ref" in ledger:
+        if not schedule_sidecar(ledger, proof, identities, blobs, start, scheduled, cutoff, rule):
+            return False
+    elif utc(ledger["observed_next_run_at"]) != scheduled:
         return False
     if not start <= utc(automation["config_readback_at"]) <= scheduled <= utc(run["started_at"]) <= utc(run["completed_at"]) < cutoff:
         return False

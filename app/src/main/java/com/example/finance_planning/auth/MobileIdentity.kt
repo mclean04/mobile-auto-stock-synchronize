@@ -15,12 +15,14 @@ import com.google.firebase.FirebaseOptions
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.GoogleAuthProvider
 import com.google.firebase.appcheck.FirebaseAppCheck
+import com.example.finance_planning.core.QaStartupIsolation
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.tasks.await
 
 open class MobileIdentity(private val context: Context) {
     val configured: Boolean get() = BuildConfig.FIREBASE_APP_ID.isNotBlank() &&
-        BuildConfig.FIREBASE_API_KEY.isNotBlank() && BuildConfig.GOOGLE_WEB_CLIENT_ID.isNotBlank()
+        BuildConfig.FIREBASE_API_KEY.isNotBlank() && BuildConfig.GOOGLE_WEB_CLIENT_ID.isNotBlank() &&
+        QaStartupIsolation.firebaseAllowed(BuildConfig.FIREBASE_PROJECT_ID)
     fun initialize() {
         if (!configured) return
         if (FirebaseApp.getApps(context).isEmpty()) {
@@ -35,6 +37,7 @@ open class MobileIdentity(private val context: Context) {
     }
     open fun uid(): String? = if (configured) FirebaseAuth.getInstance().currentUser?.uid else null
     suspend fun signIn(activity: Context) {
+        QaStartupIsolation.requireBusiness()
         if (!configured) throw AppFailure(AppText.get(R.string.firebase_sign_in_not_configured_build))
         val option = GetSignInWithGoogleOption.Builder(BuildConfig.GOOGLE_WEB_CLIENT_ID).build()
         val result = try { CredentialManager.create(activity).getCredential(activity,
@@ -49,6 +52,7 @@ open class MobileIdentity(private val context: Context) {
             GoogleAuthProvider.getCredential(google.idToken, null)).await()
     }
     suspend fun headers(): Map<String, String> {
+        QaStartupIsolation.requireBusiness()
         if (!configured) throw AppFailure(AppText.get(R.string.firebase_sign_in_is_not_configured))
         val user = FirebaseAuth.getInstance().currentUser ?: throw AppFailure(AppText.get(R.string.sign_in_first))
         val token = user.getIdToken(false).await().token ?: throw AppFailure(AppText.get(R.string.your_sign_in_session_has_expired))
@@ -65,6 +69,7 @@ open class MobileIdentity(private val context: Context) {
         return mapOf("Authorization" to "Bearer $token", "X-Firebase-AppCheck" to attestation)
     }
     suspend fun signOut() {
+        QaStartupIsolation.requireBusiness()
         context.getSystemService(android.app.NotificationManager::class.java).cancelAll()
         if (configured) FirebaseAuth.getInstance().signOut()
         CredentialManager.create(context).clearCredentialState(ClearCredentialStateRequest())

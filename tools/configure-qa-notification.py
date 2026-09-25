@@ -48,7 +48,7 @@ if a.action == "metadata":
     allowed = {"model", "notification_permission", "firebase_configured",
                "firebase_user_present", "approved", "target_device_id",
                "target_uid", "fcm_token_included", "qa_notification_configured",
-               "qa_notification_isolation_enabled"}
+               "qa_notification_isolation_enabled", "qa_startup_isolated", "qa_startup_admission_valid"}
     if not set(metadata).issubset(allowed) or metadata.get("fcm_token_included") is not False:
         raise SystemExit("QA notification metadata did not match the safe output contract")
     if metadata.get("model") != a.expected_model:

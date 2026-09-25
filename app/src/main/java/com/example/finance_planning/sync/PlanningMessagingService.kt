@@ -19,13 +19,18 @@ import com.example.finance_planning.core.ObservationComponent
 import com.example.finance_planning.core.ObservationCorrelation
 import com.example.finance_planning.core.ObservationResult
 import com.example.finance_planning.core.ObservationStage
+import com.example.finance_planning.core.QaStartupIsolation
 import com.google.firebase.messaging.FirebaseMessagingService
 import com.google.firebase.messaging.RemoteMessage
 import org.json.JSONObject
 import java.util.UUID
 
 class PlanningMessagingService : FirebaseMessagingService() {
-    override fun onNewToken(token: String) { SyncSchedule.refresh(this) }
+    override fun onNewToken(token: String) {
+        QaStartupIsolation.policy.tokenCallback(
+            { SyncSchedule.refresh(this) },
+            { /* QA registration is one explicit operator action after admission; no automatic retry. */ })
+    }
 
     override fun onMessageReceived(message: RemoteMessage) {
         val app = application as PlanningApp

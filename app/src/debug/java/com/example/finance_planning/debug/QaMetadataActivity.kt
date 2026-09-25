@@ -23,6 +23,8 @@ class QaMetadataActivity : Activity() {
             .put("approved", repo.approved())
             .put("qa_notification_configured", repo.qaNotificationsConfigured())
             .put("qa_notification_isolation_enabled", repo.qaNotificationIsolationEnabled())
+            .put("qa_startup_isolated", com.example.finance_planning.core.QaStartupIsolation.active)
+            .put("qa_startup_admission_valid", com.example.finance_planning.core.QaStartupIsolation.admissionValid)
             .put("fcm_token_included", false)
         if (uid != null) metadata.put("target_uid", uid)
         if (device != null) {

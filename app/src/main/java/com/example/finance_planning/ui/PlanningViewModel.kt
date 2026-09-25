@@ -95,7 +95,8 @@ class PlanningViewModel(application: Application) : AndroidViewModel(application
                 notifications = emptyList(), orders = emptyList(), batches = emptyList())
         }
         mutable.value = mutable.value.copy(signedIn = repo.identity.uid() != null,
-            pushRegistered = repo.pushRegistered(), email = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.email.orEmpty(),
+            pushRegistered = repo.pushRegistered(), email = if (repo.identity.configured)
+                com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.email.orEmpty() else "",
             approved = repo.approved(), configured = repo.identity.configured,
             lastSync = repo.lastSync() ?: AppText.get(R.string.not_synced_yet), hasDnse = repo.hasDnse(), dnseProduction = repo.dnseProduction(),
             hasProductionKeys = repo.hasDnse(true), hasSandboxKeys = repo.hasDnse(false))
@@ -164,6 +165,12 @@ class PlanningViewModel(application: Application) : AndroidViewModel(application
     fun deleteDnse(production: Boolean) = run { repo.deleteDnse(production); queue(); AppText.get(R.string.dnse_keys_deleted) }
     private suspend fun refreshAll(knownStatus: JSONObject? = null): String {
         restoreCachedPlanning()
+        if (QaStartupIsolation.active) {
+            val status = knownStatus ?: repo.verifySession()
+            val events = repo.notifications()
+            mutable.value = mutable.value.copy(status = status, notificationCursor = cursor(events))
+            return AppText.get(R.string.qa_notification_isolation_active)
+        }
         val status = knownStatus ?: repo.api.syncStatus()
         val admin = status.optString("role") == "admin"
         if (!admin) repo.api.readSource = null

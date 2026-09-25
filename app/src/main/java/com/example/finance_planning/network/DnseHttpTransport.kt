@@ -39,6 +39,7 @@ object DnseHttpTransport {
         .client(client).build().create(DnseReadService::class.java)
 
     suspend fun request(url: String, headers: Map<String, String>): String = withContext(Dispatchers.IO) {
+        com.example.finance_planning.core.QaStartupIsolation.requireBusiness()
         val uri = URI(url)
         require(uri.scheme == "https" && uri.userInfo == null && uri.port == -1 &&
             uri.host in setOf("openapi.dnse.com.vn", "sb-openapi.dnse.com.vn"))

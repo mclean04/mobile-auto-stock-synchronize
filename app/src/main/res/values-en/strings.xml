@@ -490,4 +490,5 @@
     <string name="planning_card_expand">Tap to show details</string>
     <string name="planning_card_collapse">Tap to collapse</string>
     <string name="planning_source_identity">Planning source: %1$s</string>
+    <string name="qa_notification_isolation_active">Notification QA mode: DNSE and Production backend connections are blocked.</string>
 </resources>

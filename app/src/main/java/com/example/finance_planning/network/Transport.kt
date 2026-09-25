@@ -14,6 +14,7 @@ open class Transport {
 
     open suspend fun request(url: String, method: String = "GET", headers: Map<String, String> = emptyMap(),
                         body: JSONObject? = null): String = withContext(Dispatchers.IO) {
+        com.example.finance_planning.core.QaStartupIsolation.requireBusiness()
         val uri = URI(url)
         if (uri.scheme != "https" || uri.userInfo != null) throw AppFailure(AppText.get(R.string.invalid_connection_address))
         val connection = uri.toURL().openConnection() as HttpsURLConnection

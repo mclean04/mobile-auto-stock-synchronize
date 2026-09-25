@@ -10,6 +10,10 @@ import com.example.finance_planning.network.BackendApi
 import com.example.finance_planning.network.Transport
 
 class PlanningApp : Application() {
+    override fun attachBaseContext(base: android.content.Context) {
+        super.attachBaseContext(base)
+        com.example.finance_planning.core.QaStartupIsolation.attach(this)
+    }
     lateinit var repository: PlanningRepository
         private set
     lateinit var observationLog: com.example.finance_planning.core.ProductionObservationLog

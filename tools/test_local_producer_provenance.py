@@ -46,7 +46,7 @@ def fixture(level="DIRECT", native_trigger="SCHEDULED", count=1, guard_status="R
     policy = {"schema_version": "finance-local-producer-policy.v1", "evidence_schema_sha256": schema_hash,
               "package_manifest_sha256": package_hash, "project_id": local.PROJECT_ID,
               "project_path": local.PROJECT_PATH, "automations": local.AUTOMATIONS, "cases": rules}
-    rrule = f"FREQ=DAILY;COUNT={count};BYHOUR=12;BYMINUTE={minute};BYSECOND=0"
+    rrule = f"FREQ=DAILY;COUNT={count};BYHOUR=19;BYMINUTE={minute};BYSECOND=0"
     config = {"id": automation, "project_id": local.PROJECT_ID, "cwd": local.PROJECT_PATH,
               "kind": "cron", "execution_environment": "local", "model": "gpt-6-sol",
               "reasoning_effort": "medium", "status": "ACTIVE", "prompt": prompt, "rrule": rrule}
@@ -134,6 +134,59 @@ def independent_fixture(case="N1", release_changes=None, audit="NONE_OBSERVED"):
     next(r for r in proof["scheduled_provenance"]["evidence_refs"] if r["kind"] == "RELEASE_GUARD")["sha256"] = guard_hash
     ledger = json.loads(blobs["ledger.json"]) | {"guard_sha256": guard_hash, "new_rejection_status": audit}
     blobs["ledger.json"] = json.dumps(ledger,sort_keys=True).encode()
+    packet["facts"]["provenance_runtime_binding"]["sha256"] = local.digest(blobs["ledger.json"])
+    return data
+
+
+def option2_fixture(**kwargs):
+    data = fixture(**kwargs)
+    packet, bound, blobs, pins = data
+    proof = packet["facts"]["provenance"]
+    ledger = json.loads(blobs["ledger.json"])
+    blobs["schedule-po.md"] = b"Synthetic schedule PO authority, not runtime evidence."
+    pins["SCHEDULE_PO_SHA256"] = local.digest(blobs["schedule-po.md"])
+    def ref(kind, name):
+        return {"kind": kind, "path": name, "sha256": local.digest(blobs[name]),
+                "media_type": "application/json", "normalization": "RAW_BYTES"}
+    admitted = (local.utc(proof["artifact"]["readback_at"]) + timedelta(seconds=1)).isoformat()
+    blobs["admission.json"] = json.dumps({"campaign_id": packet["campaign_id"], "session_id": packet["session_id"],
+        "case_id": packet["case_id"], "manifest_sha256": packet["manifest_hash"], "admitted_at": admitted,
+        "bindings": {"event_id": "event"}, "evidence": {"artifact_readback": "synthetic-server-source-hash"}}).encode()
+    sidecar = {"schema_version": "finance-dec009-local-schedule-runtime-sidecar.v1", "decision": "PO-DEC-009",
+        "po_disposition": {"path": local.SCHEDULE_PO_PATH, "sha256": pins["SCHEDULE_PO_SHA256"],
+            "policy": "OPTION_2_UNKNOWN_PREDICTION_FIELDS_ALLOWED"},
+        "automation_id": ledger["automation_id"], "campaign_id": packet["campaign_id"],
+        "session_id": packet["session_id"], "case_id": packet["case_id"],
+        "intended_schedule": {"requested_timezone": "Asia/Ho_Chi_Minh", "intended_absolute_instant": ledger["scheduled_at"],
+            "intended_local_wall_clock": local.utc(ledger["scheduled_at"]).astimezone(timezone(timedelta(hours=7))).isoformat(),
+            "saved_rrule": ledger["rrule"], "saved_config_sha256": ledger["config_file_sha256"],
+            "config_readback_ref": proof["scheduled_provenance"]["evidence_refs"][0]},
+        "scheduler_observation": {"availability": "UNKNOWN_UNEXPOSED", "resolved_next_run_at": None,
+            "resolved_timezone": None, "unavailability_reason": local.UNEXPOSED_REASON, "evidence_ref": None},
+        "pre_arm_verification": {"supported_contract_verified": True, "intended_wall_clock_verified": True,
+            "evidence_refs": [ref("BA_LINKAGE_REVIEW", "approval.json")]},
+        "actual_scheduled_run_ref": proof["run"]["record_source"],
+        "artifact_admission": {"case_window_start": "2026-09-25T12:00:00Z",
+            "case_window_end": "2026-09-25T12:20:00Z" if packet["case_id"] == "N1" else "2026-09-25T13:05:00Z",
+            "admitted_at": admitted, "in_window": True, "readback_ref": ref("ARTIFACT_READBACK", "admission.json"),
+            "acceptance_result": "ACCEPTED"}}
+    blobs["schedule.json"] = json.dumps(sidecar).encode()
+    ledger["schedule_evidence_ref"] = ref("BA_LINKAGE_REVIEW", "schedule.json")
+    ledger["observed_next_run_at"] = None
+    blobs["ledger.json"] = json.dumps(ledger).encode()
+    packet["facts"]["provenance_runtime_binding"]["sha256"] = local.digest(blobs["ledger.json"])
+    return data
+
+
+def change_sidecar(data, section, key, value):
+    packet, _, blobs, _ = data
+    sidecar = json.loads(blobs["schedule.json"])
+    if section is None: sidecar[key] = value
+    else: sidecar[section][key] = value
+    blobs["schedule.json"] = json.dumps(sidecar).encode()
+    ledger = json.loads(blobs["ledger.json"])
+    ledger["schedule_evidence_ref"]["sha256"] = local.digest(blobs["schedule.json"])
+    blobs["ledger.json"] = json.dumps(ledger).encode()
     packet["facts"]["provenance_runtime_binding"]["sha256"] = local.digest(blobs["ledger.json"])
     return data
 
@@ -237,6 +290,43 @@ class LocalProvenanceTest(unittest.TestCase):
     def test_new_generic_rejection_stops_before_or_after_notification_release(self):
         self.assertEqual("FAIL", self.review(independent_fixture(release_changes={"new_rejection_status": "REJECTION_OBSERVED"}))["result"])
         self.assertEqual("FAIL", self.review(independent_fixture(audit="REJECTION_OBSERVED"))["result"])
+
+    def test_unexposed_prediction_requires_actual_scheduled_origin_and_admission(self):
+        for case in ("N1", "N2"):
+            for level in ("DIRECT", "INDIRECT_ACCEPTED"):
+                result = self.review(option2_fixture(case=case, level=level))
+                self.assertEqual("PASS", result["result"], result)
+        self.assertEqual("FAIL", self.review(option2_fixture(native_trigger="MANUAL"))["result"])
+        data = option2_fixture(); del data[2]["run.json"]
+        self.assertEqual("UNKNOWN", self.review(data)["result"])
+        data = change_sidecar(option2_fixture(), None, "actual_scheduled_run_ref", None)
+        self.assertEqual("FAIL", self.review(data)["result"])
+
+    def test_unexposed_prediction_requires_exact_po_and_honest_intent(self):
+        data = option2_fixture(); del data[2]["schedule-po.md"]
+        self.assertEqual("UNKNOWN", self.review(data)["result"])
+        for section, key, value in (
+                ("po_disposition", "sha256", "f"*64),
+                ("intended_schedule", "requested_timezone", "UTC"),
+                ("intended_schedule", "intended_absolute_instant", "2026-09-25T12:06:00Z"),
+                ("intended_schedule", "intended_local_wall_clock", "2026-09-25T12:05:00"),
+                ("intended_schedule", "saved_rrule", "FREQ=DAILY;COUNT=1;BYHOUR=12;BYMINUTE=5;BYSECOND=0"),
+                ("scheduler_observation", "resolved_next_run_at", "2026-09-25T12:05:00Z"),
+                ("scheduler_observation", "unavailability_reason", "calculated by assistant")):
+            self.assertEqual("FAIL", self.review(change_sidecar(option2_fixture(), section, key, value))["result"], key)
+
+    def test_admission_is_server_artifact_window_not_later_processing_window(self):
+        for case, processing_start, deadline in (("N1", "2026-09-25T12:25:00Z", "2026-09-25T12:20:00Z"),
+                                                ("N2", "2026-09-25T13:10:00Z", "2026-09-25T13:05:00Z")):
+            for key, value in (("case_window_start", processing_start), ("admitted_at", deadline),
+                               ("acceptance_result", "LATE_AUDIT_ONLY")):
+                self.assertEqual("FAIL", self.review(change_sidecar(option2_fixture(case=case),
+                    "artifact_admission", key, value))["result"], (case,key))
+        data = option2_fixture(); del data[2]["admission.json"]
+        self.assertEqual("UNKNOWN", self.review(data)["result"])
+        data = option2_fixture()
+        data[0]["facts"]["provenance"]["artifact"]["readback_at"] = "2026-09-25T12:21:00Z"
+        self.assertEqual("FAIL", self.review(data)["result"])
 
 
 if __name__ == "__main__":

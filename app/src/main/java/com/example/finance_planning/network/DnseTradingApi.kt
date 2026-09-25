@@ -19,11 +19,17 @@ import java.util.concurrent.TimeUnit
 /** Separate client: OTP, signatures and trading tokens must never enter HTTP debug logs. */
 class DnseTradingApi(private val key: String, private val secret: String, production: Boolean,
                      internal val client: OkHttpClient = tradingClient(),
-                     private val diagnostic: ((BrokerResponse) -> Unit)? = null) {
+                     private val diagnostic: ((BrokerResponse) -> Unit)? = null,
+                     private val qaInMemoryFakeOnly: Boolean = false) {
     init {
         require(com.example.finance_planning.core.DnseCredentialFormat.valid(key, secret)) { "Invalid DNSE credential format" }
         require(!production || diagnostic == null)
+        require(!qaInMemoryFakeOnly || (com.example.finance_planning.BuildConfig.DEBUG && !production))
     }
+    // An injected fake interceptor may return a response. Any fall-through is denied BEFORE DNS/socket I/O.
+    private val guardedClient = if (qaInMemoryFakeOnly) client.newBuilder().addInterceptor {
+        throw com.example.finance_planning.core.QaIsolationDenied()
+    }.build() else client
     private val host = if (production) "https://openapi.dnse.com.vn" else "https://sb-openapi.dnse.com.vn"
     companion object {
         private fun tradingClient() = OkHttpClient.Builder().connectTimeout(20, TimeUnit.SECONDS)
@@ -33,6 +39,7 @@ class DnseTradingApi(private val key: String, private val secret: String, produc
     private fun id(value: String): String = value.also { require(Regex("[A-Za-z0-9._-]{1,80}").matches(it)) }
     private suspend fun call(path: String, method: String = "GET", query: Map<String, String> = emptyMap(),
                              body: JSONObject? = null, token: String? = null): Any = withContext(Dispatchers.IO) {
+        if (!qaInMemoryFakeOnly) com.example.finance_planning.core.QaStartupIsolation.requireBusiness()
         val date = ZonedDateTime.now(ZoneOffset.UTC).format(DateTimeFormatter.ofPattern("EEE, dd MMM yyyy HH:mm:ss Z", Locale.US))
         val nonce = UUID.randomUUID().toString().replace("-", "")
         val suffix = if (query.isEmpty()) "" else query.entries.joinToString("&", "?") {
@@ -43,7 +50,7 @@ class DnseTradingApi(private val key: String, private val secret: String, produc
             .header("Date", date).header("version", "2026-07-23").header("Accept", "application/json")
         token?.let { request.header("trading-token", it) }
         request.method(method, if (method == "POST") (body?.toString() ?: "").toRequestBody("application/json".toMediaType()) else null)
-        client.newCall(request.build()).execute().use { response ->
+        guardedClient.newCall(request.build()).execute().use { response ->
             if (diagnostic == null && !response.isSuccessful) throw TradeHttpFailure(response.code)
             val source = response.body?.source()
             source?.request(65537)

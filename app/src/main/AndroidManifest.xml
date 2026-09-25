@@ -11,6 +11,10 @@
             android:resource="@drawable/ic_stat_planning" />
         <meta-data android:name="com.google.firebase.messaging.default_notification_channel_id"
             android:value="planning" />
+        <!-- Initialize in PlanningApp after private mode admission, including on ordinary builds. -->
+        <provider android:name="com.google.firebase.provider.FirebaseInitProvider"
+            android:authorities="${applicationId}.firebaseinitprovider"
+            android:enabled="false" android:exported="false" />
         <service android:name=".sync.PlanningMessagingService" android:exported="false">
             <intent-filter><action android:name="com.google.firebase.MESSAGING_EVENT" /></intent-filter>
         </service>

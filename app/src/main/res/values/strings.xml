@@ -490,4 +490,5 @@
     <string name="planning_card_expand">Chạm để xem chi tiết</string>
     <string name="planning_card_collapse">Chạm để thu gọn</string>
     <string name="planning_source_identity">Nguồn kế hoạch: %1$s</string>
+    <string name="qa_notification_isolation_active">Chế độ kiểm thử thông báo: kết nối DNSE và máy chủ Production đã bị chặn.</string>
 </resources>
