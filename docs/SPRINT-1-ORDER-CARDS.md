@@ -39,7 +39,7 @@ Commands, from the Android repository:
 JAVA_HOME='/Applications/Android Studio.app/Contents/jbr/Contents/Home' bash gradlew :app:testDebugUnitTest --tests 'com.example.finance_planning.PlanningAllTest' --tests 'com.example.finance_planning.PlanningActionPolicyTest' --tests 'com.example.finance_planning.LocalizationTest' :app:assembleDebug :app:assembleDebugAndroidTest :app:lintDebug --console=plain
 '/Users/tuanh/Library/Android/sdk/platform-tools/adb' -t 7 install -r app/build/outputs/apk/debug/app-debug.apk
 '/Users/tuanh/Library/Android/sdk/platform-tools/adb' -t 7 install -r app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
-'/Users/tuanh/Library/Android/sdk/platform-tools/adb' -t 7 shell am instrument -w -r -e class com.example.finance_planning.PlanningOrderCardTest com.example.finance_planning.test/androidx.test.runner.AndroidJUnitRunner
+'/Users/tuanh/Library/Android/sdk/platform-tools/adb' -t 7 shell am instrument -w -r -e class com.example.finance_planning.PlanningOrderCardTest com.example.finance_planning.qa.test/androidx.test.runner.AndroidJUnitRunner
 ```
 
 This delivery does not close native B3 cloud/Google integration prerequisites and does not claim full Sprint acceptance. Tester coordination remains with BA.

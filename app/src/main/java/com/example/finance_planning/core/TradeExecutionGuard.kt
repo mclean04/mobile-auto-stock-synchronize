@@ -7,6 +7,7 @@ import java.time.Instant
 class PlanningPreflightUnavailable(cause: Throwable? = null) : Exception("Planning preflight unavailable", cause)
 class PlanningGateFailure(val reasons: List<EligibilityReason>) : Exception("Planning execution blocked")
 class PlanningVersionChanged : Exception("Planning version changed")
+class PlanningExecutionClaimed : Exception("Planning execution already claimed")
 
 data class GuardedBrokerResult<T>(val value: T, val preflight: PreflightAuthorization)
 
@@ -22,7 +23,9 @@ object TradeExecutionGuard {
         readActiveSource: suspend () -> JSONObject,
         brokerWrite: suspend () -> T,
         clock: () -> Instant = Instant::now,
-        monotonicNanos: () -> Long = System::nanoTime
+        monotonicNanos: () -> Long = System::nanoTime,
+        requestId: String = java.util.UUID.randomUUID().toString(),
+        deviceId: String = java.util.UUID.randomUUID().toString()
     ): GuardedBrokerResult<T> {
         val current = try { PlanningIntent.parse(readCurrent()) }
             catch (e: kotlinx.coroutines.CancellationException) { throw e }
@@ -35,8 +38,9 @@ object TradeExecutionGuard {
         val preflightStartedAt = monotonicNanos()
         val preflight = try {
             PreflightAuthorization.parse(runPreflight(
-                PlanningContract.preflightRequest(current, account, observedAt)), current)
+                PlanningContract.preflightRequest(current, account, observedAt, requestId, deviceId)), current)
         } catch (e: kotlinx.coroutines.CancellationException) { throw e }
+        catch (e: PlanningExecutionClaimed) { throw e }
         catch (e: Exception) { throw PlanningPreflightUnavailable(e) }
 
         if (preflight.intentId != current.intentId || preflight.currentVersion != current.version)

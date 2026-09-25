@@ -5,6 +5,7 @@ import androidx.test.platform.app.InstrumentationRegistry
 import android.os.Bundle
 import kotlinx.coroutines.runBlocking
 import org.json.JSONObject
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
@@ -46,6 +47,9 @@ class QaNotificationConfigTest {
 
     @Test fun verifiedTargetMetadata() {
         val repo = app.repository
+        InstrumentationRegistry.getArguments().getString("expected_model")?.let {
+            assertEquals(it, android.os.Build.MODEL)
+        }
         val allowed = androidx.core.app.NotificationManagerCompat.from(app).areNotificationsEnabled()
         val configured = repo.identity.configured
         val uid = repo.identity.uid()
@@ -65,7 +69,6 @@ class QaNotificationConfigTest {
         instrumentation.sendStatus(0, Bundle().apply {
             putString("qa_notification_metadata", metadata.toString())
         })
-        assertTrue(android.os.Build.MODEL == "SM-X730")
         assertTrue("QA Firebase configuration is missing from this build", configured)
         assertNotNull("QA Firebase user is not signed in", uid)
         assertTrue(repo.approved())

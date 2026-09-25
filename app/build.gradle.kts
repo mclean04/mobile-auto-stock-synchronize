@@ -24,6 +24,7 @@ android {
         targetSdk = 37
         versionCode = 2
         versionName = "0.2.0"
+        testApplicationId = "com.example.finance_planning.qa.test"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         buildConfigField("String", "FIREBASE_APP_ID", mobileValue("firebase.appId"))
         buildConfigField("String", "FIREBASE_API_KEY", mobileValue("firebase.apiKey"))

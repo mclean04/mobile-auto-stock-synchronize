@@ -456,6 +456,7 @@
     <string name="trade_backend_pending">DNSE accepted the order. The backend or Planning Sheet has not confirmed it yet; the app saved the request and will retry with the same ID to avoid duplicates.</string>
     <string name="planning_legacy_read_only">This legacy plan is read-only and has no verified execution data, so it cannot place an order.</string>
     <string name="planning_preflight_unavailable">The app could not verify the latest execution conditions with the backend. The plan remains readable, but no DNSE order can be sent.</string>
+    <string name="planning_execution_claimed_other_device">Another device already claimed execution of this plan. The app blocked an additional DNSE order.</string>
     <string name="planning_gate_execution_disabled">The backend execution path is disabled.</string>
     <string name="planning_gate_stale_version">A newer plan version exists. Refresh and review it before taking action.</string>
     <string name="planning_gate_not_approved">The plan has not been approved by a user or administrator.</string>

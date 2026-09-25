@@ -5,6 +5,7 @@ import hashlib
 import json
 import re
 import subprocess
+import uuid
 from pathlib import Path
 from urllib.parse import urlparse
 
@@ -25,10 +26,12 @@ if a.phase != "readiness":
     scenario = "unknown" if a.phase == "kill_unknown" else a.phase.removeprefix("resume_")
     assert config["intents"].get(scenario), "Business fixture intent is not ready; BA must supply captured canonical ID"
 assert re.fullmatch(r"[A-Za-z0-9-]{1,60}", config["run_id"])
+uuid.UUID(config["device_id"])
 base = urlparse(config["base_url"])
 assert base.scheme == "http" and base.hostname == "127.0.0.1" and 1024 <= base.port <= 65535
 adb = [a.adb, "-t", a.transport_id]
 package = "com.example.finance_planning"
+test_package = "com.example.finance_planning.qa.test"
 a.output.mkdir(parents=True, exist_ok=True)
 
 def call(*args, **kw):
@@ -36,7 +39,7 @@ def call(*args, **kw):
 
 artifacts = {}
 for name, file in [(package, root / "app/build/outputs/apk/debug/app-debug.apk"),
-                   (package + ".test", root / "app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk")]:
+                   (test_package, root / "app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk")]:
     digest = hashlib.sha256(file.read_bytes()).hexdigest()
     if a.install:
         result = call("install", "-r", str(file), text=True)
@@ -56,7 +59,7 @@ call("shell", "run-as", package, "sh", "-c", "'cat > files/b3-config.json'",
      input=json.dumps(config).encode())
 result = call("shell", "am", "instrument", "-w", "-r",
               "-e", "class", package + ".B3DeviceFlowTest", "-e", "b3_phase", a.phase,
-              package + ".test/androidx.test.runner.AndroidJUnitRunner", text=True)
+              test_package + "/androidx.test.runner.AndroidJUnitRunner", text=True)
 (a.output / f"{a.phase}-instrumentation.txt").write_text(result.stdout + result.stderr)
 trace = call("shell", "run-as", package, "cat",
              f"files/b3-{config['run_id']}/{a.phase}.jsonl", text=True).stdout

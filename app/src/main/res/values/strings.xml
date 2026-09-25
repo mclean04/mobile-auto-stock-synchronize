@@ -456,6 +456,7 @@
     <string name="trade_backend_pending">DNSE đã nhận lệnh. Backend hoặc Planning Sheet chưa xác nhận; app đã lưu yêu cầu và sẽ gửi lại cùng mã để không ghi trùng.</string>
     <string name="planning_legacy_read_only">Kế hoạch legacy chỉ để xem, chưa có dữ liệu thực thi đã xác minh nên không được đặt lệnh.</string>
     <string name="planning_preflight_unavailable">Không thể xác minh điều kiện thực thi mới nhất với backend. Kế hoạch vẫn xem được nhưng không được gửi lệnh DNSE.</string>
+    <string name="planning_execution_claimed_other_device">Một thiết bị khác đã nhận quyền thực thi kế hoạch này. App đã chặn gửi thêm lệnh DNSE.</string>
     <string name="planning_gate_execution_disabled">Backend đang tắt đường thực thi lệnh.</string>
     <string name="planning_gate_stale_version">Kế hoạch đã có phiên bản mới. Hãy làm mới và xem lại trước khi thao tác.</string>
     <string name="planning_gate_not_approved">Kế hoạch chưa được người dùng hoặc quản trị viên duyệt.</string>

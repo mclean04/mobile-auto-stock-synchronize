@@ -11,9 +11,11 @@ p = argparse.ArgumentParser()
 p.add_argument("action", choices=["metadata", "install", "register", "clear"])
 p.add_argument("--config", type=Path)
 p.add_argument("--transport-id", required=True)
+p.add_argument("--expected-model")
 p.add_argument("--adb", default="/Users/tuanh/Library/Android/sdk/platform-tools/adb")
 a = p.parse_args()
 package = "com.example.finance_planning"
+test_package = "com.example.finance_planning.qa.test"
 adb = [a.adb, "-t", a.transport_id]
 
 def call(*args, **kwargs):
@@ -32,23 +34,29 @@ if a.action == "install":
         raise SystemExit("QA config keys do not match the Android contract")
     call("shell", "run-as", package, "sh", "-c", "'cat > files/qa-notification-config.json'",
          input=raw)
-result = call("shell", "am", "instrument", "-w", "-r", "-e", "class",
-              package + ".QaNotificationConfigTest#" + methods[a.action],
-              package + ".test/androidx.test.runner.AndroidJUnitRunner", text=True)
 if a.action == "metadata":
-    match = re.search(r"(?:INSTRUMENTATION_STATUS: )?qa_notification_metadata=(\{[^\r\n]+\})",
-                      result.stdout)
-    if match is None:
-        raise SystemExit("QA notification metadata marker was not produced")
-    metadata = json.loads(match.group(1))
+    if not a.expected_model or not re.fullmatch(r"[A-Za-z0-9_.-]{1,80}", a.expected_model):
+        raise SystemExit("metadata requires a safe --expected-model exact match")
+    call("shell", "am", "start", "-W", "-n",
+         package + "/.debug.QaMetadataActivity", text=True)
+    try:
+        result = call("shell", "run-as", package, "cat", "files/qa-metadata.json", text=True)
+    finally:
+        call("shell", "run-as", package, "rm", "-f", "files/qa-metadata.json")
+    metadata = json.loads(result.stdout)
     allowed = {"model", "notification_permission", "firebase_configured",
                "firebase_user_present", "approved", "target_device_id",
                "target_uid", "fcm_token_included", "qa_notification_configured",
                "qa_notification_isolation_enabled"}
     if not set(metadata).issubset(allowed) or metadata.get("fcm_token_included") is not False:
         raise SystemExit("QA notification metadata did not match the safe output contract")
+    if metadata.get("model") != a.expected_model:
+        raise SystemExit("ADB transport model did not match --expected-model")
     print(json.dumps(metadata, separators=(",", ":"), sort_keys=True))
-if "OK (1 test)" not in result.stdout:
-    raise SystemExit("QA notification configuration failed; inspect instrumentation locally")
-if a.action != "metadata":
+else:
+    result = call("shell", "am", "instrument", "-w", "-r", "-e", "class",
+                  package + ".QaNotificationConfigTest#" + methods[a.action],
+                  test_package + "/androidx.test.runner.AndroidJUnitRunner", text=True)
+    if "OK (1 test)" not in result.stdout:
+        raise SystemExit("QA notification configuration failed; inspect instrumentation locally")
     print(json.dumps({"action": a.action, "configured": a.action != "clear", "secret_output": False}))

@@ -46,6 +46,7 @@ Supply a local JSON file; do not commit the token. Example structure:
   "run_id": "unique-b3-run",
   "evidence_kind": "native_qa_http",
   "uid": "qa-user",
+  "device_id": "actual-device-uuid-for-this-transport",
   "account": "qa-account",
   "base_url": "http://127.0.0.1:8899",
   "token": "test-service-only-bearer",
@@ -60,6 +61,9 @@ The service must call actual Backend handlers and use an allowlisted Google QA
 source. Intents must be canonical sandbox APPROVED/NOT_STARTED for this UID and
 account, scheduled in the future but within an already-open execution window.
 The existing production source/expiry/cash checks are not bypassed.
+
+Use one private config file per transport. Both files may name the same canonical
+intent and run, but each `device_id` must match that device's verified app UUID.
 
 The service uses JSON responses (Content-Length or chunked) and a local test bearer. Switch
 and readback paths above are examples: use the concrete Backend handoff.
@@ -80,6 +84,10 @@ instrumentation process. It exports test output, JSONL trace and a hash/PID
 summary. Both JUnit success and a final trace PASS are required, except for
 kill_unknown: it requires the explicit durable-marker crash checkpoint and
 must be followed by a passing resume_unknown in a new process.
+
+The test APK uses `com.example.finance_planning.qa.test`. This dedicated package
+can coexist with an obsolete locally signed test package; preparation must not
+uninstall the business app or clear its data to resolve a test-signature conflict.
 
 For the Backend handoff config (with service_url), run `--phase readiness`
 first. This only GETs /qa/status and verifies run, actor, account, fake broker

@@ -115,7 +115,9 @@ class HttpFailure(val status: Int, val code: String? = null) : Exception("HTTP $
     companion object {
         private val allowedCodes = setOf("authentication_required", "invalid_access_token",
             "invalid_firebase_token", "app_check_required", "invalid_app_check_token",
-            "invalid_mobile_app", "owner_only", "identity_changed", "invalid_identity_token")
+            "invalid_mobile_app", "owner_only", "identity_changed", "invalid_identity_token",
+            "intent_execution_claimed", "preflight_request_id_payload_conflict",
+            "preflight_context_conflict")
         fun safeCode(body: String?): String? = try {
             body?.let { JSONObject(it).optString("detail").takeIf(allowedCodes::contains) }
         } catch (_: Exception) { null }

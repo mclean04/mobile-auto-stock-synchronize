@@ -30,8 +30,13 @@ class PlanningIntentTest {
         val parsed = PlanningIntent.parse(intent())
         assertTrue(parsed.executable)
         assertTrue(parsed.matchesDraft("FPT", "BUY", 100, 90000))
-        val request = PlanningContract.preflightRequest(parsed, "012345", Instant.parse("2026-10-01T02:10:00Z"))
+        val requestId = "52efbda8-fc5f-447e-90cc-7bf4b92a2bf1"
+        val deviceId = "41616ab6-282e-4234-aadd-6a1e7df4d2d9"
+        val request = PlanningContract.preflightRequest(parsed, "012345",
+            Instant.parse("2026-10-01T02:10:00Z"), requestId, deviceId)
         assertFalse(request.has("intent_id"))
+        assertEquals(requestId, request.getString("request_id"))
+        assertEquals(deviceId, request.getString("device_id"))
         assertEquals(3, request.getInt("expected_version"))
         assertEquals("production", request.getString("environment"))
         assertEquals("012345", request.getString("account"))

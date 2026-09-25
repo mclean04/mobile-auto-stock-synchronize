@@ -9,6 +9,8 @@ import org.junit.Test
 import java.time.Instant
 
 class TradeExecutionGuardTest {
+    private val requestId = "52efbda8-fc5f-447e-90cc-7bf4b92a2bf1"
+    private val deviceId = "41616ab6-282e-4234-aadd-6a1e7df4d2d9"
     private fun source(generation: Long = 7, id: String = "source-sheet-0001") = JSONObject()
         .put("source_id", id).put("source_generation", generation)
     private fun cash() = JSONObject().put("currency", "VND")
@@ -48,13 +50,30 @@ class TradeExecutionGuardTest {
             readCurrent = { trace += "fresh"; intent() },
             runPreflight = { request ->
                 trace += "preflight"
-                assertEquals(3, request.getInt("expected_version")); preflight()
+                assertEquals(3, request.getInt("expected_version"))
+                assertEquals(requestId, request.getString("request_id"))
+                assertEquals(deviceId, request.getString("device_id"))
+                preflight()
             },
             beforeBrokerWrite = { trace += "persist:${it.preflightId}" },
             readActiveSource = { trace += "source"; sourceEndpoint() },
-            brokerWrite = { trace += "broker"; "order-42" })
+            brokerWrite = { trace += "broker"; "order-42" },
+            requestId = requestId, deviceId = deviceId)
         assertEquals("order-42", result.value)
         assertEquals(listOf("fresh", "preflight", "persist:c7e13b2f-0512-4947-b7ad-d0d9902a4d62", "source", "broker"), trace)
+    }
+
+    @Test fun crossDeviceClaimConflictNeverPersistsOrCallsBroker() = runBlocking {
+        var persistenceCalls = 0
+        var brokerCalls = 0
+        assertThrows(PlanningExecutionClaimed::class.java) { runBlocking {
+            TradeExecutionGuard.execute(PlanningIntent.parse(intent()), "012345", Instant.now(),
+                readCurrent = { intent() }, runPreflight = { throw PlanningExecutionClaimed() },
+                beforeBrokerWrite = { persistenceCalls++ }, readActiveSource = { sourceEndpoint() },
+                brokerWrite = { brokerCalls++; "never" }, requestId = requestId, deviceId = deviceId)
+        } }
+        assertEquals(0, persistenceCalls)
+        assertEquals(0, brokerCalls)
     }
 
     @Test fun oldBackendOfflineMalformedAndMissingEligibilityNeverCallBroker() = runBlocking {

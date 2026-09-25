@@ -31,16 +31,21 @@ Chỉ dùng Samsung SM-X730 đã đăng nhập đúng tài khoản Firebase và 
 Lấy metadata không nhạy cảm trước:
 
 ```bash
-python3 tools/configure-qa-notification.py metadata --transport-id <adb-transport-id>
+python3 tools/configure-qa-notification.py metadata \
+  --transport-id <adb-transport-id> --expected-model <exact-android-model>
 ```
 
-Lệnh chỉ xuất một JSON đã giới hạn trường: model, quyền thông báo, trạng thái cấu hình
+Lệnh dùng Activity chỉ có trong debug APK, được bảo vệ bằng platform DUMP permission để
+chỉ ADB shell gọi được; không phụ thuộc test APK. Activity ghi file allowlist tạm thời,
+tool đọc dưới `run-as` rồi xóa ngay. Nó chỉ xuất một JSON đã giới hạn trường: model,
+quyền thông báo, trạng thái cấu hình
 Firebase, trạng thái current user, quyền backend, UID và device ID nếu có. Nếu
 `firebase_configured=false`, APK hiện tại thiếu cấu hình build; nếu
 `firebase_user_present=false`, Firebase Auth trong đúng package hiện không có current
 user. Hai field `qa_notification_configured` và `qa_notification_isolation_enabled` cho
 biết config QA đã pin đúng target và fail-closed routing còn hiện diện hay không. Công cụ
 không in email, FCM token, bearer, API key hay raw instrumentation output.
+`--expected-model` bắt buộc để metadata fail closed nếu ADB transport trỏ nhầm thiết bị.
 
 Sau khi QA proxy được phát hành và chạy ở máy phát triển, nối cổng cho thiết bị:
 

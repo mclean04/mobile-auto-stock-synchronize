@@ -68,9 +68,10 @@ class PlanningRepository(val identity: MobileIdentity, private val vault: Vault,
         }
     }
     fun owner() = identity.uid() ?: throw AppFailure(AppText.get(R.string.sign_in_to_access_data_on_this_device))
+    internal fun existingDevice(): String? = identity.uid()?.let { vault.get("device:$it") }
     fun device(): String {
         val key = "device:" + owner()
-        return vault.get(key) ?: UUID.randomUUID().toString().also { vault.put(key, it) }
+        return existingDevice() ?: UUID.randomUUID().toString().also { vault.put(key, it) }
     }
     fun invalidateSession() { vault.remove("approved") }
     fun approved(): Boolean = identity.uid()?.let { vault.get("approved") == it && vault.get("mobile_scope") == "uploader-v1:$it" } ?: false
@@ -411,6 +412,21 @@ class PlanningRepository(val identity: MobileIdentity, private val vault: Vault,
         private val journalKey = "manual_trade:v2:" + intent.environment.name.lowercase() + ":" +
             intent.sourceContext.sourceGeneration + ":" + tradeHash(intent.sourceContext.sourceId).take(16) +
             ":" + intent.intentId
+        private val preflightRequestKey = "$journalKey:preflight:${intent.version}"
+        private suspend fun preflightRequestId(deviceId: String): String {
+            cached(preflightRequestKey)?.let { stored ->
+                require(stored.getString("device_id") == deviceId)
+                require(stored.getString("intent_id") == intent.intentId.toString())
+                require(stored.getInt("version") == intent.version)
+                require(PlanningSourceContext.parse(stored.getJSONObject("source_context")) == intent.sourceContext)
+                return stored.getString("request_id").also(UUID::fromString)
+            }
+            val requestId = UUID.randomUUID().toString()
+            save(preflightRequestKey, JSONObject().put("request_id", requestId)
+                .put("device_id", deviceId).put("intent_id", intent.intentId.toString())
+                .put("version", intent.version).put("source_context", intent.sourceContext.json()))
+            return requestId
+        }
         suspend fun result(): JSONObject? { check(); return cached(journalKey)?.takeUnless { it.optString("state") == "REJECTED" } }
         suspend fun funds(): JSONObject? { check(); return dnseSnapshot() }
         suspend fun requireFunds(account: String, draft: TradeDraft) {
@@ -443,7 +459,7 @@ class PlanningRepository(val identity: MobileIdentity, private val vault: Vault,
         }
         fun close() { tradingToken = null; verifiedAt = 0 }
         suspend fun place(account: String, draft: TradeDraft): JSONObject = lock.withLock {
-            val baseCorrelation = ObservationCorrelation.intent(intent)
+            var baseCorrelation = ObservationCorrelation.intent(intent)
             val placeStarted = System.nanoTime()
             var observedStage = ObservationStage.REQUEST
             observation.record(ObservationComponent.TRADE, ObservationAction.PLACE_ORDER,
@@ -471,6 +487,8 @@ class PlanningRepository(val identity: MobileIdentity, private val vault: Vault,
             }
             check()
             val reportingDevice = device()
+            val preflightRequestId = preflightRequestId(reportingDevice)
+            baseCorrelation = ObservationCorrelation.intent(intent, requestId = preflightRequestId)
             val journal = JSONObject().put("state", "UNKNOWN").put("account", account)
                 .put("source_context", intent.sourceContext.json())
                 .put("draft", draft.body()).put("created_at", java.time.Instant.now().toString())
@@ -494,6 +512,8 @@ class PlanningRepository(val identity: MobileIdentity, private val vault: Vault,
                             observation.record(ObservationComponent.TRADE, ObservationAction.PLACE_ORDER,
                                 ObservationStage.PREFLIGHT, ObservationResult.FAILED, baseCorrelation,
                                 ProductionObservationLog.elapsedMs(started), observationError(error))
+                            if (error is HttpFailure && error.status == 409 &&
+                                error.code == "intent_execution_claimed") throw PlanningExecutionClaimed()
                             throw error
                         }
                     },
@@ -521,7 +541,7 @@ class PlanningRepository(val identity: MobileIdentity, private val vault: Vault,
                         observation.record(ObservationComponent.BROKER, ObservationAction.PLACE_ORDER,
                             ObservationStage.BROKER_REQUEST, ObservationResult.STARTED, baseCorrelation)
                         check(); requirePendingTime(); broker.place(account, draft, token)
-                    })
+                    }, requestId = preflightRequestId, deviceId = reportingDevice)
                 val response = guarded.value
                 val preflight = guarded.preflight
                 val placed = response.optJSONObject("data") ?: response.optJSONObject("order") ?: response
@@ -552,6 +572,8 @@ class PlanningRepository(val identity: MobileIdentity, private val vault: Vault,
                     throw AppFailure(AppText.get(R.string.planning_preflight_unavailable))
                 if (e is PlanningVersionChanged)
                     throw AppFailure(AppText.get(R.string.planning_gate_stale_version))
+                if (e is PlanningExecutionClaimed)
+                    throw AppFailure(AppText.get(R.string.planning_execution_claimed_other_device))
                 if (e is PlanningGateFailure)
                     throw AppFailure(PlanningGateText.message(e.reasons))
                 if (e is TradeHttpFailure && e.status in setOf(400, 401, 403, 404, 422)) {

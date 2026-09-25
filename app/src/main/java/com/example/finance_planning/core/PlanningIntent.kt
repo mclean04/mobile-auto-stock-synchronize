@@ -219,12 +219,17 @@ object PlanningContract {
         return PlanningSourceContext.parse(payload.getJSONObject("source_context"))
     }
 
-    fun preflightRequest(intent: PlanningIntent, account: String, observedAt: Instant): JSONObject =
-        JSONObject().put("expected_version", intent.version)
+    fun preflightRequest(intent: PlanningIntent, account: String, observedAt: Instant,
+                         requestId: String, deviceId: String): JSONObject {
+        UUID.fromString(requestId)
+        UUID.fromString(deviceId)
+        return JSONObject().put("request_id", requestId).put("device_id", deviceId)
+            .put("expected_version", intent.version)
             .put("environment", intent.environment.name.lowercase()).put("account", account)
             .put("quantity", intent.quantity.toString()).put("limit_price_vnd", intent.limitPriceVnd.toString())
             .put("source_context", intent.sourceContext.json())
             .put("observed_at", observedAt.toString())
+    }
 
     fun legacyReadOnly(payload: JSONObject): JSONObject = JSONObject(payload.toString())
         .put("_legacy_read_only", true)

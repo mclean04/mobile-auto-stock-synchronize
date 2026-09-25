@@ -29,6 +29,7 @@ import java.util.concurrent.atomic.AtomicInteger
 internal class B3DeviceFixture(val context: Context, val config: JSONObject, val phase: String) {
     val run = config.getString("run_id").also { require(Regex("[A-Za-z0-9-]{1,60}").matches(it)) }
     val uid = config.getString("uid")
+    val deviceId = config.getString("device_id").also { java.util.UUID.fromString(it) }
     val directory = File(context.filesDir, "b3-$run").apply { mkdirs() }
     private val traceFile = File(directory, "$phase.jsonl")
     val brokerCalls = AtomicInteger()
@@ -102,7 +103,8 @@ internal class B3DeviceFixture(val context: Context, val config: JSONObject, val
                 }
                 brokerRelease?.let { check(it.await(15, TimeUnit.SECONDS)) }
                 if (brokerTimeout) throw IOException("Test-only ambiguous broker response")
-                JSONObject().put("id", "B3-$run-$scenario").put("orderStatus", "PENDING").put("fillQuantity", "0")
+                JSONObject().put("id", "B3-$run-$scenario-${deviceId.take(8)}")
+                    .put("orderStatus", "PENDING").put("fillQuantity", "0")
             }
             else -> error("No fake response for $path")
         }
@@ -124,6 +126,7 @@ internal class B3DeviceFixture(val context: Context, val config: JSONObject, val
             .put("wiring", "production Orders/dialog/repository + fake identity/broker, isolated Room/Vault"))
         vault.put("approved", uid)
         vault.put("mobile_scope", "uploader-v1:$uid")
+        vault.put("device:$uid", deviceId)
         repo.saveDnse("FAKE-B3-KEY", "FAKE-B3-SECRET", false, "1")
     }
 

@@ -88,6 +88,7 @@ class ObservationError private constructor(val code: String) {
             is kotlinx.coroutines.CancellationException -> "CANCELLED"
             is PlanningPreflightUnavailable -> "PREFLIGHT_UNAVAILABLE"
             is PlanningVersionChanged -> "PLANNING_VERSION_CHANGED"
+            is PlanningExecutionClaimed -> "EXECUTION_ALREADY_CLAIMED"
             is PlanningGateFailure -> "PLANNING_GATE_BLOCKED"
             is AppFailure -> "APP_FAILURE"
             is java.net.SocketTimeoutException -> "TIMEOUT"
