@@ -87,7 +87,8 @@ python3 tools/run-b3-two-device.py \
   --device-two-config /private/tmp/b3-device-two.json \
   --transport-one <tablet-transport> \
   --transport-two <phone-transport> \
-  --output /private/tmp/b3-two-device-evidence
+  --output /private/tmp/b3-two-device-evidence \
+  --install
 ```
 
 Each private config names the same `intents.concurrent`, run, UID, account and Backend
