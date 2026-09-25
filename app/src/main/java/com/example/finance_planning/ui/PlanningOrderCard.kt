@@ -1,0 +1,182 @@
+package com.example.finance_planning.ui
+
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.*
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateMapOf
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.font.FontStyle
+import androidx.compose.ui.res.stringResource as text
+import androidx.compose.ui.unit.dp
+import com.example.finance_planning.R
+import com.example.finance_planning.core.*
+import org.json.JSONObject
+
+/** Screen-only state: never saved to Room or rememberSaveable; clocks/row objects are not keys. */
+@Composable
+internal fun rememberPlanningCardExpansion(owner: String?, source: JSONObject?, section: PlanningSection) =
+    remember(owner, source?.optString("source_id"), source?.optLong("source_generation"), section) {
+        mutableStateMapOf<String, Boolean>()
+    }
+
+internal fun planningCardIdentity(row: JSONObject): String = org.json.JSONArray()
+    .put(row.optJSONObject("source_context")?.optString("source_id"))
+    .put(row.optJSONObject("source_context")?.optLong("source_generation"))
+    .put(row.getString("intent_id")).toString()
+
+@Composable
+fun PlanningOrderCard(row: JSONObject, snapshot: JSONObject?, upcoming: Boolean, enabled: Boolean,
+                      activeProduction: Boolean? = null, freshForAction: Boolean = false,
+                      expanded: Boolean = true, toggleExpanded: (() -> Unit)? = null, place: () -> Unit) {
+    val decision = PlanningActionPolicy.evaluate(row, activeProduction, freshForAction)
+    val intent = decision.intent
+    val fields = PlanningFunds.fields(row)
+    val cancelled = PlanningFunds.cancelled(row)
+    // Explicit foreground/background pairs remain readable in either system theme.
+    val background = when { !upcoming -> Color(0xFF30343B); cancelled -> Color(0xFF40242A); else -> Color(0xFF12382C) }
+    val panel = when { !upcoming -> Color(0xFF3C424A); cancelled -> Color(0xFF503139); else -> Color(0xFF1B4939) }
+    val foreground = Color(0xFFF4F7F5)
+    val secondary = Color(0xFFCDD8D2)
+    val accent = when { cancelled -> Color(0xFFFFCBD1); !upcoming -> foreground; else -> Color(0xFFB0E5C7) }
+    val warning = Color(0xFFFFBAC3)
+    val side = PlanningFunds.side(row)
+    val required = PlanningFunds.required(row)
+    val balances = PlanningFunds.balances(snapshot)
+    val gateReasons = decision.reasons
+    val gateReady = upcoming && decision.canExecute
+    fun displayValue(key: String, fallback: String): String = row.optString(key)
+        .takeIf { !row.isNull(key) && it.isNotBlank() } ?: fallback
+    val symbol = intent?.symbol ?: displayValue("symbol", fields.optString("Mã", text(R.string.plan)))
+    val scheduled = PlanningTimeline.scheduledAt(row)
+    val planned = if (scheduled != null) NotificationContent.time(scheduled.toString())
+        else if (row.optString("time_status") == "DATE_ONLY")
+            text(R.string.planning_time_date_only, displayValue("scheduled_date", fields.optString("Ngày dự kiến")))
+        else text(R.string.planning_time_unknown)
+    val expansionLabel = text(if (expanded) R.string.planning_card_collapse else R.string.planning_card_expand)
+    val expansionModifier = if (toggleExpanded == null) Modifier else Modifier
+        .clickable(onClickLabel = expansionLabel, onClick = toggleExpanded)
+        .semantics { stateDescription = expansionLabel }
+    Card(modifier = Modifier.fillMaxWidth().testTag("planning-card-" + row.optString("intent_id"))
+        .then(expansionModifier), shape = RoundedCornerShape(22.dp),
+        colors = CardDefaults.cardColors(containerColor = background, contentColor = foreground)) {
+        Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Column(Modifier.weight(1f)) {
+                    Text(symbol, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold, color = accent)
+                    Text(planned, style = MaterialTheme.typography.titleSmall, color = secondary)
+                }
+                Surface(color = panel, contentColor = foreground, shape = RoundedCornerShape(50)) {
+                    Text(text(when { cancelled -> R.string.plan_cancel_badge; side == "NB" -> R.string.plan_buy_badge; side == "NS" -> R.string.plan_sell_badge; else -> R.string.plan }),
+                        Modifier.padding(horizontal = 14.dp, vertical = 8.dp), color = accent, fontWeight = FontWeight.Bold)
+                }
+            }
+            if (intent != null) {
+                Text("${intent.authoringState.name} · ${intent.executionState.name}",
+                    style = MaterialTheme.typography.labelLarge, color = accent)
+            } else displayValue("legacy_status", fields.optString("Trạng thái")).takeIf { it.isNotBlank() }?.let {
+                Text(it, style = MaterialTheme.typography.labelLarge, color = accent)
+            }
+            if (intent == null && row.optString("record_kind") == "CANONICAL") {
+                Text(listOf("authoring_state", "execution_state").map { displayValue(it, "") }
+                    .filter { it.isNotBlank() }.joinToString(" · "),
+                    style = MaterialTheme.typography.labelLarge, color = accent)
+            }
+            if (toggleExpanded != null) Text(expansionLabel, style = MaterialTheme.typography.labelMedium, color = secondary)
+            if (expanded) {
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    PlanMetric(text(R.string.trade_quantity), intent?.quantity?.toString()
+                        ?: displayValue("quantity", fields.optString("Số lượng").takeIf { it.isNotBlank() }
+                            ?: text(R.string.no_data_available)),
+                        Modifier.weight(1f), panel, foreground, secondary)
+                    PlanMetric(text(R.string.trade_price_vnd), OrderContent.money(PlanningFunds.price(row)), Modifier.weight(1f), panel, foreground, secondary)
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    PlanMetric(text(R.string.plan_principal), OrderContent.money(PlanningFunds.principal(row)), Modifier.weight(1f), panel, foreground, secondary)
+                    PlanMetric(text(R.string.plan_required), OrderContent.money(required), Modifier.weight(1f), panel, foreground, secondary)
+                }
+                if (intent != null) {
+                    Text(text(R.string.planning_contract_version, "2.0", intent.version),
+                        style = MaterialTheme.typography.bodySmall, color = secondary)
+                    Text(text(R.string.planning_source_generation, intent.sourceContext.sourceGeneration),
+                        style = MaterialTheme.typography.bodySmall, color = secondary)
+                }
+                Surface(color = panel, contentColor = foreground, shape = RoundedCornerShape(16.dp)) {
+                    Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Text(text(R.string.planning_gate_heading), style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold)
+                        Text(when {
+                            !upcoming -> text(R.string.planning_read_only_tab)
+                            gateReady -> text(R.string.planning_gate_ready)
+                            decision.cachedReadOnly ->
+                                text(R.string.planning_cache_read_only_gate)
+                            else -> PlanningGateText.message(gateReasons)
+                        },
+                            style = MaterialTheme.typography.bodySmall, fontStyle = FontStyle.Italic,
+                            color = if (gateReady || !upcoming) accent else warning)
+                    }
+                }
+                if (upcoming && side == "NB" && !cancelled) {
+                    Surface(color = panel, contentColor = foreground, shape = RoundedCornerShape(16.dp)) {
+                        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Text(text(R.string.plan_funds_heading), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                            if (balances.isEmpty()) Text(text(R.string.plan_funds_sync_required), style = MaterialTheme.typography.bodySmall, fontStyle = FontStyle.Italic, color = secondary)
+                            balances.forEach { (account, cash) ->
+                                Text(text(R.string.plan_account_cash, account, OrderContent.money(cash)), fontWeight = FontWeight.SemiBold)
+                                val difference = required?.let { cash - it }
+                                Text(when {
+                                    difference == null -> text(R.string.plan_funds_unknown)
+                                    difference.signum() >= 0 -> text(R.string.plan_funds_enough, OrderContent.money(difference))
+                                    else -> text(R.string.plan_funds_short, OrderContent.money(difference.negate()))
+                                }, color = if (difference != null && difference.signum() >= 0) accent else warning,
+                                    style = MaterialTheme.typography.bodySmall)
+                            }
+                            snapshot?.optString("saved_at")?.takeIf { it.isNotBlank() }?.let {
+                                Text(text(R.string.plan_funds_updated, NotificationContent.time(it)), style = MaterialTheme.typography.bodySmall, fontStyle = FontStyle.Italic, color = secondary)
+                            }
+                            Text(text(R.string.plan_funds_comparison_note), style = MaterialTheme.typography.bodySmall, fontStyle = FontStyle.Italic, color = secondary)
+                            if (!PlanningFunds.affordable(snapshot, row)) Text(text(R.string.plan_funds_topup_note),
+                                style = MaterialTheme.typography.bodySmall, fontStyle = FontStyle.Italic, color = secondary)
+                        }
+                    }
+                }
+                if (upcoming && gateReady && PlanningFunds.affordable(snapshot, row)) Button(onClick = place, enabled = enabled,
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFB0E5C7), contentColor = Color(0xFF103426),
+                        disabledContainerColor = Color(0xFF355947), disabledContentColor = Color(0xFFD1DDD7))) { Text(text(R.string.trade_title)) }
+                val primary = setOf("Mã", "Ngày dự kiến", "Số lượng", "Giá LO tối đa", "Giá LO", "Giá LO (VND)", "Giá trị kế hoạch", "Tổng chi ngân sách", "Mua/Bán", "Trạng thái")
+                val extra = if (row.optString("record_kind") == "CANONICAL" || intent != null) listOf("thesis", "conditions").filter {
+                    row.optString(it).isNotBlank()
+                } else fields.keys().asSequence().filter { it !in primary && !fields.isNull(it) && fields.optString(it).isNotBlank() }.toList()
+                extra.filter { fields.optString(it).length <= 100 }.chunked(2).forEach { pair ->
+                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        pair.forEach { key -> PlanMetric(key, fields.optString(key), Modifier.weight(1f), panel, foreground, secondary) }
+                        if (pair.size == 1) Spacer(Modifier.weight(1f))
+                    }
+                }
+                extra.filter { fields.optString(it).length > 100 }.forEach { key ->
+                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text(key, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold, color = accent)
+                        Text(fields.optString(key), style = MaterialTheme.typography.bodySmall, fontStyle = FontStyle.Italic, color = secondary)
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun PlanMetric(label: String, value: String, modifier: Modifier, background: Color, foreground: Color, secondary: Color) {
+    Surface(modifier, color = background, contentColor = foreground, shape = RoundedCornerShape(14.dp)) {
+        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Text(label, style = MaterialTheme.typography.labelMedium, color = secondary)
+            Text(value, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = foreground)
+        }
+    }
+}

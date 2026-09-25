@@ -1,0 +1,173 @@
+package com.example.finance_planning.sync
+
+import android.content.Context
+import androidx.work.*
+import com.example.finance_planning.PlanningApp
+import com.example.finance_planning.core.*
+import com.example.finance_planning.network.HttpFailure
+import kotlinx.coroutines.CancellationException
+import java.util.concurrent.TimeUnit
+
+class SyncWorker(context: Context, params: WorkerParameters) : CoroutineWorker(context, params) {
+    private fun safeError(error: Throwable): ObservationError = when (error) {
+        is HttpFailure -> ObservationError.http(error.status, error.code)
+        else -> ObservationError.fromThrowable(error)
+    }
+    override suspend fun doWork(): Result {
+        val app = applicationContext as PlanningApp
+        val repo = app.repository
+        if (!repo.approved()) return Result.failure()
+        return try {
+            val event = inputData.getString("event")
+            if (event != null) {
+                val expectedUid = inputData.getString("uid") ?: return Result.failure()
+                if (repo.identity.uid() != expectedUid) return Result.failure()
+                val delivery = inputData.getString("delivery")?.let {
+                    runCatching { NotificationDelivery.parse(org.json.JSONObject(it)) }.getOrNull()
+                } ?: return Result.failure()
+                if (delivery.eventId != event || delivery.targetUid != expectedUid) return Result.failure()
+                val receipt = inputData.getString("receipt") ?: "RECEIVED"
+                val baseCorrelation = ObservationCorrelation.notification(delivery)
+                val fetchStarted = System.nanoTime()
+                app.observationLog.record(ObservationComponent.NOTIFICATION,
+                    ObservationAction.NOTIFICATION_FETCH, ObservationStage.REQUEST,
+                    ObservationResult.STARTED, baseCorrelation)
+                val notification = try {
+                    repo.receiveNotification(event, delivery, receipt == "RECEIVED").also {
+                        app.observationLog.record(ObservationComponent.NOTIFICATION,
+                            ObservationAction.NOTIFICATION_FETCH, ObservationStage.SERVER_ACCEPTED,
+                            ObservationResult.SUCCEEDED, ObservationCorrelation.notification(delivery, it),
+                            ProductionObservationLog.elapsedMs(fetchStarted))
+                    }
+                } catch (error: Throwable) {
+                    app.observationLog.record(ObservationComponent.NOTIFICATION,
+                        ObservationAction.NOTIFICATION_FETCH, ObservationStage.REQUEST,
+                        ObservationResult.FAILED, baseCorrelation,
+                        ProductionObservationLog.elapsedMs(fetchStarted), safeError(error))
+                    throw error
+                }
+                val correlation = ObservationCorrelation.notification(delivery, notification)
+                if (repo.identity.uid() != expectedUid || !repo.approved()) return Result.failure()
+                if (receipt == "RECEIVED" && !repo.notificationOpened(event)) {
+                    val displayed = PlanningMessagingService.show(applicationContext, notification)
+                    app.observationLog.record(ObservationComponent.NOTIFICATION,
+                        ObservationAction.FCM_RECEIVE, ObservationStage.DISPLAYED,
+                        if (displayed) ObservationResult.OBSERVED else ObservationResult.NOT_OBSERVED,
+                        correlation)
+                }
+                val receiptStarted = System.nanoTime()
+                app.observationLog.record(ObservationComponent.NOTIFICATION,
+                    ObservationAction.NOTIFICATION_RECEIPT, ObservationStage.RECEIPT,
+                    ObservationResult.STARTED, correlation)
+                try {
+                    repo.notificationReceipt(delivery, receipt)
+                    app.observationLog.record(ObservationComponent.NOTIFICATION,
+                        ObservationAction.NOTIFICATION_RECEIPT, ObservationStage.SERVER_ACCEPTED,
+                        ObservationResult.ACCEPTED, correlation,
+                        ProductionObservationLog.elapsedMs(receiptStarted))
+                } catch (error: Throwable) {
+                    app.observationLog.record(ObservationComponent.NOTIFICATION,
+                        ObservationAction.NOTIFICATION_RECEIPT, ObservationStage.RECEIPT,
+                        ObservationResult.FAILED, correlation,
+                        ProductionObservationLog.elapsedMs(receiptStarted), safeError(error))
+                    throw error
+                }
+                repo.notifications()
+            } else {
+                repo.registerPush()
+                repo.notifications()
+                if (repo.hasDnse()) repo.sync() else repo.retryPending()
+            }
+            Result.success()
+        } catch (e: CancellationException) { throw e }
+        catch (e: HttpFailure) {
+            if (e.status == 429 || e.status >= 500) Result.retry() else Result.failure()
+        } catch (e: AppFailure) {
+            if (e.retryable) Result.retry() else Result.failure()
+        } catch (_: Exception) { Result.failure() }
+    }
+}
+object SyncSchedule {
+    private fun constraints() = Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build()
+    fun enable(context: Context) {
+        val task = PeriodicWorkRequestBuilder<SyncWorker>(6, TimeUnit.HOURS)
+            .setConstraints(constraints()).setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 30, TimeUnit.SECONDS)
+            .addTag("account-sync").build()
+        WorkManager.getInstance(context).enqueueUniquePeriodicWork("planning-periodic",
+            ExistingPeriodicWorkPolicy.UPDATE, task)
+    }
+    fun cancel(context: Context) { WorkManager.getInstance(context).cancelUniqueWork("planning-periodic") }
+    fun cancelAccount(context: Context) { WorkManager.getInstance(context).cancelAllWorkByTag("account-sync") }
+    fun receipt(context: Context, delivery: NotificationDelivery, state: String) {
+        val task = OneTimeWorkRequestBuilder<SyncWorker>().setConstraints(constraints())
+            .apply {
+                if (android.os.Build.VERSION.SDK_INT >= 31)
+                    setExpedited(OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST)
+            }
+            .setInputData(workDataOf("event" to delivery.eventId, "receipt" to state,
+                "uid" to delivery.targetUid, "delivery" to delivery.json().toString()))
+            .addTag("account-sync").build()
+        WorkManager.getInstance(context).enqueueUniqueWork(
+            "receipt:${delivery.endpoint}:${delivery.targetUid}:${delivery.eventId}:$state",
+            ExistingWorkPolicy.KEEP, task)
+    }
+    fun console(context: Context, uid: String, message: String, title: String, body: String): org.json.JSONObject {
+        val id = java.util.UUID.nameUUIDFromBytes(message.toByteArray(Charsets.UTF_8)).toString()
+        val event = org.json.JSONObject().put("event_id", id).put("title", title.take(500))
+            .put("body", body.take(2000)).put("created_at", java.time.Instant.now().toString()).put("local_only", true)
+        WorkManager.getInstance(context).enqueueUniqueWork("console:$uid:$id", ExistingWorkPolicy.KEEP,
+            OneTimeWorkRequestBuilder<ConsoleNotificationWorker>()
+                .setInputData(workDataOf("uid" to uid, "event" to id,
+                    "title" to event.getString("title"), "body" to event.getString("body"),
+                    "created_at" to event.getString("created_at")))
+                .addTag("account-sync").build())
+        return event
+    }
+    fun notificationRefresh(context: Context) {
+        WorkManager.getInstance(context).enqueueUniqueWork("notification-refresh", ExistingWorkPolicy.APPEND_OR_REPLACE,
+            OneTimeWorkRequestBuilder<NotificationRefreshWorker>().setConstraints(constraints())
+                .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 30, TimeUnit.SECONDS)
+                .setInputData(workDataOf("uid" to (context.applicationContext as PlanningApp).repository.identity.uid()))
+                .addTag("account-sync").build())
+    }
+    fun refresh(context: Context) {
+        WorkManager.getInstance(context).enqueueUniqueWork("planning-refresh", ExistingWorkPolicy.KEEP,
+            OneTimeWorkRequestBuilder<SyncWorker>().setConstraints(constraints()).addTag("account-sync").build())
+    }
+}
+
+/** Saves Console notification content even when the network is unavailable. */
+class ConsoleNotificationWorker(context: Context, params: WorkerParameters) : CoroutineWorker(context, params) {
+    override suspend fun doWork(): Result {
+        val repo = (applicationContext as PlanningApp).repository
+        val uid = inputData.getString("uid") ?: return Result.failure()
+        if (repo.identity.uid() != uid || !repo.approved()) return Result.failure()
+        val event = org.json.JSONObject().put("event_id", inputData.getString("event"))
+            .put("title", inputData.getString("title")).put("body", inputData.getString("body"))
+            .put("created_at", inputData.getString("created_at")).put("local_only", true)
+        repo.cacheNotifications(org.json.JSONObject().put("items", org.json.JSONArray().put(event)), uid)
+        if (!repo.notificationOpened(event.getString("event_id"))) {
+            val displayed = PlanningMessagingService.show(applicationContext, event)
+            (applicationContext as PlanningApp).observationLog.record(ObservationComponent.NOTIFICATION,
+                ObservationAction.FCM_RECEIVE, ObservationStage.DISPLAYED,
+                if (displayed) ObservationResult.OBSERVED else ObservationResult.NOT_OBSERVED,
+                ObservationCorrelation.event(event))
+        }
+        SyncSchedule.notificationRefresh(applicationContext)
+        return Result.success()
+    }
+}
+class NotificationRefreshWorker(context: Context, params: WorkerParameters) : CoroutineWorker(context, params) {
+    override suspend fun doWork(): Result {
+        val repo = (applicationContext as PlanningApp).repository
+        val uid = inputData.getString("uid") ?: return Result.failure()
+        if (repo.identity.uid() != uid || !repo.approved()) return Result.failure()
+        return try {
+            repo.notifications()
+            Result.success()
+        } catch (e: CancellationException) { throw e }
+        catch (e: HttpFailure) { if (e.status == 429 || e.status >= 500) Result.retry() else Result.failure() }
+        catch (e: AppFailure) { if (e.retryable) Result.retry() else Result.failure() }
+        catch (_: Exception) { Result.retry() }
+    }
+}
