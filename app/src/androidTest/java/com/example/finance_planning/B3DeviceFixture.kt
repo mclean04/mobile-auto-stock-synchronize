@@ -24,6 +24,7 @@ import java.time.Instant
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.atomic.AtomicReference
 
 /** Test-APK-only wiring. No Firebase credentials or real broker transport is used. */
 internal class B3DeviceFixture(val context: Context, val config: JSONObject, val phase: String) {
@@ -42,6 +43,7 @@ internal class B3DeviceFixture(val context: Context, val config: JSONObject, val
     var switchBeforeSource = false
     var lastSwitch: JSONObject? = null
     var lastActiveSource: JSONObject? = null
+    private val concurrentRequestId = AtomicReference<String?>()
     val reportAcks = java.util.concurrent.CopyOnWriteArrayList<JSONObject>()
     var scenario = phase
     private val isolated = object : ContextWrapper(context) {
@@ -64,7 +66,37 @@ internal class B3DeviceFixture(val context: Context, val config: JSONObject, val
                 trace("report_transport_offline", JSONObject().put("payload", body))
                 throw IOException("Test-only offline report transport")
             }
-            val result = http(requested.rawPath + (requested.rawQuery?.let { "?$it" } ?: ""), method, body)
+            val concurrentPreflight = phase == "concurrent" && method == "POST" &&
+                requested.path.endsWith("/preflight")
+            if (concurrentPreflight) awaitConcurrentRelease(requested.path, requireNotNull(body))
+            val started = System.nanoTime()
+            val result = try {
+                http(requested.rawPath + (requested.rawQuery?.let { "?$it" } ?: ""), method, body)
+            } catch (error: Throwable) {
+                if (concurrentPreflight) coordinatorEvent(if (error is HttpFailure && error.status == 409)
+                    "PREFLIGHT_CONFLICT" else "PREFLIGHT_FAILED", JSONObject()
+                    .put("elapsed_ms", (System.nanoTime() - started) / 1_000_000)
+                    .put("http_status", (error as? HttpFailure)?.status ?: 0)
+                    .put("code", (error as? HttpFailure)?.code ?: "UNKNOWN"))
+                if (phase == "concurrent" && requested.path == "/v2/orders/placed")
+                    coordinatorEvent("PLACED_REPORT_FAILED", JSONObject()
+                        .put("elapsed_ms", (System.nanoTime() - started) / 1_000_000)
+                        .put("http_status", (error as? HttpFailure)?.status ?: 0)
+                        .put("placed_request_id", body?.optString("request_id") ?: "UNKNOWN"))
+                throw error
+            }
+            if (concurrentPreflight) {
+                val eligible = (result.optJSONObject("eligibility") ?: result).optBoolean("eligible", false)
+                coordinatorEvent(if (eligible) "PREFLIGHT_ACCEPTED" else "PREFLIGHT_FAILED", JSONObject()
+                    .put("elapsed_ms", (System.nanoTime() - started) / 1_000_000)
+                    .put("http_status", 200).put("preflight_id", result.optString("preflight_id", "UNKNOWN"))
+                    .put("code", if (eligible) "NONE" else "NOT_ELIGIBLE"))
+            }
+            if (phase == "concurrent" && requested.path == "/v2/orders/placed")
+                coordinatorEvent("PLACED_REPORT_ACCEPTED", JSONObject()
+                    .put("elapsed_ms", (System.nanoTime() - started) / 1_000_000)
+                    .put("http_status", 200)
+                    .put("placed_request_id", body?.optString("request_id") ?: "UNKNOWN"))
             if (requested.path == "/v2/planning/source") lastActiveSource = result
             if (requested.path == "/v2/orders/placed") reportAcks.add(result)
             if (requested.path == "/v2/orders/placed" && dropNextAck) {
@@ -94,6 +126,11 @@ internal class B3DeviceFixture(val context: Context, val config: JSONObject, val
                 val calls = brokerCalls.incrementAndGet()
                 val marker = runBlocking { journal() }
                 check(marker?.getString("state") == "UNKNOWN")
+                val fakeOrderId = "B3-$run-$scenario-${deviceId.take(8)}"
+                if (phase == "concurrent") runBlocking {
+                    coordinatorEvent("FAKE_BROKER_INVOKED", JSONObject()
+                        .put("route", "ANDROID_INJECTED_FAKE_ONLY").put("order_id", fakeOrderId))
+                }
                 trace("fake_broker_called", JSONObject().put("calls", calls).put("journal", marker))
                 if (killAfterMarker) {
                     trace("process_kill_after_unknown", JSONObject().put("journal", marker)
@@ -103,8 +140,11 @@ internal class B3DeviceFixture(val context: Context, val config: JSONObject, val
                 }
                 brokerRelease?.let { check(it.await(15, TimeUnit.SECONDS)) }
                 if (brokerTimeout) throw IOException("Test-only ambiguous broker response")
-                JSONObject().put("id", "B3-$run-$scenario-${deviceId.take(8)}")
-                    .put("orderStatus", "PENDING").put("fillQuantity", "0")
+                if (phase == "concurrent") runBlocking {
+                    coordinatorEvent("FAKE_BROKER_ACCEPTED", JSONObject()
+                        .put("route", "ANDROID_INJECTED_FAKE_ONLY").put("order_id", fakeOrderId))
+                }
+                JSONObject().put("id", fakeOrderId).put("orderStatus", "PENDING").put("fillQuantity", "0")
             }
             else -> error("No fake response for $path")
         }
@@ -189,8 +229,89 @@ internal class B3DeviceFixture(val context: Context, val config: JSONObject, val
             trace("http", JSONObject().put("method", method).put("path", path).put("status", status)
                 .put("elapsed_ms", (System.nanoTime() - start) / 1000000).put("request", body ?: JSONObject.NULL)
                 .put("response", json))
-            if (status !in 200..299) throw HttpFailure(status)
+            if (status !in 200..299) throw HttpFailure(status, HttpFailure.safeCode(json.toString()))
             json
+        }
+    }
+
+    private suspend fun awaitConcurrentRelease(path: String, request: JSONObject) {
+        val source = request.getJSONObject("source_context")
+        val requestId = request.getString("request_id")
+        require(request.getString("device_id") == deviceId)
+        concurrentRequestId.compareAndSet(null, requestId)
+        require(concurrentRequestId.get() == requestId)
+        val intentId = path.substringAfter("/v2/planning/intents/").substringBefore("/preflight")
+        val ready = JSONObject().put("run_id", run)
+            .put("participant_id", config.getString("participant_id"))
+            .put("device_id", deviceId).put("request_id", requestId)
+            .put("intent_id", intentId).put("version", request.getInt("expected_version"))
+            .put("source_id", source.getString("source_id"))
+            .put("source_generation", source.getLong("source_generation"))
+            .put("client_ready_at_utc", Instant.now().toString())
+            .put("client_ready_monotonic_ns", System.nanoTime())
+        val released = coordinator("/v1/barrier/ready", ready)
+        require(released.getBoolean("released"))
+        trace("two_device_barrier_released", JSONObject().put("ready", ready).put("release", released))
+    }
+
+    suspend fun coordinatorEvent(event: String, fields: JSONObject = JSONObject()) {
+        if (phase != "concurrent") return
+        val requestId = requireNotNull(concurrentRequestId.get())
+        val payload = JSONObject().put("run_id", run)
+            .put("participant_id", config.getString("participant_id"))
+            .put("device_id", deviceId).put("request_id", requestId)
+            .put("event", event).put("at_utc", Instant.now().toString())
+        fields.keys().forEach { payload.put(it, fields.get(it)) }
+        coordinator("/v1/events", payload)
+        trace("two_device_coordinator_event", payload)
+    }
+
+    suspend fun coordinatorAbort(reason: String) {
+        if (phase != "concurrent") return
+        runCatching { coordinator("/v1/barrier/abort", JSONObject()
+            .put("participant_id", config.getString("participant_id")).put("reason", reason)) }
+    }
+
+    /** Separate localhost-only coordinator channel. It has no auth header or non-loopback route. */
+    private suspend fun coordinator(path: String, body: JSONObject): JSONObject = withContext(Dispatchers.IO) {
+        val base = URI(config.getString("coordinator_url"))
+        require(base.scheme == "http" && base.host == "127.0.0.1" && base.port in 1024..65535)
+        require(path in setOf("/v1/barrier/ready", "/v1/barrier/abort", "/v1/events"))
+        val bytes = body.toString().toByteArray(Charsets.UTF_8)
+        Socket(base.host, base.port).use { socket ->
+            socket.soTimeout = 90000
+            val head = "POST $path HTTP/1.1\r\nHost: 127.0.0.1:${base.port}\r\n" +
+                "Content-Type: application/json\r\nContent-Length: ${bytes.size}\r\nConnection: close\r\n\r\n"
+            socket.getOutputStream().apply { write(head.toByteArray(Charsets.UTF_8)); write(bytes); flush() }
+            val input = socket.getInputStream().buffered()
+            fun line(): String {
+                val output = java.io.ByteArrayOutputStream()
+                while (true) {
+                    val next = input.read()
+                    if (next == -1 || next == 10) break
+                    if (next != 13) output.write(next)
+                    require(output.size() < 16384)
+                }
+                return output.toString("UTF-8")
+            }
+            val status = line().split(" ")[1].toInt()
+            val headers = mutableMapOf<String, String>()
+            while (true) {
+                val next = line()
+                if (next.isEmpty()) break
+                headers[next.substringBefore(":").lowercase()] = next.substringAfter(":").trim()
+            }
+            val length = headers.getValue("content-length").toInt().also { require(it in 0..65536) }
+            val raw = ByteArray(length)
+            var offset = 0
+            while (offset < length) {
+                val count = input.read(raw, offset, length - offset)
+                check(count > 0); offset += count
+            }
+            val response = JSONObject(String(raw, Charsets.UTF_8))
+            if (status !in 200..299) throw IOException("Local coordinator rejected request: " +
+                response.optString("error", "UNKNOWN"))
+            response
         }
     }
 

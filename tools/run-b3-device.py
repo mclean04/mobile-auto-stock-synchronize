@@ -13,7 +13,8 @@ p = argparse.ArgumentParser()
 p.add_argument("--config", type=Path, required=True, help="Local test service config; contains only test auth")
 p.add_argument("--transport-id", required=True)
 p.add_argument("--phase", required=True, choices=[
-    "readiness", "accepted", "resume_accepted", "unknown", "kill_unknown", "resume_unknown", "stale", "late", "resume_late"])
+    "readiness", "accepted", "resume_accepted", "unknown", "kill_unknown", "resume_unknown",
+    "stale", "late", "resume_late", "concurrent"])
 p.add_argument("--output", type=Path, required=True)
 p.add_argument("--install", action="store_true")
 p.add_argument("--adb", default="/Users/tuanh/Library/Android/sdk/platform-tools/adb")
@@ -29,6 +30,12 @@ assert re.fullmatch(r"[A-Za-z0-9-]{1,60}", config["run_id"])
 uuid.UUID(config["device_id"])
 base = urlparse(config["base_url"])
 assert base.scheme == "http" and base.hostname == "127.0.0.1" and 1024 <= base.port <= 65535
+coordinator = None
+if a.phase == "concurrent":
+    assert re.fullmatch(r"[A-Za-z0-9._:-]{1,200}", config["participant_id"])
+    coordinator = urlparse(config["coordinator_url"])
+    assert coordinator.scheme == "http" and coordinator.hostname == "127.0.0.1"
+    assert 1024 <= coordinator.port <= 65535 and coordinator.port != base.port
 adb = [a.adb, "-t", a.transport_id]
 package = "com.example.finance_planning"
 test_package = "com.example.finance_planning.qa.test"
@@ -42,7 +49,10 @@ for name, file in [(package, root / "app/build/outputs/apk/debug/app-debug.apk")
                    (test_package, root / "app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk")]:
     digest = hashlib.sha256(file.read_bytes()).hexdigest()
     if a.install:
-        result = call("install", "-r", str(file), text=True)
+        install = ["install", "--user", "0", "-r"]
+        if name == test_package:
+            install.append("-t")
+        result = call(*install, str(file), text=True)
         assert "Success" in result.stdout
     paths = call("shell", "pm", "path", name, text=True).stdout.strip().splitlines()
     assert len(paths) == 1 and paths[0].startswith("package:/data/app/")
@@ -53,6 +63,8 @@ for name, file in [(package, root / "app/build/outputs/apk/debug/app-debug.apk")
     artifacts[name] = {"path": str(file), "sha256": digest, "installed_sha256": actual}
 
 call("reverse", f"tcp:{base.port}", f"tcp:{base.port}")
+if coordinator is not None:
+    call("reverse", f"tcp:{coordinator.port}", f"tcp:{coordinator.port}")
 call("shell", "am", "force-stop", package)
 # Use stdin: do not put the local test bearer in argv or print it.
 call("shell", "run-as", package, "sh", "-c", "'cat > files/b3-config.json'",

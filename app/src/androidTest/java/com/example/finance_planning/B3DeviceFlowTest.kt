@@ -40,7 +40,8 @@ class B3DeviceFlowTest {
         val file = File(context.filesDir, args.getString("b3_config", "b3-config.json"))
         val config = JSONObject(file.readText())
         val phase = requireNotNull(args.getString("b3_phase"))
-        require(phase in setOf("readiness", "accepted", "resume_accepted", "late", "resume_late", "stale", "unknown", "kill_unknown", "resume_unknown"))
+        require(phase in setOf("readiness", "accepted", "resume_accepted", "late", "resume_late",
+            "stale", "unknown", "kill_unknown", "resume_unknown", "concurrent"))
         f = B3DeviceFixture(context, config, phase)
         f.scenario = if (phase == "kill_unknown") "unknown" else phase.removePrefix("resume_")
         try {
@@ -89,9 +90,13 @@ class B3DeviceFlowTest {
             assertEquals(0, f.listCalls.get())
             f.trace("local_start_no_list_request", JSONObject().put("cached", stored != null))
             if (phase.startsWith("resume_")) resume(phase)
+            else if (phase == "concurrent") executeConcurrent()
             else execute(phase)
             f.trace("PASS", JSONObject().put("broker_calls", f.brokerCalls.get()).put("list_requests", f.listCalls.get()))
         } catch (e: Throwable) {
+            if (::f.isInitialized && phase == "concurrent") {
+                try { f.coordinatorAbort("participant_failed") } catch (_: Throwable) { }
+            }
             runCatching {
                 val roots = compose.onAllNodes(isRoot(), useUnmergedTree = true)
                 repeat(roots.fetchSemanticsNodes().size) { i ->
@@ -101,6 +106,33 @@ class B3DeviceFlowTest {
             f.trace("FAIL", JSONObject().put("type", e.javaClass.name).put("message", e.message))
             throw e
         } finally { f.close() }
+    }
+
+    private suspend fun executeConcurrent() {
+        refresh()
+        traceLocalTabs()
+        openDialog()
+        verifyReview()
+        compose.onNodeWithText(text(R.string.trade_confirm_place)).performClick()
+        val claimed = text(R.string.planning_execution_claimed_other_device)
+        compose.waitUntil(90000) {
+            f.brokerCalls.get() == 1 || compose.onAllNodesWithText(claimed).fetchSemanticsNodes().isNotEmpty()
+        }
+        val winner = f.brokerCalls.get() == 1
+        if (winner) {
+            compose.waitUntil(60000) {
+                compose.onAllNodesWithText(text(R.string.trade_confirm_place)).fetchSemanticsNodes().isEmpty()
+            }
+            assertEquals("SUBMITTED", f.journal()!!.getString("state"))
+            f.coordinatorEvent("PARTICIPANT_COMPLETE", JSONObject().put("result", "SUBMITTED"))
+        } else {
+            compose.onNodeWithText(claimed).assertIsDisplayed()
+            assertNull(f.journal())
+            assertEquals(0, f.brokerCalls.get())
+            f.coordinatorEvent("PARTICIPANT_COMPLETE", JSONObject().put("result", "CLAIM_CONFLICT"))
+        }
+        f.trace("concurrent_confirmation_result", JSONObject().put("winner", winner)
+            .put("broker_calls", f.brokerCalls.get()).put("journal", f.journal() ?: JSONObject.NULL))
     }
 
     private fun refresh() {

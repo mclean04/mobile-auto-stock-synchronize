@@ -520,6 +520,8 @@ class PlanningRepository(val identity: MobileIdentity, private val vault: Vault,
                     beforeBrokerWrite = { preflight ->
                         check()
                         journal.put("preflight_id", preflight.preflightId.toString())
+                            .put("preflight_request_id", preflightRequestId)
+                            .put("device_id", reportingDevice)
                         // Durable UNKNOWN marker precedes the network write. A timeout never permits retry.
                         save(journalKey, journal)
                         observation.record(ObservationComponent.CACHE, ObservationAction.PLACE_ORDER,

@@ -77,7 +77,40 @@ python3 tools/run-b3-device.py --config /private/tmp/b3-config.json --transport-
 python3 tools/run-b3-device.py --config /private/tmp/b3-config.json --transport-id 7 --phase resume_accepted --output /private/tmp/b3-evidence
 ```
 
-The runner installs with -r only, checks the installed app/test APK SHA-256
+The concurrent case must use the host coordinator; two independent runner commands are
+not concurrency evidence:
+
+```sh
+chmod 600 /private/tmp/b3-device-one.json /private/tmp/b3-device-two.json
+python3 tools/run-b3-two-device.py \
+  --device-one-config /private/tmp/b3-device-one.json \
+  --device-two-config /private/tmp/b3-device-two.json \
+  --transport-one <tablet-transport> \
+  --transport-two <phone-transport> \
+  --output /private/tmp/b3-two-device-evidence
+```
+
+Each private config names the same `intents.concurrent`, run, UID, account and Backend
+loopback URL, but carries its own verified `device_id`. The runner starts one
+`ThreadingHTTPServer` bound to `127.0.0.1`, gives each device a separate ADB reverse,
+launches both instrumentation processes, and removes both coordinator reverses in
+`finally`. It never starts a cloud service or uploads evidence.
+
+The barrier is reached inside the test transport after the production guard's fresh
+intent read and immediately before the Backend preflight request. It releases only when
+both participants present an identical intent/version/source tuple with distinct device
+and durable request IDs. Timeout, canonical mismatch, participant failure or operator
+cancel aborts the generation without releasing one device. Recovery requires a new
+generation and is allowed only before any fake-broker event.
+
+The aggregate oracle requires one eligible preflight, one explicit HTTP 409
+`intent_execution_claimed`, no other preflight failure, at most one fake-broker
+invocation/acceptance, at most one placed report, unique fake order IDs, and terminal
+results `SUBMITTED` plus `CLAIM_CONFLICT`. Broker events are accepted only with route
+`ANDROID_INJECTED_FAKE_ONLY`.
+
+The runner installs on Android user 0 with `-r` (and `-t` only for the QA test APK),
+checks the installed app/test APK SHA-256
 against local artifacts, forwards the test-service port and writes configuration
 through stdin without exposing its bearer in argv. Each phase runs in a fresh
 instrumentation process. It exports test output, JSONL trace and a hash/PID
@@ -108,6 +141,7 @@ order is absent in bounded, untruncated native sandbox readback.
 | kill_unknown / resume_unknown | Intentional process kill inside fake broker after durable UNKNOWN, before response; after restart the real session retains UNKNOWN and does not retry broker |
 | stale | Test service switches source after valid preflight/UNKNOWN and before final active-source read; production guard blocks broker |
 | late / resume_late | Report transport offline before send, durable original-source payload; switch A→B; fresh process sends the original payload and validates quarantine ACK, with native QA readback and zero broker retries |
+| concurrent | Both devices block at one localhost barrier with the same canonical tuple; coordinated Backend claim permits one fake-broker path and returns explicit conflict to the other device; host oracle aggregates both traces |
 
 Use separately seeded service runs for source-switch cases when necessary; never
 silently retarget an old payload or reset an operational source. Previous unit and
