@@ -1,5 +1,9 @@
 # DEC-008 Android local package
 
+DEC009 supersedes producer provenance for Sprint1 with local Codex scheduled
+execution and real QA resources. See [the local provenance consumer](DEC009-LOCAL-PROVENANCE.md)
+and its immutable policy template. Cloud Scheduled proof remains unassessed.
+
 This package supplies Android adapters and offline evidence checks for the three-session
 campaign. Compilation and local tests are development evidence. They are not device,
 FCM, Scheduled-origin, Google projection, or System QA acceptance. BA coordinates all

@@ -17,6 +17,7 @@ from urllib.parse import urlparse
 
 from qa_session_guard import SessionWindow, parse_reverse_list, reverse_restore_args
 from two_device_coordinator import TwoDeviceCoordinator, make_handler
+from campaign_artifacts import add_artifact_options, artifacts_from_args, artifact_arguments
 
 
 def private_write(path: Path, value: str):
@@ -37,6 +38,7 @@ parser.add_argument("--coordinator-port", type=int, default=0)
 parser.add_argument("--barrier-timeout-seconds", type=float, default=45)
 parser.add_argument("--install", action="store_true")
 parser.add_argument("--adb", default="/Users/tuanh/Library/Android/sdk/platform-tools/adb")
+add_artifact_options(parser)
 args = parser.parse_args()
 
 session = SessionWindow.parse(args.session_start_utc, args.session_end_utc)
@@ -52,6 +54,7 @@ for source in (args.device_one_config, args.device_two_config):
         raise SystemExit("each private device config must exist with mode 0600")
 
 configs = [json.loads(args.device_one_config.read_text()), json.loads(args.device_two_config.read_text())]
+local_artifacts = artifacts_from_args(args, campaign=any("campaign_id" in c for c in configs))
 if "campaign_id" in configs[0]:
     session.require_business()
 same = ("run_id", "uid", "account", "base_url", "campaign_id", "session_id", "manifest_hash", "session_kind", "case_id")
@@ -137,6 +140,7 @@ try:
                        "--output", str(device_output), "--session-start-utc", args.session_start_utc,
                        "--session-end-utc", args.session_end_utc, "--routes-managed-by-parent",
                        "--adb", args.adb]
+            command += artifact_arguments(local_artifacts)
             if args.install:
                 command.append("--install")
             stdout_file, stderr_file = tempfile.TemporaryFile(), tempfile.TemporaryFile()

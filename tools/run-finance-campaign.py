@@ -11,6 +11,8 @@ import sys
 from pathlib import Path
 
 from campaign_oracles import KINDS, campaign_result, evaluate, no_secrets
+from campaign_artifacts import resolve_artifacts, artifact_arguments
+from local_producer_provenance import CASES as PRODUCER_CASES, SCOPE, policy_valid
 
 ROOT = Path(__file__).resolve().parents[1]
 PHASES = {
@@ -26,6 +28,8 @@ def manifest_errors(manifest):
     if manifest.get("schema_version") != "finance-e2e-campaign.v1":
         errors.append("manifest_schema")
     no_secrets(manifest)
+    if not policy_valid(manifest.get("resources", {}).get("local_producer_policy")):
+        errors.append("missing_or_invalid_local_producer_policy")
     for section, keys in {
         "backend": ("commit", "tree", "image_digest", "service", "job", "rollback_evidence"),
         "android": ("commit", "app_sha256", "test_sha256", "signing_sha256", "devices", "rollback_evidence"),
@@ -98,6 +102,10 @@ def write_private(path, value):
 def case_expectations(wire, session, case):
     frozen = next(s for s in wire["sessions"] if s["id"] == session["id"])
     bound = {"policy": frozen["backend_policy"]["cases"][case]}
+    if case in PRODUCER_CASES:
+        bound.update(local_producer_policy=wire["resources"].get("local_producer_policy"),
+                     source_context=wire["resources"]["source_context"],
+                     calendar_id=wire["resources"].get("calendar_id"))
     if case in {"P1", "P4"}:
         fixture = next(f for f in wire["fixtures"] if f["id"] == case.lower())
         payload = dict(fixture["payload"])
@@ -145,7 +153,8 @@ def main():
     errors = manifest_errors(manifest)
     if args.command == "inspect":
         write_private(args.output, {"result": "BLOCKED" if errors else "READY_FOR_REVIEW",
-            "errors": errors, "cases": KINDS, "runtime_started": False})
+            "errors": errors, "cases": KINDS, "runtime_started": False,
+            "acceptance_scope": SCOPE, "cloud_scheduled_proof": "NOT_EVALUATED"})
         return
     if args.command == "evaluate":
         wire = json.loads(args.wire_manifest.read_text())
@@ -169,6 +178,7 @@ def main():
         cleanup = all(closure.get(key) is True for key in (
             "test_tasks_disabled", "qa_disarmed", "source_restored", "devices_restored", "logs_reconciled"))
         write_private(args.output, {"campaign_id": manifest["campaign_id"], "cases": records,
+            "acceptance_scope": SCOPE, "cloud_scheduled_proof": "NOT_EVALUATED",
             "matrix_result": result, "cleanup_verified": cleanup,
             "ready_for_ba_review": result == "PASS" and cleanup and not errors,
             "sprint_closed": False, "manifest_errors": errors})
@@ -194,11 +204,7 @@ def main():
             intents = cfg["intents"]
             if not intents.get("unknown") or not intents.get("accepted") or intents["unknown"] == intents["accepted"]:
                 raise ValueError("independent_ambiguity_intent_required")
-    artifacts = (("app_sha256", "app/build/outputs/apk/debug/app-debug.apk"),
-                 ("test_sha256", "app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk"))
-    for key, relative in artifacts:
-        if hashlib.sha256((ROOT / relative).read_bytes()).hexdigest() != manifest["android"][key]:
-            raise ValueError("unpinned_" + key)
+    artifacts = resolve_artifacts(manifest["android"])
     if args.case == "X1":
         if not args.second_config or not args.second_transport:
             raise ValueError("two_actual_devices_required")
@@ -210,6 +216,7 @@ def main():
                    "--transport-id", args.transport, "--phase", args.phase]
     command += ["--output", str(args.output), "--session-start-utc", args.session_start_utc,
                 "--session-end-utc", args.session_end_utc, "--adb", args.adb]
+    command += artifact_arguments(artifacts)
     # One explicit phase per invocation: never catch up, schedule, retry an economic action or choose T0.
     raise SystemExit(subprocess.run(command, check=False).returncode)
 

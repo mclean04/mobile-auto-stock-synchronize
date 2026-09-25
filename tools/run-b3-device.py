@@ -12,6 +12,7 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 from qa_session_guard import SessionWindow, SessionWindowError, parse_reverse_list, reverse_restore_args
+from campaign_artifacts import add_artifact_options, artifacts_from_args
 
 
 def private_write(path: Path, value: str):
@@ -32,11 +33,13 @@ p.add_argument("--session-start-utc")
 p.add_argument("--session-end-utc")
 p.add_argument("--routes-managed-by-parent", action="store_true", help=argparse.SUPPRESS)
 p.add_argument("--adb", default="/Users/tuanh/Library/Android/sdk/platform-tools/adb")
+add_artifact_options(p)
 a = p.parse_args()
 root = Path(__file__).resolve().parents[1]
 if stat.S_IMODE(a.config.stat().st_mode) != 0o600:
     raise SystemExit("private_config_mode_must_be_0600")
 config = json.loads(a.config.read_text())
+local_artifacts = artifacts_from_args(a, campaign="campaign_id" in config)
 if "service_url" in config:
     config.setdefault("evidence_kind", "native_qa_readiness" if a.phase == "readiness" else "native_qa_http")
 if a.phase != "readiness":
@@ -107,9 +110,8 @@ route_restored = True
 config_written = False
 artifacts = {}
 try:
-    for name, file in [(package, root / "app/build/outputs/apk/debug/app-debug.apk"),
-                       (test_package, root / "app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk")]:
-        digest = hashlib.sha256(file.read_bytes()).hexdigest()
+    for name, (file, digest) in [(package, local_artifacts["app"]),
+                                 (test_package, local_artifacts["test"])]:
         if a.install:
             install = ["install", "--user", "0", "-r"]
             if name == test_package:

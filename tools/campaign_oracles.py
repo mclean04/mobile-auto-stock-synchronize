@@ -7,6 +7,7 @@ import re
 from datetime import datetime, timezone
 from decimal import Decimal, ROUND_CEILING, InvalidOperation
 from pathlib import Path
+from local_producer_provenance import CASES as PRODUCER_CASES, SCOPE, verify as verify_local_producer, normalized_bytes
 
 KINDS = {
     "PLANNING": tuple(f"P{i}" for i in range(1, 7)),
@@ -91,22 +92,10 @@ def p4_delta_checks(f, bound):
     }
 
 
-def provenance(p):
-    if p.get("level") == "DIRECT":
-        return bool(p.get("task_id") and p.get("run_id") and p.get("platform_link"))
-    if p.get("level") == "INDIRECT_ACCEPTED":
-        return (p.get("ba_accepted") is True and p.get("manual_invocation") is False and
-                p.get("saved_one_shot") is True and bool(p.get("last_run_before")) and
-                bool(p.get("last_run_after")) and p["last_run_before"] != p["last_run_after"] and
-                p.get("artifact_markers_match") is True and bool(p.get("task_id")))
-    return False
-
-
 def checks(case, f, bound=None):
-    """Missing fields raise rather than defaulting absent counts to zero."""
+    """Business checks only; evaluate() additionally verifies parsed producer provenance."""
     if case in {"P1", "P4"}:
         common = {
-            "scheduled_provenance": provenance(f["provenance"]),
             "producer_columns_only": producer_columns(f, bound),
             "exact_sheet_readback": same_digest(f["submitted_payload_sha256"], f["sheet_payload_sha256"]),
             "sandbox": f["environment"] == "sandbox",
@@ -158,7 +147,6 @@ def checks(case, f, bound=None):
         opens = max(25 if case == "N1" else 70, policy["opens_after_seconds"] / 60)
         ends = min(40 if case == "N1" else 90, policy["ends_after_seconds"] / 60)
         return {"kind": f["kind"] == ("DAILY" if case == "N1" else "MONTHLY"),
-                "scheduled_provenance": provenance(f["provenance"]),
                 "private_test_artifact": f["calendar_private"] is True and f["calendar_transparent"] is True
                     and f["attendee_count"] == 0 and f["reminder_count"] == 0 and f["mode"] == "TEST",
                 "exact_chain": len(set(f["event_ids"])) == 1 and len(f["event_ids"]) >= 3 and all(f["event_ids"]),
@@ -248,7 +236,8 @@ def evaluate(packet: dict, evidence_root: Path, bound=None) -> dict:
         raise ValueError("unknown_case")
     base = {"case_id": case, "campaign_id": packet.get("campaign_id"),
             "session_id": packet.get("session_id"), "manifest_hash": packet.get("manifest_hash"),
-            "checks": {}, "result": "UNKNOWN"}
+            "checks": {}, "result": "UNKNOWN", "acceptance_scope": SCOPE,
+            "cloud_scheduled_proof": "NOT_EVALUATED"}
     for key in ("campaign_id", "session_id", "manifest_hash", "server_timestamp"):
         if not packet.get(key):
             return base | {"reason": "missing_" + key}
@@ -264,20 +253,30 @@ def evaluate(packet: dict, evidence_root: Path, bound=None) -> dict:
     if not refs or packet.get("truncated") is not False:
         return base | {"reason": "missing_or_truncated_evidence"}
     root = evidence_root.resolve()
+    blobs = {}
     for ref in refs:
         path = (root / ref["path"]).resolve()
         if not path.is_relative_to(root) or not path.is_file():
             return base | {"reason": "evidence_path_unavailable"}
-        if hashlib.sha256(path.read_bytes()).hexdigest() != ref["sha256"]:
+        try:
+            raw = normalized_bytes(ref, path.read_bytes())
+        except (ValueError, TypeError):
+            return base | {"reason": "unsupported_or_malformed_evidence"}
+        if hashlib.sha256(raw).hexdigest() != ref["sha256"]:
             return base | {"result": "FAIL", "reason": "evidence_digest_mismatch"}
+        if ref["path"] in blobs:
+            return base | {"reason": "duplicate_evidence_path"}
+        blobs[ref["path"]] = raw
     try:
         if case in {"P1", "P4", "N1", "N2", "X2"} and bound is None:
             return base | {"reason": "missing_immutable_case_expectations"}
         outcomes = checks(case, packet["facts"], bound)
+        if case in PRODUCER_CASES:
+            outcomes["scheduled_provenance"] = verify_local_producer(packet["facts"]["provenance"], packet, bound, blobs)
         if case == "X2" and packet["facts"].get("ambiguity"):
             outcomes["ambiguity_evidence_linked"] = packet["facts"]["ambiguity"]["evidence_sha256"] in {
                 ref["sha256"] for ref in refs}
-    except (KeyError, TypeError, ValueError, IndexError, InvalidOperation):
+    except (KeyError, TypeError, ValueError, IndexError, StopIteration, InvalidOperation):
         return base | {"reason": "incomplete_or_malformed_facts"}
     return base | {"checks": outcomes, "result": "PASS" if all(outcomes.values()) else "FAIL",
                    "basis": "OWNER_FACTS_WITH_HASHED_EVIDENCE_REQUIRES_INDEPENDENT_QA_REVIEW",
