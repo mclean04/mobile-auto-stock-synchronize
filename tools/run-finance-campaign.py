@@ -1,0 +1,182 @@
+#!/usr/bin/env python3
+"""DEC-008 local evidence index and fixed Android adapters. Never schedules or arms QA."""
+import argparse
+import hashlib
+import json
+import os
+import re
+import stat
+import subprocess
+import sys
+from pathlib import Path
+
+from campaign_oracles import KINDS, campaign_result, evaluate, no_secrets
+
+ROOT = Path(__file__).resolve().parents[1]
+PHASES = {
+    "P3": ("planning_display",), "P4": ("planning_display",),
+    "X1": ("concurrent",), "X2": ("accepted", "resume_accepted"),
+    "X3": ("denied",), "X4": ("snapshot", "stale"),
+    "X5": ("late", "resume_late"),
+}
+
+
+def manifest_errors(manifest):
+    errors = []
+    if manifest.get("schema_version") != "finance-e2e-campaign.v1":
+        errors.append("manifest_schema")
+    no_secrets(manifest)
+    for section, keys in {
+        "backend": ("commit", "tree", "image_digest", "service", "job", "rollback_evidence"),
+        "android": ("commit", "app_sha256", "test_sha256", "signing_sha256", "devices", "rollback_evidence"),
+        "resources": ("test_tasks", "qa_sheets", "calendar_id", "source_context", "access_evidence"),
+        "release": ("ba_handoffs_accepted", "po_runtime_release", "cost_authority"),
+    }.items():
+        for key in keys:
+            if not manifest.get(section, {}).get(key):
+                errors.append(f"missing_{section}.{key}")
+    if not manifest.get("campaign_id"):
+        errors.append("missing_campaign_id")
+    sessions = manifest.get("sessions", [])
+    if len(sessions) != 3 or {s.get("kind") for s in sessions} != set(KINDS):
+        errors.append("three_session_kinds_required")
+    ids = [s.get("id") for s in sessions]
+    if None in ids or len(set(ids)) != 3:
+        errors.append("distinct_session_ids_required")
+    for s in sessions:
+        if set(s.get("cases", [])) != set(KINDS.get(s.get("kind"), ())):
+            errors.append("case_matrix_mismatch")
+        if not re.fullmatch(r"[0-9a-f]{64}", str(s.get("preparation_manifest_hash", ""))):
+            errors.append("unfrozen_session_manifest")
+    return sorted(set(errors))
+
+
+def validate_wire_manifest(wire, index, session):
+    """Hash the exact immutable Backend input, never the BA result index."""
+    no_secrets(wire)
+    digest = hashlib.sha256(json.dumps(wire, sort_keys=True, separators=(",", ":"),
+                                     ensure_ascii=False, allow_nan=False).encode()).hexdigest()
+    if digest != session["preparation_manifest_hash"]:
+        raise ValueError("wire_manifest_digest_mismatch")
+    if wire.get("campaign_id") != index["campaign_id"]:
+        raise ValueError("wire_campaign_mismatch")
+    for key in ("backend", "android", "resources", "release", "fixtures"):
+        if wire.get(key) != index.get(key):
+            raise ValueError("wire_index_pins_mismatch_" + key)
+    if wire.get("case_records"):
+        raise ValueError("runtime_ledger_must_be_separate")
+    frozen = next(s for s in wire["sessions"] if s["id"] == session["id"])
+    if frozen["kind"] != session["kind"] or frozen["cases"] != session["cases"]:
+        raise ValueError("wire_session_mismatch")
+    policy = frozen["backend_policy"]
+    if not 1 <= policy["preparation_seconds"] <= 3600:
+        raise ValueError("wire_preparation_deadline")
+    for case, bound in policy["cases"].items():
+        if any(not isinstance(e, str) for e in bound.get("required_evidence", [])):
+            raise ValueError("future_evidence_hash_in_manifest")
+        if case == "P4" and (bound.get("accept_before_seconds") != 2100 or
+                bound.get("artifact_accept_before_seconds") != 3300 or
+                not {"p2_canonical", "p3_display", "p3_unapproved_denial"}.issubset(bound["required_evidence"])):
+            raise ValueError("p4_separate_gates_required")
+        if case in {"N1", "N2"}:
+            accept, process = (1200, 1500) if case == "N1" else (3900, 4200)
+            if bound.get("accept_before_seconds") != accept or not process <= bound["opens_after_seconds"] < bound["ends_after_seconds"] <= 5400:
+                raise ValueError("notification_separate_gates_required")
+    return digest
+
+
+def write_private(path, value):
+    path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+    if stat.S_IMODE(path.parent.stat().st_mode) & 0o077:
+        raise ValueError("use_a_private_evidence_directory")
+    fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    with os.fdopen(fd, "w") as stream:
+        json.dump(value, stream, indent=2, sort_keys=True)
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--manifest", type=Path, required=True)
+    parser.add_argument("--output", type=Path, required=True)
+    sub = parser.add_subparsers(dest="command", required=True)
+    sub.add_parser("inspect")
+    review = sub.add_parser("evaluate")
+    review.add_argument("--packet", type=Path, action="append", required=True)
+    review.add_argument("--evidence-root", type=Path, required=True)
+    run = sub.add_parser("device-phase")
+    run.add_argument("--case", required=True, choices=PHASES)
+    run.add_argument("--phase", required=True)
+    run.add_argument("--config", type=Path, required=True)
+    run.add_argument("--wire-manifest", type=Path, required=True)
+    run.add_argument("--transport", required=True)
+    run.add_argument("--second-config", type=Path)
+    run.add_argument("--second-transport")
+    run.add_argument("--session-start-utc", required=True)
+    run.add_argument("--session-end-utc", required=True)
+    run.add_argument("--adb", default="/Users/tuanh/Library/Android/sdk/platform-tools/adb")
+    args = parser.parse_args()
+    manifest = json.loads(args.manifest.read_text())
+    errors = manifest_errors(manifest)
+    if args.command == "inspect":
+        write_private(args.output, {"result": "BLOCKED" if errors else "READY_FOR_REVIEW",
+            "errors": errors, "cases": KINDS, "runtime_started": False})
+        return
+    if args.command == "evaluate":
+        records = []
+        for path in args.packet:
+            packet = json.loads(path.read_text())
+            if packet.get("campaign_id") != manifest["campaign_id"]:
+                raise ValueError("packet_campaign_mismatch")
+            session = next(s for s in manifest["sessions"] if packet["case_id"] in s["cases"])
+            if (packet.get("session_id") != session["id"] or
+                    packet.get("manifest_hash") != session["preparation_manifest_hash"]):
+                raise ValueError("packet_session_or_manifest_mismatch")
+            records.append(evaluate(packet, args.evidence_root))
+        result = campaign_result(records)
+        closure = manifest.get("closure", {})
+        cleanup = all(closure.get(key) is True for key in (
+            "test_tasks_disabled", "qa_disarmed", "source_restored", "devices_restored", "logs_reconciled"))
+        write_private(args.output, {"campaign_id": manifest["campaign_id"], "cases": records,
+            "matrix_result": result, "cleanup_verified": cleanup,
+            "ready_for_ba_review": result == "PASS" and cleanup and not errors,
+            "sprint_closed": False, "manifest_errors": errors})
+        return
+    if errors:
+        raise ValueError("runtime_manifest_not_ready:" + ",".join(errors))
+    if args.phase not in PHASES[args.case]:
+        raise ValueError("phase_not_in_case")
+    session = next(s for s in manifest["sessions"] if args.case in s["cases"])
+    validate_wire_manifest(json.loads(args.wire_manifest.read_text()), manifest, session)
+    configs = [args.config] + ([args.second_config] if args.second_config else [])
+    for path in configs:
+        cfg = json.loads(path.read_text())
+        for key, expected in (("campaign_id", manifest["campaign_id"]), ("session_id", session["id"]),
+                              ("manifest_hash", session["preparation_manifest_hash"]),
+                              ("session_kind", session["kind"]), ("case_id", args.case)):
+            if cfg.get(key) != expected:
+                raise ValueError("config_" + key + "_mismatch")
+        devices = {d["device_id"] if isinstance(d, dict) else d for d in manifest["android"]["devices"]}
+        if cfg["device_id"] not in devices:
+            raise ValueError("device_not_in_manifest")
+    artifacts = (("app_sha256", "app/build/outputs/apk/debug/app-debug.apk"),
+                 ("test_sha256", "app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk"))
+    for key, relative in artifacts:
+        if hashlib.sha256((ROOT / relative).read_bytes()).hexdigest() != manifest["android"][key]:
+            raise ValueError("unpinned_" + key)
+    if args.case == "X1":
+        if not args.second_config or not args.second_transport:
+            raise ValueError("two_actual_devices_required")
+        command = [sys.executable, str(ROOT / "tools/run-b3-two-device.py"),
+                   "--device-one-config", str(args.config), "--device-two-config", str(args.second_config),
+                   "--transport-one", args.transport, "--transport-two", args.second_transport]
+    else:
+        command = [sys.executable, str(ROOT / "tools/run-b3-device.py"), "--config", str(args.config),
+                   "--transport-id", args.transport, "--phase", args.phase]
+    command += ["--output", str(args.output), "--session-start-utc", args.session_start_utc,
+                "--session-end-utc", args.session_end_utc, "--adb", args.adb]
+    # One explicit phase per invocation: never catch up, schedule, retry an economic action or choose T0.
+    raise SystemExit(subprocess.run(command, check=False).returncode)
+
+
+if __name__ == "__main__":
+    main()

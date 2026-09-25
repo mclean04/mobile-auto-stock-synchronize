@@ -27,6 +27,11 @@ class SyncWorker(context: Context, params: WorkerParameters) : CoroutineWorker(c
                 } ?: return Result.failure()
                 if (delivery.eventId != event || delivery.targetUid != expectedUid) return Result.failure()
                 val receipt = inputData.getString("receipt") ?: "RECEIVED"
+                val receiptAction = when (receipt) {
+                    "RECEIVED" -> ObservationAction.NOTIFICATION_RECEIVED_RECEIPT
+                    "OPENED" -> ObservationAction.NOTIFICATION_OPENED_RECEIPT
+                    else -> return Result.failure()
+                }
                 val baseCorrelation = ObservationCorrelation.notification(delivery)
                 val fetchStarted = System.nanoTime()
                 app.observationLog.record(ObservationComponent.NOTIFICATION,
@@ -57,17 +62,17 @@ class SyncWorker(context: Context, params: WorkerParameters) : CoroutineWorker(c
                 }
                 val receiptStarted = System.nanoTime()
                 app.observationLog.record(ObservationComponent.NOTIFICATION,
-                    ObservationAction.NOTIFICATION_RECEIPT, ObservationStage.RECEIPT,
+                    receiptAction, ObservationStage.RECEIPT,
                     ObservationResult.STARTED, correlation)
                 try {
                     repo.notificationReceipt(delivery, receipt)
                     app.observationLog.record(ObservationComponent.NOTIFICATION,
-                        ObservationAction.NOTIFICATION_RECEIPT, ObservationStage.SERVER_ACCEPTED,
+                        receiptAction, ObservationStage.SERVER_ACCEPTED,
                         ObservationResult.ACCEPTED, correlation,
                         ProductionObservationLog.elapsedMs(receiptStarted))
                 } catch (error: Throwable) {
                     app.observationLog.record(ObservationComponent.NOTIFICATION,
-                        ObservationAction.NOTIFICATION_RECEIPT, ObservationStage.RECEIPT,
+                        receiptAction, ObservationStage.RECEIPT,
                         ObservationResult.FAILED, correlation,
                         ProductionObservationLog.elapsedMs(receiptStarted), safeError(error))
                     throw error

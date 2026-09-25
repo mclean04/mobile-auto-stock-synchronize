@@ -20,7 +20,7 @@ class QaNotificationConfigTest {
     private val instrumentation = InstrumentationRegistry.getInstrumentation()
     private val app get() = instrumentation.targetContext.applicationContext as PlanningApp
 
-    @Test fun installPrivateConfig() {
+    @Test fun installPrivateConfig() = runBlocking {
         val file = File(instrumentation.targetContext.filesDir, "qa-notification-config.json")
         try {
             require(file.isFile)

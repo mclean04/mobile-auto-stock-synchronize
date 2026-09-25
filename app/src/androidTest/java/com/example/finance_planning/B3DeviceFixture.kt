@@ -43,6 +43,9 @@ internal class B3DeviceFixture(val context: Context, val config: JSONObject, val
     var switchBeforeSource = false
     var lastSwitch: JSONObject? = null
     var lastActiveSource: JSONObject? = null
+    private val campaign = if (config.has("campaign_id")) QaCampaign(
+        config.getString("campaign_id"), config.getString("session_id"),
+        config.getString("manifest_hash"), config.getString("session_kind")) else null
     private val concurrentRequestId = AtomicReference<String?>()
     val reportAcks = java.util.concurrent.CopyOnWriteArrayList<JSONObject>()
     var scenario = phase
@@ -57,10 +60,12 @@ internal class B3DeviceFixture(val context: Context, val config: JSONObject, val
             val requested = URI(url)
             require(requested.scheme == "https" && requested.host == URI(Contracts.BACKEND).host)
             require(requested.path.startsWith("/v2/planning/") || requested.path == "/v2/orders/placed")
+            if (method != "GET") requireCampaign(if (requested.path == "/v2/orders/placed")
+                QaCampaignOperation.COMPLETION else QaCampaignOperation.BUSINESS)
             if (requested.path == "/v2/planning/intents") listCalls.incrementAndGet()
             if (requested.path == "/v2/planning/source" && switchBeforeSource) {
                 switchBeforeSource = false
-                switchSource()
+                awaitOperatorSourceSwitch()
             }
             if (requested.path == "/v2/orders/placed" && holdReports) {
                 trace("report_transport_offline", JSONObject().put("payload", body))
@@ -90,6 +95,7 @@ internal class B3DeviceFixture(val context: Context, val config: JSONObject, val
                 coordinatorEvent(if (eligible) "PREFLIGHT_ACCEPTED" else "PREFLIGHT_FAILED", JSONObject()
                     .put("elapsed_ms", (System.nanoTime() - started) / 1_000_000)
                     .put("http_status", 200).put("preflight_id", result.optString("preflight_id", "UNKNOWN"))
+                    .put("duplicate", result.getBoolean("duplicate"))
                     .put("code", if (eligible) "NONE" else "NOT_ELIGIBLE"))
             }
             if (phase == "concurrent" && requested.path == "/v2/orders/placed")
@@ -123,6 +129,7 @@ internal class B3DeviceFixture(val context: Context, val config: JSONObject, val
             request.method == "POST" && path == "/registration/trading-token" ->
                 JSONObject().put("tradingToken", "FAKE-B3-OTP-TOKEN")
             request.method == "POST" && path == "/accounts/$account/orders" -> {
+                runBlocking { requireCampaign(QaCampaignOperation.BUSINESS) }
                 val calls = brokerCalls.incrementAndGet()
                 val marker = runBlocking { journal() }
                 check(marker?.getString("state") == "UNKNOWN")
@@ -153,12 +160,13 @@ internal class B3DeviceFixture(val context: Context, val config: JSONObject, val
         Response.Builder().request(request).protocol(Protocol.HTTP_1_1).code(200).message("Test only")
             .body(response.toString().toResponseBody("application/json".toMediaType())).build()
     }.build()
+    val observationLog = ProductionObservationLog(File(directory, "observations"))
     val repo = PlanningRepository(object : MobileIdentity(isolated) { override fun uid() = this@B3DeviceFixture.uid },
         vault, db, BackendApi(transport, { emptyMap() }),
         manualBroker = { key, secret, production ->
             check(!production)
             DnseTradingApi(key, secret, false, client)
-        })
+        }, observation = observationLog)
 
     init {
         trace("process", JSONObject().put("pid", android.os.Process.myPid())
@@ -171,12 +179,40 @@ internal class B3DeviceFixture(val context: Context, val config: JSONObject, val
     }
 
     @Synchronized fun trace(event: String, fields: JSONObject = JSONObject()) {
-        traceFile.appendText(JSONObject().put("event", event).put("at", Instant.now().toString())
-            .put("data", fields).toString() + "\n")
+        val line = JSONObject().put("event", event).put("at", Instant.now().toString())
+            .put("campaign_id", campaign?.campaignId ?: JSONObject.NULL)
+            .put("session_id", campaign?.sessionId ?: JSONObject.NULL)
+            .put("manifest_sha256", campaign?.manifestSha256 ?: JSONObject.NULL)
+            .put("case_id", config.optString("case_id").ifBlank { null } ?: JSONObject.NULL)
+            .put("data", sanitize(fields)).toString() + "\n"
+        check(traceFile.length() + line.toByteArray().size <= 8 * 1024 * 1024) { "Bounded QA trace is full" }
+        traceFile.appendText(line)
+    }
+
+    private fun sanitize(value: Any?, depth: Int = 0): Any? {
+        if (depth > 16) return "TRUNCATED"
+        return when (value) {
+            is JSONObject -> JSONObject().also { clean ->
+                value.keys().forEach { key ->
+                    val sensitive = key.lowercase().let { name ->
+                        listOf("token", "secret", "password", "bearer", "authorization", "otp", "api_key")
+                            .any(name::contains) || name in setOf("headers", "message", "tree", "thesis", "conditions")
+                    }
+                    if (!sensitive) clean.put(key, sanitize(value.get(key), depth + 1))
+                }
+            }
+            is JSONArray -> JSONArray().also { clean ->
+                repeat(minOf(value.length(), 200)) { clean.put(sanitize(value.get(it), depth + 1)) }
+                if (value.length() > 200) clean.put("TRUNCATED")
+            }
+            is String -> if (value.length > 512) "TRUNCATED" else value
+            else -> value
+        }
     }
 
     /** Loopback-only raw HTTP is confined to this test APK; product TLS policy stays untouched. */
     suspend fun http(path: String, method: String = "GET", body: JSONObject? = null): JSONObject = withContext(Dispatchers.IO) {
+        require(path.substringBefore('?') != "/qa/source") { "Source changes belong to the QA operator" }
         val base = URI(config.getString("base_url"))
         require(base.scheme == "http" && base.host == "127.0.0.1" && base.port in 1024..65535)
         require(path.startsWith("/") && !path.contains("\r") && !path.contains("\n"))
@@ -187,7 +223,9 @@ internal class B3DeviceFixture(val context: Context, val config: JSONObject, val
         val start = System.nanoTime()
         Socket(base.host, base.port).use { socket ->
             socket.soTimeout = 45000
-            val head = "$method $path HTTP/1.1\r\nHost: 127.0.0.1:${base.port}\r\n$authHeader: Bearer $token\r\nX-QA-Correlation: b3-$run-$phase\r\nContent-Type: application/json\r\nContent-Length: ${bytes.size}\r\nConnection: close\r\n\r\n"
+            val campaignHeaders = campaign?.headers(config.getString("case_id"))?.entries
+                ?.joinToString("") { "${it.key}: ${it.value}\r\n" }.orEmpty()
+            val head = "$method $path HTTP/1.1\r\nHost: 127.0.0.1:${base.port}\r\n$authHeader: Bearer $token\r\nX-QA-Correlation: b3-$run-$phase\r\n${campaignHeaders}Content-Type: application/json\r\nContent-Length: ${bytes.size}\r\nConnection: close\r\n\r\n"
             socket.getOutputStream().apply { write(head.toByteArray(Charsets.UTF_8)); write(bytes); flush() }
             val input = socket.getInputStream().buffered()
             fun line(): String {
@@ -315,9 +353,51 @@ internal class B3DeviceFixture(val context: Context, val config: JSONObject, val
         }
     }
 
-    suspend fun switchSource(): JSONObject {
-        val control = config.getJSONObject("switch")
-        return http(control.getString("path"), "POST", control.getJSONObject("body")).also { lastSwitch = it }
+    suspend fun requireCampaign(operation: QaCampaignOperation): JSONObject {
+        val started = System.nanoTime()
+        val status = http("/qa/status")
+        if (campaign != null) {
+            val deadline = campaign.validate(status, operation,
+                config.optString("session_start_utc").takeIf { it.isNotBlank() }?.let(Instant::parse),
+                config.optString("session_end_utc").takeIf { it.isNotBlank() }?.let(Instant::parse))
+            if (operation != QaCampaignOperation.READ) {
+                val case = http("/qa/cases/${config.getString("case_id")}")
+                require(case.getString("campaign_id") == campaign.campaignId &&
+                    case.getString("session_id") == campaign.sessionId &&
+                    case.getString("manifest_sha256") == campaign.manifestSha256)
+                val conservativeNow = Instant.parse(status.getString("server_now"))
+                    .plusNanos(System.nanoTime() - started)
+                require(conservativeNow < deadline)
+                if (operation == QaCampaignOperation.BUSINESS) require(
+                    conservativeNow >= Instant.parse(case.getString("case_opens_at")) &&
+                        conservativeNow < Instant.parse(case.getString("case_ends_at")))
+            }
+        }
+        else if (operation != QaCampaignOperation.READ) require(status.getString("session_state") == "ACTIVE")
+        return status
+    }
+
+    /** Wait for a separately admitted operator action; never send /qa/source from mobile. */
+    suspend fun awaitOperatorSourceSwitch(): JSONObject {
+        val control = config.getJSONObject("operator_source_switch")
+        val original = PlanningSourceContext.parse(control.getJSONObject("original_source"))
+        val expected = PlanningSourceContext.parse(control.getJSONObject("switched_source"))
+        require(original.sourceId != expected.sourceId && expected.sourceGeneration > original.sourceGeneration)
+        trace("awaiting_qa_operator_source_switch", control)
+        val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(45)
+        while (System.nanoTime() < deadline) {
+            requireCampaign(QaCampaignOperation.BUSINESS)
+            val current = http("/v2/planning/source")
+            val source = PlanningContract.activeSource(current)
+            if (source == expected) return current.also {
+                lastSwitch = it
+                trace("operator_source_switch_observed", JSONObject().put("source", it)
+                    .put("mobile_source_mutation", false))
+            }
+            require(source == original) { "Unexpected source transition" }
+            kotlinx.coroutines.delay(500)
+        }
+        error("QA operator source switch was not observed within the bounded wait")
     }
     suspend fun readback(): JSONObject = if (config.has("service_url")) {
         JSONObject().put("A", http("/qa/readback/A")).put("B", http("/qa/readback/B"))

@@ -30,13 +30,13 @@ class CoordinatorTest(unittest.TestCase):
         self.assertEqual({"one", "two"}, set(results))
         return results
 
-    def test_deterministic_release_and_aggregate_oracle(self):
+    def passing_coordinator(self):
         coordinator = TwoDeviceCoordinator("run-1", ["one", "two"], 0.5)
         self.release(coordinator)
         base = {"run_id": "run-1", "at_utc": "2026-09-25T12:00:01+00:00"}
         coordinator.event(base | {"participant_id": "one", "device_id": "device-1",
             "request_id": "request-1", "event": "PREFLIGHT_ACCEPTED", "http_status": 200,
-            "preflight_id": "preflight-1", "elapsed_ms": 12})
+            "preflight_id": "preflight-1", "elapsed_ms": 12, "duplicate": False})
         coordinator.event(base | {"participant_id": "two", "device_id": "device-2",
             "request_id": "request-2", "event": "PREFLIGHT_CONFLICT", "http_status": 409,
             "code": "intent_execution_claimed", "elapsed_ms": 14})
@@ -51,6 +51,30 @@ class CoordinatorTest(unittest.TestCase):
         coordinator.event(base | {"participant_id": "two", "device_id": "device-2",
             "request_id": "request-2", "event": "PARTICIPANT_COMPLETE", "result": "CLAIM_CONFLICT"})
         self.assertTrue(coordinator.oracle()["pass"])
+        return coordinator
+
+    def test_deterministic_release_and_aggregate_oracle(self):
+        self.passing_coordinator()
+
+    def test_missing_action_report_and_duplicate_claim_cannot_pass(self):
+        for missing in ("FAKE_BROKER_INVOKED", "FAKE_BROKER_ACCEPTED", "PLACED_REPORT_ACCEPTED"):
+            coordinator = self.passing_coordinator()
+            coordinator.events = [event for event in coordinator.events if event["event"] != missing]
+            self.assertFalse(coordinator.oracle()["pass"], missing)
+        coordinator = self.passing_coordinator()
+        next(e for e in coordinator.events if e["event"] == "PREFLIGHT_ACCEPTED")["duplicate"] = True
+        self.assertFalse(coordinator.oracle()["pass"])
+
+    def test_missing_identity_is_schema_error_and_ready_retry_preserves_release(self):
+        coordinator = self.passing_coordinator()
+        payload = {key: coordinator.ready_participants["one"][key] for key in ready("one", "device-1", "request-1")}
+        self.assertEqual(coordinator.release_at_utc, coordinator.ready(payload)["release_at_utc"])
+        bad = dict(coordinator.events[0])
+        bad.pop("request_id")
+        bad.pop("server_received_at_utc")
+        bad.pop("server_received_monotonic_ns")
+        with self.assertRaisesRegex(CoordinationError, "invalid_event_schema"):
+            coordinator.event(bad)
 
     def test_timeout_aborts_and_never_releases_one_device(self):
         coordinator = TwoDeviceCoordinator("run-1", ["one", "two"], 0.03)
@@ -70,13 +94,14 @@ class CoordinatorTest(unittest.TestCase):
             self.assertEqual(reason, str(errors[0]))
             self.assertEqual("ABORTED", coordinator.status()["state"])
 
-    def test_abort_can_recover_new_generation_only_before_broker(self):
+    def test_abort_never_resets_campaign_generation(self):
         coordinator = TwoDeviceCoordinator("run-1", ["one", "two"], 0.02)
         with self.assertRaises(CoordinationError):
             coordinator.ready(ready("one", "device-1", "request-1"))
-        coordinator.reset_after_abort()
-        self.assertEqual(2, coordinator.generation)
-        self.release(coordinator)
+        with self.assertRaisesRegex(CoordinationError, "reset_forbidden"):
+            coordinator.reset_after_abort()
+        self.assertEqual(1, coordinator.generation)
+        self.assertEqual("ABORTED", coordinator.state)
 
     def test_non_fake_route_aborts(self):
         coordinator = TwoDeviceCoordinator("run-1", ["one", "two"], 0.5)

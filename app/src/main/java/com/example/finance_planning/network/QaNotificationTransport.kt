@@ -2,6 +2,8 @@ package com.example.finance_planning.network
 
 import com.example.finance_planning.BuildConfig
 import com.example.finance_planning.core.NotificationDeliveryPolicy
+import com.example.finance_planning.core.QaNotificationConfig
+import com.example.finance_planning.core.QaCampaignOperation
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
@@ -11,7 +13,7 @@ import java.net.URI
 import java.util.UUID
 
 /** Debug-only, loopback-only QA transport. It never logs or accepts a bearer/URL from FCM. */
-class QaNotificationTransport(private val bearer: String) : Transport() {
+class QaNotificationTransport(private val bearer: String, private val config: QaNotificationConfig? = null) : Transport() {
     init {
         require(BuildConfig.DEBUG)
         require(bearer.isNotBlank() && bearer.length <= 4096 && '\r' !in bearer && '\n' !in bearer)
@@ -20,9 +22,45 @@ class QaNotificationTransport(private val bearer: String) : Transport() {
     override suspend fun request(url: String, method: String, headers: Map<String, String>,
                                  body: JSONObject?): String = withContext(Dispatchers.IO) {
         require(headers.isEmpty())
-        val uri = URI(url)
         require(allowlisted(url, method))
+        val uri = URI(url)
         val path = uri.rawPath
+        var caseId: String? = null
+        config?.campaign?.let { campaign ->
+            val status = JSONObject(exchange(NotificationDeliveryPolicy.QA_BASE_URL + "/qa/status", "GET", null, emptyMap()))
+            val receipt = method == "POST" && path.endsWith("/receipts")
+            campaign.validate(status, when {
+                method == "GET" -> QaCampaignOperation.READ
+                receipt -> QaCampaignOperation.COMPLETION
+                else -> QaCampaignOperation.PREPARE
+            })
+            if (receipt) {
+                val eventId = path.removePrefix("/v1/notifications/").removeSuffix("/receipts")
+                caseId = requireNotNull(config.eventCases[eventId]) { "Unbound QA receipt" }
+                val binding = JSONObject(exchange(NotificationDeliveryPolicy.QA_BASE_URL + "/qa/cases/$caseId",
+                    "GET", null, campaign.headers(caseId)))
+                campaign.validateNotificationBinding(caseId!!, eventId, binding)
+            }
+        }
+        exchange(url, method, body, config?.campaign?.headers(caseId) ?: emptyMap())
+    }
+
+    /** Only explicit config installation reads binding metadata; nothing is derived from push. */
+    suspend fun verifyCampaignBindings() = withContext(Dispatchers.IO) {
+        config?.campaign?.let { campaign ->
+            val status = JSONObject(exchange(NotificationDeliveryPolicy.QA_BASE_URL + "/qa/status", "GET", null, emptyMap()))
+            campaign.validate(status, QaCampaignOperation.READ)
+            for ((event, case) in config.eventCases) {
+                val readback = JSONObject(exchange(NotificationDeliveryPolicy.QA_BASE_URL + "/qa/cases/$case",
+                    "GET", null, campaign.headers(case)))
+                campaign.validateNotificationBinding(case, event, readback)
+            }
+        }
+    }
+
+    private fun exchange(url: String, method: String, body: JSONObject?, campaignHeaders: Map<String, String>): String {
+        require(allowlisted(url, method))
+        val uri = URI(url)
         val payload = body?.toString()?.toByteArray(Charsets.UTF_8) ?: byteArrayOf()
         require(payload.size <= 2 * 1024 * 1024)
         Socket("127.0.0.1", 18766).use { socket ->
@@ -30,6 +68,7 @@ class QaNotificationTransport(private val bearer: String) : Transport() {
             val target = uri.rawPath + (uri.rawQuery?.let { "?$it" } ?: "")
             val head = "$method $target HTTP/1.1\r\nHost: 127.0.0.1:18766\r\n" +
                 "X-Planning-Authorization: Bearer $bearer\r\nAccept: application/json\r\n" +
+                campaignHeaders.entries.joinToString("") { "${it.key}: ${it.value}\r\n" } +
                 "Content-Type: application/json\r\nContent-Length: ${payload.size}\r\nConnection: close\r\n\r\n"
             socket.getOutputStream().apply { write(head.toByteArray(Charsets.UTF_8)); write(payload); flush() }
             val input = socket.getInputStream().buffered()
@@ -74,7 +113,7 @@ class QaNotificationTransport(private val bearer: String) : Transport() {
             else bytes(responseHeaders.getValue("content-length").toInt())
             val response = String(raw, Charsets.UTF_8)
             if (status !in 200..299) throw HttpFailure(status, HttpFailure.safeCode(response))
-            response.ifBlank { "{}" }
+            return response.ifBlank { "{}" }
         }
     }
 
@@ -89,6 +128,7 @@ class QaNotificationTransport(private val bearer: String) : Transport() {
             val receipt = Regex("/v1/notifications/([0-9a-fA-F-]{36})/receipts").matchEntire(path)
             val device = Regex("/v1/devices/([0-9a-fA-F-]{36})").matchEntire(path)
             when {
+                method == "GET" && path in setOf("/qa/status", "/qa/cases/N1", "/qa/cases/N2") -> Unit
                 method == "GET" && path == "/v1/notifications" -> Unit
                 method == "GET" && event != null -> UUID.fromString(event.groupValues[1])
                 method == "POST" && receipt != null -> UUID.fromString(receipt.groupValues[1])

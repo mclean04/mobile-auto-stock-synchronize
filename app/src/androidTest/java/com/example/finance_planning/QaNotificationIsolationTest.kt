@@ -16,10 +16,11 @@ import org.junit.Assert.*
 import org.junit.Test
 import org.junit.runner.RunWith
 import java.util.UUID
+import kotlinx.coroutines.runBlocking
 
 @RunWith(AndroidJUnit4::class)
 class QaNotificationIsolationTest {
-    @Test fun encryptedConfigPinsUidDeviceNamespaceAndRejectsProductionFallback() {
+    @Test fun encryptedConfigPinsUidDeviceNamespaceAndRejectsProductionFallback() = runBlocking {
         val base = InstrumentationRegistry.getInstrumentation().targetContext
         val suffix = System.nanoTime().toString()
         val preferences = "qa-notification-$suffix-private_settings"

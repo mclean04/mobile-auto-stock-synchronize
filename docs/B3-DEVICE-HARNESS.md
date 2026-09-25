@@ -1,5 +1,10 @@
 # B3 on-device HTTP/business-flow harness
 
+DEC-008 campaign usage and current admission/evidence rules are in
+[DEC008-CAMPAIGN.md](DEC008-CAMPAIGN.md). That specification supersedes the earlier
+single-session acceptance matrix. The examples below are configuration shapes, not
+authorization to install, schedule, or run devices.
+
 ## Scope and isolation
 
 `B3DeviceFlowTest` hosts the production `Orders` and `ManualTradeDialog`
@@ -52,7 +57,10 @@ Supply a local JSON file; do not commit the token. Example structure:
   "token": "test-service-only-bearer",
   "auth_header": "X-Planning-Authorization",
   "intents": {"accepted": "UUID", "late": "UUID", "stale": "UUID", "unknown": "UUID"},
-  "switch": {"path": "/test/source/switch", "body": {}},
+  "operator_source_switch": {
+    "original_source": {"source_id": "observed-original-source", "source_generation": 1},
+    "switched_source": {"source_id": "reviewed-target-source", "source_generation": 2}
+  },
   "readback_path": "/test/readback"
 }
 ```
@@ -65,8 +73,8 @@ The existing production source/expiry/cash checks are not bypassed.
 Use one private config file per transport. Both files may name the same canonical
 intent and run, but each `device_id` must match that device's verified app UUID.
 
-The service uses JSON responses (Content-Length or chunked) and a local test bearer. Switch
-and readback paths above are examples: use the concrete Backend handoff.
+The service uses JSON responses (Content-Length or chunked) and a local test bearer.
+Use observed source tuples and the concrete readback contract from the Backend handoff.
 The readback endpoint must identify native Google QA rows, not a fake writer.
 
 ## Build and run
@@ -116,12 +124,12 @@ The barrier is reached inside the test transport after the production guard's fr
 intent read and immediately before the Backend preflight request. It releases only when
 both participants present an identical intent/version/source tuple with distinct device
 and durable request IDs. Timeout, canonical mismatch, participant failure or operator
-cancel aborts the generation without releasing one device. Recovery requires a new
-generation and is allowed only before any fake-broker event.
+cancel aborts the generation without releasing one device. The coordinator cannot
+reset; BA owns any subsequent recovery decision within the campaign contract.
 
 The aggregate oracle requires one eligible preflight, one explicit HTTP 409
-`intent_execution_claimed`, no other preflight failure, at most one fake-broker
-invocation/acceptance, at most one placed report, unique fake order IDs, and terminal
+`intent_execution_claimed`, no other preflight failure, exactly one fake-broker
+invocation/acceptance, exactly one accepted placed report, a matching fake order ID, and terminal
 results `SUBMITTED` plus `CLAIM_CONFLICT`. Broker events are accepted only with route
 `ANDROID_INJECTED_FAKE_ONLY`.
 
@@ -155,12 +163,12 @@ order is absent in bounded, untruncated native sandbox readback.
 | resume_accepted | Fresh process restores local data; tabs and Activity recreation make no list requests; actual production retry posts byte-identical payload, validates HTTP ACK, marks REPORTED without broker retry; native QA readback captured |
 | unknown / resume_unknown | Fake broker timeout leaves UNKNOWN; after fresh process the real session sees that marker, without another broker call |
 | kill_unknown / resume_unknown | Intentional process kill inside fake broker after durable UNKNOWN, before response; after restart the real session retains UNKNOWN and does not retry broker |
-| stale | Test service switches source after valid preflight/UNKNOWN and before final active-source read; production guard blocks broker |
+| stale | QA operator switches source while the test waits after valid preflight/UNKNOWN and before final active-source read; production guard blocks broker |
 | late / resume_late | Report transport offline before send, durable original-source payload; switch A→B; fresh process sends the original payload and validates quarantine ACK, with native QA readback and zero broker retries |
 | concurrent | Both devices block at one localhost barrier with the same canonical tuple; coordinated Backend claim permits one fake-broker path and returns explicit conflict to the other device; host oracle aggregates both traces |
 
-Use separately seeded service runs for source-switch cases when necessary; never
-silently retarget an old payload or reset an operational source. Previous unit and
+Use independent reviewed fixtures within the fixed campaign/session identities; never
+silently retarget an old payload, reuse claims or reset an operational source. Previous unit and
 Room/bridge evidence is reused; it does not substitute for these device runs.
 
 Execution results and exact final artifacts are recorded in the delivery handoff

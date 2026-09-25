@@ -489,4 +489,5 @@
     <string name="planning_action_pending_only">Orders can only be placed from Upcoming with an exact scheduled time that has not passed.</string>
     <string name="planning_card_expand">Tap to show details</string>
     <string name="planning_card_collapse">Tap to collapse</string>
+    <string name="planning_source_identity">Planning source: %1$s</string>
 </resources>

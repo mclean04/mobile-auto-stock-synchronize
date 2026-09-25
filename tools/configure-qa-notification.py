@@ -30,7 +30,8 @@ if a.action == "install":
         raise SystemExit("QA config must have mode 0600")
     raw = a.config.read_bytes()
     value = json.loads(raw)
-    if set(value) != {"target_uid", "target_device_id", "notification_namespace", "bearer"}:
+    required = {"target_uid", "target_device_id", "notification_namespace", "bearer"}
+    if not required.issubset(value) or not set(value).issubset(required | {"campaign", "event_cases"}):
         raise SystemExit("QA config keys do not match the Android contract")
     call("shell", "run-as", package, "sh", "-c", "'cat > files/qa-notification-config.json'",
          input=raw)

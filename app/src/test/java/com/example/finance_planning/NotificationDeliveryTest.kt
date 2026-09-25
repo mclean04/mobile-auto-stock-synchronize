@@ -81,4 +81,22 @@ class NotificationDeliveryTest {
         canonical.put("test_notification_visible", false)
         NotificationDeliveryPolicy.validateCanonical(canonical, route, false)
     }
+
+    @Test fun campaignPushNeedsTrustedEventBindingAndKeepsOriginalIdentityAfterPersistence() {
+        val campaign = QaCampaign("campaign", "notification-session", "a".repeat(64), "NOTIFICATION")
+        val unbound = config.copy(campaign = campaign)
+        val push = push("test-dnse-daily-20260922-1030")
+        assertNull(NotificationDeliveryPolicy.push(push, uid, unbound))
+        val bound = unbound.copy(eventCases = mapOf(event to "N1"))
+        val route = NotificationDeliveryPolicy.push(push, uid, bound)!!
+        assertEquals(campaign, route.campaign)
+        assertEquals("N1", route.caseId)
+        assertEquals(route, NotificationDelivery.parse(route.json()))
+        assertTrue(runCatching { unbound.requireAppendOnly(bound) }.isFailure)
+        assertTrue(runCatching { bound.copy(eventCases = mapOf(event to "N2")).requireAppendOnly(bound) }.isFailure)
+        assertTrue(runCatching { config.requireAppendOnly(bound) }.isFailure)
+        bound.copy(eventCases = bound.eventCases + ("89b9e3dc-6408-40fa-9bb9-e30c734d47e1" to "N2"))
+            .requireAppendOnly(bound)
+        assertNull(NotificationDeliveryPolicy.push(push + ("case_id" to "N2"), uid, bound))
+    }
 }

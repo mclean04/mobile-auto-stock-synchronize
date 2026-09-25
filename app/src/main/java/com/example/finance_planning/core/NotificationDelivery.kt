@@ -10,7 +10,9 @@ data class QaNotificationConfig(
     val targetUid: String,
     val targetDeviceId: String,
     val namespace: String,
-    val bearer: String
+    val bearer: String,
+    val campaign: QaCampaign? = null,
+    val eventCases: Map<String, String> = emptyMap()
 ) {
     init {
         require(BuildConfig.DEBUG)
@@ -18,12 +20,34 @@ data class QaNotificationConfig(
         UUID.fromString(targetDeviceId)
         require(NotificationDeliveryPolicy.validNamespace(namespace))
         require(bearer.isNotBlank() && bearer.length <= 4096 && '\r' !in bearer && '\n' !in bearer)
+        require(campaign == null || campaign.sessionKind == "NOTIFICATION")
+        require(campaign != null || eventCases.isEmpty())
+        eventCases.forEach { (event, case) ->
+            UUID.fromString(event)
+            require(case in setOf("N1", "N2"))
+        }
+    }
+
+    fun delivery(event: String, plan: String, version: String) = NotificationDelivery(
+        NotificationEndpoint.QA, event, targetUid, plan, version, namespace, campaign,
+        if (campaign != null) requireNotNull(eventCases[event]) { "Unbound QA event" } else null)
+
+    fun requireAppendOnly(previous: QaNotificationConfig) {
+        if (previous.campaign != null) {
+            require(campaign == previous.campaign && namespace == previous.namespace)
+            require(targetUid == previous.targetUid && targetDeviceId == previous.targetDeviceId)
+            require(previous.eventCases.all { (event, case) -> eventCases[event] == case })
+        }
     }
 
     companion object {
         fun parse(value: JSONObject) = QaNotificationConfig(
             value.getString("target_uid"), value.getString("target_device_id"),
-            value.getString("notification_namespace"), value.getString("bearer")
+            value.getString("notification_namespace"), value.getString("bearer"),
+            value.optJSONObject("campaign")?.let(QaCampaign::parse),
+            value.optJSONObject("event_cases")?.let { events ->
+                events.keys().asSequence().associateWith { events.getString(it) }
+            } ?: emptyMap()
         )
     }
 }
@@ -34,7 +58,9 @@ data class NotificationDelivery(
     val targetUid: String,
     val planId: String? = null,
     val version: String? = null,
-    val namespace: String? = null
+    val namespace: String? = null,
+    val campaign: QaCampaign? = null,
+    val caseId: String? = null
 ) {
     init {
         UUID.fromString(eventId)
@@ -44,19 +70,26 @@ data class NotificationDelivery(
             require(requireNotNull(version).toIntOrNull()?.let { it > 0 } == true)
             require(NotificationDeliveryPolicy.validNamespace(requireNotNull(namespace)))
         }
+        if (campaign != null) {
+            require(endpoint == NotificationEndpoint.QA && campaign.sessionKind == "NOTIFICATION")
+            require(caseId in setOf("N1", "N2"))
+        } else require(caseId == null)
     }
 
     fun json(): JSONObject = JSONObject().put("endpoint", endpoint.name)
         .put("event_id", eventId).put("target_uid", targetUid)
         .put("plan_id", planId ?: JSONObject.NULL).put("version", version ?: JSONObject.NULL)
         .put("notification_namespace", namespace ?: JSONObject.NULL)
+        .put("campaign", campaign?.json() ?: JSONObject.NULL).put("case_id", caseId ?: JSONObject.NULL)
 
     companion object {
         fun parse(value: JSONObject) = NotificationDelivery(
             NotificationEndpoint.valueOf(value.getString("endpoint")), value.getString("event_id"),
-            value.getString("target_uid"), value.optString("plan_id").takeIf { it.isNotBlank() },
-            value.optString("version").takeIf { it.isNotBlank() },
-            value.optString("notification_namespace").takeIf { it.isNotBlank() }
+            value.getString("target_uid"), value.optString("plan_id").takeIf { it.isNotBlank() && it != "null" },
+            value.optString("version").takeIf { it.isNotBlank() && it != "null" },
+            value.optString("notification_namespace").takeIf { it.isNotBlank() && it != "null" },
+            value.optJSONObject("campaign")?.let(QaCampaign::parse),
+            value.optString("case_id").takeIf { it.isNotBlank() && it != "null" }
         )
 
         fun production(eventId: String, uid: String) =
@@ -92,8 +125,7 @@ object NotificationDeliveryPolicy {
                 require(data["test_marker"] == "DEMO_ONLY")
                 require(data["type"] == "PLANNING_REVIEW_REQUIRED")
                 require(data["notification_namespace"] == config.namespace)
-                NotificationDelivery(NotificationEndpoint.QA, event, currentUid,
-                    data.getValue("plan_id"), data.getValue("version"), config.namespace)
+                config.delivery(event, data.getValue("plan_id"), data.getValue("version"))
             } else {
                 require(qa == null) // A configured QA build never falls through to Production.
                 NotificationDelivery.production(event, currentUid)
@@ -131,6 +163,7 @@ class QaNotificationConfigStore(private val vault: Vault) {
     fun install(value: JSONObject, uid: String, deviceId: String) {
         val config = QaNotificationConfig.parse(value)
         require(config.targetUid == uid && config.targetDeviceId == deviceId)
+        current(uid, deviceId)?.let(config::requireAppendOnly)
         vault.put(key, value.toString())
     }
 

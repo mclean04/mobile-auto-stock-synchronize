@@ -49,6 +49,12 @@ class SessionWindow:
         current = (now or dt.datetime.now(dt.timezone.utc)).astimezone(dt.timezone.utc)
         return max(0.0, (self.end - current).total_seconds())
 
+    def require_business(self, now: dt.datetime | None = None) -> None:
+        self.require_active(now)
+        current = (now or dt.datetime.now(dt.timezone.utc)).astimezone(dt.timezone.utc)
+        if current >= self.start + dt.timedelta(minutes=90):
+            raise SessionWindowError("business_deadline_reached")
+
     def manifest(self) -> dict:
         return {
             "start_utc": self.start.isoformat().replace("+00:00", "Z"),

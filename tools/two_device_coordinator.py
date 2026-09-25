@@ -17,7 +17,7 @@ READY_KEYS = {
 EVENT_KEYS = {
     "run_id", "participant_id", "device_id", "request_id", "event", "at_utc",
     "elapsed_ms", "http_status", "code", "preflight_id", "order_id", "route", "result",
-    "placed_request_id",
+    "placed_request_id", "duplicate",
 }
 EVENTS = {
     "PREFLIGHT_ACCEPTED", "PREFLIGHT_CONFLICT", "PREFLIGHT_FAILED",
@@ -97,7 +97,7 @@ class TwoDeviceCoordinator:
             if self.state == "ABORTED":
                 raise CoordinationError(self.abort_reason or "barrier_aborted")
             existing = self.ready_participants.get(participant)
-            if existing is not None and existing != payload:
+            if existing is not None and {key: existing[key] for key in READY_KEYS} != payload:
                 self._abort_locked("participant_ready_changed")
                 raise CoordinationError("participant_ready_changed")
             if self.canonical is not None and self.canonical != canonical:
@@ -144,26 +144,12 @@ class TwoDeviceCoordinator:
             self._abort_locked(reason)
 
     def reset_after_abort(self):
-        with self.condition:
-            if self.state != "ABORTED":
-                raise CoordinationError("reset_requires_aborted_generation")
-            if any(event["event"] in {"FAKE_BROKER_INVOKED", "FAKE_BROKER_ACCEPTED"}
-                   for event in self.events) or self.safety_violation:
-                raise CoordinationError("broker_event_prevents_recovery")
-            self.generation += 1
-            self.state = "WAITING"
-            self.abort_reason = None
-            self.canonical = None
-            self.ready_participants = {}
-            self.events = []
-            self.release_at_utc = None
-            self.release_monotonic_ns = None
-            self.safety_violation = False
+        raise CoordinationError("campaign_barrier_reset_forbidden")
 
     def event(self, payload: dict):
-        if not set(payload).issubset(EVENT_KEYS) or set(payload) < {
+        if not set(payload).issubset(EVENT_KEYS) or not {
             "run_id", "participant_id", "device_id", "request_id", "event", "at_utc"
-        }:
+        }.issubset(payload):
             raise CoordinationError("invalid_event_schema")
         if payload["run_id"] != self.run_id or payload["event"] not in EVENTS:
             raise CoordinationError("invalid_event")
@@ -211,14 +197,20 @@ class TwoDeviceCoordinator:
         passed = (
             snapshot["state"] == "RELEASED" and len(snapshot["ready"]) == 2 and
             counts["PREFLIGHT_ACCEPTED"] == 1 and counts["PREFLIGHT_CONFLICT"] == 1 and
+            accepted[0].get("duplicate") is False and
             accepted[0].get("http_status") in range(200, 300) and
             accepted[0].get("preflight_id") not in (None, "", "UNKNOWN") and
             conflicts[0].get("http_status") == 409 and
             conflicts[0].get("code") == "intent_execution_claimed" and
             all(isinstance(event.get("elapsed_ms"), int) and event["elapsed_ms"] >= 0
                 for event in accepted + conflicts) and
-            counts["PREFLIGHT_FAILED"] == 0 and counts["FAKE_BROKER_INVOKED"] <= 1 and
-            counts["FAKE_BROKER_ACCEPTED"] <= 1 and counts["PLACED_REPORT_ACCEPTED"] <= 1 and
+            counts["PREFLIGHT_FAILED"] == 0 and counts["FAKE_BROKER_INVOKED"] == 1 and
+            counts["FAKE_BROKER_ACCEPTED"] == 1 and counts["PLACED_REPORT_ACCEPTED"] == 1 and
+            counts["PLACED_REPORT_FAILED"] == 0 and
+            len({e["participant_id"] for e in events if e["event"] == "PARTICIPANT_COMPLETE"}) == 2 and
+            conflicts[0]["participant_id"] != winner and
+            len(order_ids) == 1 and bool(order_ids[0]) and
+            all(e.get("order_id") == order_ids[0] for e in broker_events) and
             all(event["participant_id"] == winner for event in broker_events + placed) and
             len(order_ids) == len(set(order_ids)) and
             sorted(complete) == ["CLAIM_CONFLICT", "SUBMITTED"]

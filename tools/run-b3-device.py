@@ -6,6 +6,7 @@ import json
 import os
 import re
 import subprocess
+import stat
 import uuid
 from pathlib import Path
 from urllib.parse import urlparse
@@ -24,7 +25,7 @@ p.add_argument("--config", type=Path, required=True, help="Local test service co
 p.add_argument("--transport-id", required=True)
 p.add_argument("--phase", required=True, choices=[
     "readiness", "accepted", "resume_accepted", "unknown", "kill_unknown", "resume_unknown",
-    "stale", "late", "resume_late", "concurrent"])
+    "stale", "late", "resume_late", "concurrent", "planning_display", "snapshot", "denied"])
 p.add_argument("--output", type=Path, required=True)
 p.add_argument("--install", action="store_true")
 p.add_argument("--session-start-utc")
@@ -33,6 +34,8 @@ p.add_argument("--routes-managed-by-parent", action="store_true", help=argparse.
 p.add_argument("--adb", default="/Users/tuanh/Library/Android/sdk/platform-tools/adb")
 a = p.parse_args()
 root = Path(__file__).resolve().parents[1]
+if stat.S_IMODE(a.config.stat().st_mode) != 0o600:
+    raise SystemExit("private_config_mode_must_be_0600")
 config = json.loads(a.config.read_text())
 if "service_url" in config:
     config.setdefault("evidence_kind", "native_qa_readiness" if a.phase == "readiness" else "native_qa_http")
@@ -44,7 +47,10 @@ if a.phase != "readiness":
     config["session_start_utc"] = session.manifest()["start_utc"]
     config["session_end_utc"] = session.manifest()["end_utc"]
     scenario = "unknown" if a.phase == "kill_unknown" else a.phase.removeprefix("resume_")
-    assert config["intents"].get(scenario), "Business fixture intent is not ready; BA must supply captured canonical ID"
+    if a.phase not in {"planning_display", "snapshot"}:
+        assert config["intents"].get(scenario), "Business fixture intent is not ready; BA must supply captured canonical ID"
+    if "campaign_id" in config and not a.phase.startswith("resume_"):
+        session.require_business()
 else:
     if bool(a.session_start_utc) != bool(a.session_end_utc):
         raise SystemExit("session start and end must be supplied together")
@@ -82,11 +88,17 @@ def call(*args, **kw):
 
 
 def cleanup_call(*args):
-    return subprocess.run(adb + list(args), check=False, capture_output=True, timeout=10)
+    try:
+        return subprocess.run(adb + list(args), check=False, capture_output=True, timeout=10)
+    except (OSError, subprocess.TimeoutExpired):
+        return subprocess.CompletedProcess(adb + list(args), 124, b"", b"")
 
 
 def reverse_snapshot():
-    raw = cleanup_call("reverse", "--list").stdout.decode(errors="replace")
+    result = cleanup_call("reverse", "--list")
+    if result.returncode:
+        raise RuntimeError("reverse_snapshot_unavailable")
+    raw = result.stdout.decode(errors="replace")
     return parse_reverse_list(raw)
 
 
@@ -131,11 +143,17 @@ try:
     trace = call("shell", "run-as", package, "cat",
                  f"files/b3-{config['run_id']}/{a.phase}.jsonl", text=True).stdout
     private_write(a.output / f"{a.phase}-trace.jsonl", trace)
+    for index in range(4):
+        log = cleanup_call("shell", "run-as", package, "cat",
+                           f"files/b3-{config['run_id']}/observations/observation-{index}.jsonl")
+        if log.returncode == 0:
+            private_write(a.output / f"{a.phase}-observation-{index}.jsonl", log.stdout.decode())
     events = [json.loads(line) for line in trace.splitlines() if line.strip()]
     summary = {"phase": a.phase, "run_id": config["run_id"], "artifacts": artifacts,
                "backend_boundary": config.get("evidence_kind", "UNVERIFIED"),
                "instrumentation_ok": "OK (1 test)" in result.stdout,
-               "trace_pass": bool(events and events[-1]["event"] == "PASS"),
+               "trace_pass": bool(events and events[-1]["event"] == "PASS" and '"TRUNCATED"' not in trace),
+               "trace_truncated": '"TRUNCATED"' in trace,
                "expected_crash_checkpoint": bool(a.phase == "kill_unknown" and events and
                    events[-1]["event"] == "process_kill_after_unknown" and
                    "Process crashed" in result.stdout and "OK (1 test)" not in result.stdout),
@@ -159,9 +177,12 @@ finally:
             restored = cleanup_call(*reverse_restore_args(local, previous))
             route_restored = route_restored and restored.returncode == 0
         if route_previous:
-            after = reverse_snapshot()
-            route_restored = route_restored and all(after.get(local) == previous
-                                                     for local, previous in route_previous.items())
+            try:
+                after = reverse_snapshot()
+                route_restored = route_restored and all(after.get(local) == previous
+                                                         for local, previous in route_previous.items())
+            except RuntimeError:
+                route_restored = False
     private_write(a.output / f"{a.phase}-teardown.json", json.dumps({
         "device_config_removed": config_removed,
         "reverse_routes_restored": route_restored,

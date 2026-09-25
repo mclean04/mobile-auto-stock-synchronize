@@ -107,6 +107,8 @@ fun PlanningOrderCard(row: JSONObject, snapshot: JSONObject?, upcoming: Boolean,
                         style = MaterialTheme.typography.bodySmall, color = secondary)
                     Text(text(R.string.planning_source_generation, intent.sourceContext.sourceGeneration),
                         style = MaterialTheme.typography.bodySmall, color = secondary)
+                    Text(text(R.string.planning_source_identity, intent.sourceContext.sourceId),
+                        style = MaterialTheme.typography.bodySmall, color = secondary)
                 }
                 Surface(color = panel, contentColor = foreground, shape = RoundedCornerShape(16.dp)) {
                     Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {

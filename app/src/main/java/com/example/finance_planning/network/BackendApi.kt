@@ -57,7 +57,7 @@ class BackendApi(private val transport: Transport, private val headers: suspend 
 
     companion object {
         fun qaNotifications(config: com.example.finance_planning.core.QaNotificationConfig) =
-            BackendApi(QaNotificationTransport(config.bearer), { emptyMap() },
+            BackendApi(QaNotificationTransport(config.bearer, config), { emptyMap() },
                 com.example.finance_planning.core.NotificationDeliveryPolicy.QA_BASE_URL)
     }
 }

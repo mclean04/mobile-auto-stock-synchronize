@@ -41,15 +41,16 @@ class B3DeviceFlowTest {
         val config = JSONObject(file.readText())
         val phase = requireNotNull(args.getString("b3_phase"))
         require(phase in setOf("readiness", "accepted", "resume_accepted", "late", "resume_late",
-            "stale", "unknown", "kill_unknown", "resume_unknown", "concurrent"))
+            "stale", "unknown", "kill_unknown", "resume_unknown", "concurrent",
+            "planning_display", "denied", "snapshot"))
         f = B3DeviceFixture(context, config, phase)
         f.scenario = if (phase == "kill_unknown") "unknown" else phase.removePrefix("resume_")
         try {
             compose.activityRule.scenario.onActivity {
                 it.window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
             }
-            if (config.has("service_url")) {
-                val status = f.http("/qa/status")
+            if (config.has("service_url") || config.has("campaign_id")) {
+                val status = f.requireCampaign(QaCampaignOperation.READ)
                 assertEquals("QA_ONLY", status.getString("mode"))
                 assertEquals(config.getString("run_id"), status.getString("run_id"))
                 assertEquals(config.getString("uid"), status.getString("actor_uid"))
@@ -57,6 +58,8 @@ class B3DeviceFlowTest {
                 assertEquals("ANDROID_INJECTED_FAKE_ONLY", status.getString("broker"))
                 assertEquals(0, status.getInt("clock_offset_seconds"))
                 if (phase != "readiness") {
+                    f.requireCampaign(if (phase.startsWith("resume_")) QaCampaignOperation.COMPLETION
+                        else QaCampaignOperation.BUSINESS)
                     assertEquals("ACTIVE", status.getString("session_state"))
                     assertEquals(7200, status.getInt("max_session_seconds"))
                     assertEquals(Instant.parse(config.getString("session_start_utc")),
@@ -64,13 +67,13 @@ class B3DeviceFlowTest {
                     assertEquals(Instant.parse(config.getString("session_end_utc")),
                         Instant.parse(status.getString("session_ends_at")))
                 }
-                f.trace("native_http_readiness", JSONObject().put("armed", status.getBoolean("armed"))
+                f.trace("native_http_readiness", JSONObject().put("armed", status.optBoolean("armed"))
                     .put("business_flow_run", false))
                 if (phase == "readiness") {
                     f.trace("PASS", JSONObject().put("boundary", "native HTTP status only; no Google/business proof"))
                     return@runBlocking
                 }
-                check(status.getBoolean("armed")) { "BA has not armed the QA fixture" }
+                if (!config.has("campaign_id")) check(status.getBoolean("armed")) { "BA has not armed the QA fixture" }
             } else require(phase != "readiness")
             f.saveFunds()
             val stored = f.repo.localPlanningAll()
@@ -99,21 +102,86 @@ class B3DeviceFlowTest {
             f.trace("local_start_no_list_request", JSONObject().put("cached", stored != null))
             if (phase.startsWith("resume_")) resume(phase)
             else if (phase == "concurrent") executeConcurrent()
+            else if (phase in setOf("planning_display", "snapshot")) verifyCanonicalDisplay()
+            else if (phase == "denied") verifyPreBrokerDenial()
             else execute(phase)
             f.trace("PASS", JSONObject().put("broker_calls", f.brokerCalls.get()).put("list_requests", f.listCalls.get()))
         } catch (e: Throwable) {
             if (::f.isInitialized && phase == "concurrent") {
                 try { f.coordinatorAbort("participant_failed") } catch (_: Throwable) { }
             }
-            runCatching {
-                val roots = compose.onAllNodes(isRoot(), useUnmergedTree = true)
-                repeat(roots.fetchSemanticsNodes().size) { i ->
-                    f.trace("test_ui_failure", JSONObject().put("tree", roots[i].printToString()))
-                }
-            }
-            f.trace("FAIL", JSONObject().put("type", e.javaClass.name).put("message", e.message))
+            f.trace("FAIL", JSONObject().put("type", e.javaClass.name))
             throw e
         } finally { f.close() }
+    }
+
+    private suspend fun verifyCanonicalDisplay() {
+        refresh()
+        val expected = f.config.getJSONObject("expected_canonical")
+        val id = expected.getString("intent_id")
+        val row = screen.value.planning!!.objects("items").single { it.getString("intent_id") == id }
+        for (key in listOf("plan_id", "intent_id", "version", "symbol", "side", "quantity",
+            "limit_price_vnd", "scheduled_at", "authoring_state", "execution_state")) {
+            assertEquals("Canonical field $key", expected.get(key).toString(), row.get(key).toString())
+        }
+        assertEquals(PlanningSourceContext.parse(expected.getJSONObject("source_context")),
+            PlanningSourceContext.parse(row.getJSONObject("source_context")))
+        switchTab(R.string.planning_all_tab)
+        val tag = "planning-card-$id"
+        compose.onNode(hasScrollToIndexAction()).performScrollToNode(hasTestTag(tag))
+        val card = compose.onNodeWithTag(tag)
+        if (card.fetchSemanticsNode().config[androidx.compose.ui.semantics.SemanticsProperties.StateDescription] ==
+            text(R.string.planning_card_expand)) card.performClick()
+        fun visible(value: String) = compose.onNode(hasText(value) and hasAnyAncestor(hasTestTag(tag)))
+            .performScrollTo().assertIsDisplayed()
+        visible(row.getString("symbol"))
+        visible(row.getString("quantity"))
+        visible(OrderContent.money(OrderContent.number(row, "limit_price_vnd")))
+        visible(compose.activity.getString(R.string.planning_contract_version, "2.0", row.getInt("version")))
+        visible(compose.activity.getString(R.string.planning_source_generation,
+            row.getJSONObject("source_context").getLong("source_generation")))
+        visible(compose.activity.getString(R.string.planning_source_identity,
+            row.getJSONObject("source_context").getString("source_id")))
+        if (row.getString("authoring_state") != "APPROVED") {
+            switchTab(R.string.pending)
+            compose.onAllNodes(hasText(text(R.string.trade_title)) and hasAnyAncestor(hasTestTag(tag)))
+                .assertCountEquals(0)
+            assertFalse(PlanningActionPolicy.evaluate(row, false, true).canExecute)
+            val attempted = runCatching { f.repo.manualTrade(row, PlanningSection.UPCOMING) }
+            attempted.getOrNull()?.close()
+            assertTrue("Unapproved canonical intent was admitted", attempted.isFailure)
+        }
+        assertEquals(0, f.brokerCalls.get())
+        f.trace("canonical_display_verified", JSONObject().put("canonical", row)
+            .put("broker_calls", 0).put("device_id", f.deviceId))
+    }
+
+    private suspend fun verifyPreBrokerDenial() {
+        val expectedReason = f.config.getString("expected_denial")
+        require(expectedReason in setOf("wrong_owner", "unapproved", "out_of_window"))
+        val id = f.config.getJSONObject("intents").getString("denied")
+        val detail = try { f.repo.api.planningIntent(id) } catch (e: com.example.finance_planning.network.HttpFailure) {
+            assertEquals("wrong_owner", expectedReason)
+            assertTrue(e.status in setOf(403, 404))
+            assertEquals(0, f.brokerCalls.get())
+            f.trace("prebroker_denied", JSONObject().put("reason", expectedReason)
+                .put("http_status", e.status).put("broker_calls", 0))
+            return
+        }
+        val decision = PlanningActionPolicy.evaluate(detail, false, true)
+        if (expectedReason == "unapproved") {
+            assertNotEquals("APPROVED", detail.getString("authoring_state"))
+            assertFalse(decision.canExecute)
+        } else if (expectedReason == "out_of_window") {
+            val intent = PlanningIntent.parse(detail)
+            assertFalse(Instant.now() >= intent.windowStartsAt && Instant.now() < intent.windowEndsAt)
+        } else fail("Wrong owner was able to read the fixture")
+        val result = runCatching { f.repo.manualTrade(detail, PlanningSection.UPCOMING) }
+        // Product admission must reject before the OTP/dialog or any fake economic action.
+        result.getOrNull()?.close()
+        assertTrue("Product allowed a denied fixture", result.isFailure)
+        assertEquals(0, f.brokerCalls.get())
+        f.trace("prebroker_denied", JSONObject().put("reason", expectedReason).put("broker_calls", 0))
     }
 
     private suspend fun executeConcurrent() {
@@ -260,7 +328,7 @@ class B3DeviceFlowTest {
         f.trace("confirmation_result", JSONObject().put("phase", phase).put("journal", journal)
             .put("reports", org.json.JSONArray(reports)).put("broker_calls", f.brokerCalls.get()))
         if (phase == "late") {
-            f.switchSource()
+            f.awaitOperatorSourceSwitch()
             f.trace("source_switched_with_immutable_pending_report", JSONObject().put("payload",
                 reports.single().getJSONObject("payload")))
         }

@@ -10,6 +10,13 @@ from qa_session_guard import (
 
 
 class IntegratedQaSessionTest(unittest.TestCase):
+    def test_business_cutoff_leaves_completion_window(self):
+        window = SessionWindow.parse("2026-09-25T12:00:00Z", "2026-09-25T14:00:00Z")
+        now = dt.datetime(2026, 9, 25, 13, 30, tzinfo=dt.timezone.utc)
+        window.require_active(now)
+        with self.assertRaisesRegex(SessionWindowError, "business_deadline_reached"):
+            window.require_business(now)
+
     def test_exact_two_hour_window_is_active_and_has_stable_manifest(self):
         window = SessionWindow.parse("2026-09-25T12:00:00Z", "2026-09-25T14:00:00Z")
         window.require_active(dt.datetime(2026, 9, 25, 13, 0, tzinfo=dt.timezone.utc))

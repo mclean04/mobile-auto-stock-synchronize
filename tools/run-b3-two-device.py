@@ -52,7 +52,9 @@ for source in (args.device_one_config, args.device_two_config):
         raise SystemExit("each private device config must exist with mode 0600")
 
 configs = [json.loads(args.device_one_config.read_text()), json.loads(args.device_two_config.read_text())]
-same = ("run_id", "uid", "account", "base_url")
+if "campaign_id" in configs[0]:
+    session.require_business()
+same = ("run_id", "uid", "account", "base_url", "campaign_id", "session_id", "manifest_hash", "session_kind", "case_id")
 if any(config.get(key) != configs[0].get(key) for config in configs[1:] for key in same):
     raise SystemExit("both configs must share run, owner, account and Backend loopback URL")
 intent_ids = [config.get("intents", {}).get("concurrent") for config in configs]
@@ -84,6 +86,7 @@ os.chmod(args.output, 0o700)
 root = Path(__file__).resolve().parents[1]
 runner = root / "tools/run-b3-device.py"
 processes = []
+process_outputs = []
 summaries = []
 route_previous = {}
 teardown = {"processes_stopped": False, "device_configs_removed": False,
@@ -93,12 +96,20 @@ failure = None
 
 
 def adb(transport, *command, check=False, timeout=10):
-    return subprocess.run([args.adb, "-t", transport, *command], check=check,
-                          capture_output=True, timeout=timeout)
+    try:
+        return subprocess.run([args.adb, "-t", transport, *command], check=check,
+                              capture_output=True, timeout=timeout)
+    except (OSError, subprocess.TimeoutExpired):
+        if check:
+            raise RuntimeError("adb_command_unavailable") from None
+        return subprocess.CompletedProcess(command, 124, b"", b"")
 
 
 def snapshot(transport):
-    return parse_reverse_list(adb(transport, "reverse", "--list").stdout.decode(errors="replace"))
+    result = adb(transport, "reverse", "--list")
+    if result.returncode:
+        raise RuntimeError("reverse_snapshot_unavailable")
+    return parse_reverse_list(result.stdout.decode(errors="replace"))
 
 
 try:
@@ -128,8 +139,9 @@ try:
                        "--adb", args.adb]
             if args.install:
                 command.append("--install")
-            processes.append(subprocess.Popen(command, stdout=subprocess.PIPE,
-                                                stderr=subprocess.PIPE, text=True))
+            stdout_file, stderr_file = tempfile.TemporaryFile(), tempfile.TemporaryFile()
+            process_outputs.append((stdout_file, stderr_file))
+            processes.append(subprocess.Popen(command, stdout=stdout_file, stderr=stderr_file))
 
         while any(process.poll() is None for process in processes):
             if session.remaining_seconds() <= 0:
@@ -158,14 +170,16 @@ try:
 
         for index, process in enumerate(processes):
             try:
-                stdout, stderr = process.communicate(timeout=min(10, max(0.1, session.remaining_seconds())))
+                process.wait(timeout=min(10, max(0.1, session.remaining_seconds())))
             except subprocess.TimeoutExpired:
                 process.kill()
-                stdout, stderr = process.communicate(timeout=5)
+                process.wait(timeout=5)
                 failure = failure or "participant_process_teardown_timeout"
+            stdout_file, stderr_file = process_outputs[index]
+            stdout_file.seek(0); stderr_file.seek(0)
             safe = {"participant_id": participants[index], "returncode": process.returncode,
-                    "stdout_sha256": hashlib.sha256(stdout.encode()).hexdigest(),
-                    "stderr_sha256": hashlib.sha256(stderr.encode()).hexdigest()}
+                    "stdout_sha256": hashlib.sha256(stdout_file.read()).hexdigest(),
+                    "stderr_sha256": hashlib.sha256(stderr_file.read()).hexdigest()}
             summary_path = args.output / participants[index] / "concurrent-summary.json"
             if summary_path.is_file():
                 safe["device_summary"] = json.loads(summary_path.read_text())
@@ -181,6 +195,8 @@ except KeyboardInterrupt:
             coordinator.abort(participant, failure)
         except Exception:
             pass
+except Exception as error:
+    failure = "runner_" + type(error).__name__
 finally:
     for process in processes:
         if process.poll() is None:
@@ -205,12 +221,18 @@ finally:
         result = adb(transport, *reverse_restore_args(local, previous))
         restored.append(result.returncode == 0)
     for transport in transports:
-        after = snapshot(transport)
-        restored.extend(after.get(local) == previous for (saved_transport, local), previous
-                        in route_previous.items() if saved_transport == transport)
+        try:
+            after = snapshot(transport)
+            restored.extend(after.get(local) == previous for (saved_transport, local), previous
+                            in route_previous.items() if saved_transport == transport)
+        except RuntimeError:
+            restored.append(False)
     teardown["reverse_routes_restored"] = bool(route_previous) and all(restored)
     server.shutdown()
     server.server_close()
+    for files in process_outputs:
+        for output in files:
+            output.close()
 
 oracle = coordinator.oracle()
 result = {"schema_version": 2, "run_id": configs[0]["run_id"], "session": session.manifest(),

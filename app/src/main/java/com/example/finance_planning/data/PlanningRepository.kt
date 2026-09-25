@@ -199,8 +199,12 @@ class PlanningRepository(val identity: MobileIdentity, private val vault: Vault,
         return NotificationDeliveryPolicy.push(data, uid, config)
     }
 
-    internal fun installQaNotificationConfig(value: JSONObject) {
+    internal suspend fun installQaNotificationConfig(value: JSONObject) {
         val uid = owner()
+        val config = QaNotificationConfig.parse(value)
+        require(config.targetUid == uid && config.targetDeviceId == device())
+        currentQaNotificationConfig(uid)?.let(config::requireAppendOnly)
+        QaNotificationTransport(config.bearer, config).verifyCampaignBindings()
         qaNotificationConfig.install(value, uid, device())
     }
 
@@ -211,7 +215,8 @@ class PlanningRepository(val identity: MobileIdentity, private val vault: Vault,
         NotificationEndpoint.QA -> {
             val config = checkedQaNotificationConfig(delivery.targetUid)
                 ?: throw AppFailure(AppText.get(R.string.backend_data_format_invalid))
-            if (config.namespace != delivery.namespace)
+            if (config.namespace != delivery.namespace || config.campaign != delivery.campaign ||
+                (config.campaign != null && config.eventCases[delivery.eventId] != delivery.caseId))
                 throw AppFailure(AppText.get(R.string.backend_data_format_invalid))
             BackendApi.qaNotifications(config)
         }
@@ -239,9 +244,8 @@ class PlanningRepository(val identity: MobileIdentity, private val vault: Vault,
                 cacheNotifications(page, uid) { event ->
                     if (qa == null) NotificationDelivery.production(
                         event.optString("event_id", event.optString("id")), uid)
-                    else NotificationDelivery(NotificationEndpoint.QA,
-                        event.optString("event_id", event.optString("id")), uid,
-                        event.getString("plan_id"), event.get("version").toString(), qa.namespace)
+                    else qa.delivery(event.optString("event_id", event.optString("id")),
+                        event.getString("plan_id"), event.get("version").toString())
                 }
                 next = page.optString("next_cursor").takeIf { it.isNotBlank() && it != "null" }
                 if (next != null && !seen.add(next)) throw AppFailure(AppText.get(R.string.backend_repeated_notification_page), true)
@@ -258,9 +262,8 @@ class PlanningRepository(val identity: MobileIdentity, private val vault: Vault,
         cacheNotifications(page, uid) { event ->
             if (qa == null) NotificationDelivery.production(
                 event.optString("event_id", event.optString("id")), uid)
-            else NotificationDelivery(NotificationEndpoint.QA,
-                event.optString("event_id", event.optString("id")), uid,
-                event.getString("plan_id"), event.get("version").toString(), qa.namespace)
+            else qa.delivery(event.optString("event_id", event.optString("id")),
+                event.getString("plan_id"), event.get("version").toString())
         }
         return page
     }
