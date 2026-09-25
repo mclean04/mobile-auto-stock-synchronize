@@ -9,9 +9,13 @@ AUTOMATIONS = {"monthly": "k-ho-ch-c-phi-u-dnse-th-ng-test",
                "daily": "ki-m-tra-c-phi-u-h-ng-ng-y-test"}
 PROJECT_ID = "0bc81dc2-c04b-4fe1-b01e-22ab22e14b39"
 PROJECT_PATH = "/Users/tuanh/finance root"
-SCHEMA_SHA256 = "a514f50bbb23738e1a1dbfec7328da043c54ccb94f41602a2c3ee3ca16a31b54"
-PACKAGE_SHA256 = "3996d8ae53c2faf177cb318762965b0717f056933c93d3ad6932aec4d27d0b9b"
+SCHEMA_SHA256 = "3c8d376020ffc65aae4613fb7afa7157bb8ef96b0930d2b39aab29e608f6f60a"
+PACKAGE_SHA256 = "e5655405c859dfae57e94fa90fa5de73ed9eb87e9516300fa6930c0b869e24d9"
 SCOPE = "CODEX_LOCAL_SCHEDULED_REAL_QA_CHAIN"
+HISTORICAL_UNRESOLVED = "NOT_ESTABLISHED_FOR_HISTORICAL_REJECTED_OPERATION"
+INDEPENDENT_SCOPE = "CASE_SCOPED_NOTIFICATION"
+PO_DISPOSITION_PATH = "Planning/PO-DEC009-independent-runtime-disposition-20260925.md"
+PO_DISPOSITION_SHA256 = "0709cd1f986b3dceef53611c9432f0b5a0bce89184f345e8456b7d80961c2944"
 
 
 def digest(raw):
@@ -62,6 +66,37 @@ def policy_valid(policy):
         return True
     except (KeyError, TypeError, ValueError):
         return False
+
+
+def safety_disposition(guard, binding, identities, blobs):
+    """Only the exact PO disposition permits an independent notification exception."""
+    independent = guard.get("independent_notification_release")
+    if independent is None:
+        if guard["safety_block_resolution"] != "RESOLVED_SUPPORTED":
+            return False
+        return any(digest(value) == guard["safety_resolution_evidence_sha256"] for value in blobs.values())
+    if (identities["case_id"] not in {"N1", "N2"} or
+            guard["safety_block_resolution"] != HISTORICAL_UNRESOLVED or
+            independent["historical_planning_block_status"] != HISTORICAL_UNRESOLVED or
+            independent["scope"] != INDEPENDENT_SCOPE or
+            independent["release_decision"] != "RELEASED_FOR_INDEPENDENT_NOTIFICATION" or
+            independent["new_rejection_status"] != "NONE_OBSERVED" or
+            any(independent[k] != v for k, v in identities.items()) or
+            independent["po_disposition_path"] != PO_DISPOSITION_PATH or
+            independent["po_disposition_sha256"] != PO_DISPOSITION_SHA256 or
+            binding["release_scope"] != INDEPENDENT_SCOPE or
+            binding["po_disposition_sha256"] != PO_DISPOSITION_SHA256):
+        return False
+    if not any(digest(value) == PO_DISPOSITION_SHA256 for value in blobs.values()):
+        raise ValueError("missing_hashed_PO_disposition")
+    evidence = independent["independence_evidence"]
+    if not isinstance(evidence, list) or not evidence:
+        raise ValueError("missing_case_independence_evidence")
+    for ref in evidence:
+        value = normalized_bytes(ref, blobs[ref["path"]])
+        if not value or digest(value) != ref["sha256"]:
+            raise ValueError("independence_evidence_digest_mismatch")
+    return True
 
 
 def verify(proof, packet, bound, blobs):
@@ -156,9 +191,8 @@ def verify(proof, packet, bound, blobs):
     guard = document(binding["guard_sha256"])
     if guard["status"] != "RELEASED" or any(guard[k] != v for k, v in identities.items() if k != "case_id"):
         return False
-    if guard["safety_block_resolution"] != "RESOLVED_SUPPORTED":
+    if not safety_disposition(guard, binding, identities, blobs):
         return False
-    raw(guard["safety_resolution_evidence_sha256"])
     if not guard["readiness_evidence"] or not guard["ba_release_evidence"]:
         raise ValueError("missing_readiness_or_release_evidence")
     for sha in guard["readiness_evidence"] + [guard["ba_release_evidence"]]:
@@ -174,6 +208,9 @@ def verify(proof, packet, bound, blobs):
         raise ValueError("runtime_binding_digest_mismatch")
     ledger = json.loads(blobs[ledger_ref["path"]])
     if ledger["schema_version"] != "finance-local-run-binding.v1":
+        return False
+    if (guard.get("independent_notification_release") is not None and
+            ledger["new_rejection_status"] != "NONE_OBSERVED"):
         return False
     if any(ledger[k] != v for k, v in identities.items()):
         return False

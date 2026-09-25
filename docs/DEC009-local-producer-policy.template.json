@@ -1,7 +1,7 @@
 {
   "schema_version": "finance-local-producer-policy.v1",
-  "evidence_schema_sha256": "a514f50bbb23738e1a1dbfec7328da043c54ccb94f41602a2c3ee3ca16a31b54",
-  "package_manifest_sha256": "3996d8ae53c2faf177cb318762965b0717f056933c93d3ad6932aec4d27d0b9b",
+  "evidence_schema_sha256": "3c8d376020ffc65aae4613fb7afa7157bb8ef96b0930d2b39aab29e608f6f60a",
+  "package_manifest_sha256": "e5655405c859dfae57e94fa90fa5de73ed9eb87e9516300fa6930c0b869e24d9",
   "project_id": "0bc81dc2-c04b-4fe1-b01e-22ab22e14b39",
   "project_path": "/Users/tuanh/finance root",
   "automations": {

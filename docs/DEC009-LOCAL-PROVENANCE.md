@@ -58,9 +58,11 @@ independent QA review. Do not manufacture unavailable fields to satisfy this sch
   `readiness_evidence` (list of referenced evidence hashes), `ba_release_evidence`
   (hash), and the monthly/daily role block: automation ID, case ID, bound prompt
   hash, `scheduled_at`, `accept_by`. An existing NOT_RELEASED scaffold is not proof.
-  Require `safety_block_resolution=RESOLVED_SUPPORTED` and a hash-resolved
-  `safety_resolution_evidence_sha256` for the historical exact-write operation.
-  This is a recorded supported disposition; a different actor/ID is not resolution.
+  Planning still requires `safety_block_resolution=RESOLVED_SUPPORTED` and a
+  hash-resolved `safety_resolution_evidence_sha256`; neither exists currently.
+  A different actor/ID is not resolution. Independent notification N1/N2 may
+  instead use the case-specific PO exception below while preserving the unresolved
+  historical status. N3/N4 retain their downstream notification gates.
 - Runtime binding: `schema_version=finance-local-run-binding.v1`, campaign/session/
   case/backend_manifest_sha256, automation_id, config_file_sha256, guard_sha256,
   server_status_sha256, scheduled_at, accept_by, rrule, one_shot=true,
@@ -122,5 +124,30 @@ before device work; existing installed-hash checks remain. The accepted test pin
 is still 1fd1a4f9… and actual main candidate272397a2…. No APK is built or installed
 by offline evaluation. The existing runtime/install gates remain mandatory.
 
-Historical rejected fixture writes remain blocked pending supported resolution.
-These changes neither arm a schedule nor grant a new actor, ID, API or bypass.
+## Independent notification disposition
+
+The exact PO document SHA is
+`0709cd1f986b3dceef53611c9432f0b5a0bce89184f345e8456b7d80961c2944`.
+It narrows a product dependency, not any platform safety restriction. Under this
+exception top-level `safety_block_resolution` stays
+`NOT_ESTABLISHED_FOR_HISTORICAL_REJECTED_OPERATION`. Never mark it resolved merely
+because a notification case is independent.
+
+Guard `independent_notification_release` must contain scope
+`CASE_SCOPED_NOTIFICATION`, the exact current N1 or N2 case/campaign/session/
+backend_manifest_sha256, `po_disposition_path` exactly
+`Planning/PO-DEC009-independent-runtime-disposition-20260925.md`, the pinned
+`po_disposition_sha256`, nonempty hash-resolved structured `independence_evidence`,
+`release_decision=RELEASED_FOR_INDEPENDENT_NOTIFICATION`, unchanged unresolved
+`historical_planning_block_status`, and `new_rejection_status=NONE_OBSERVED`.
+Proof binding repeats `release_scope=CASE_SCOPED_NOTIFICATION` and the PO hash.
+The exact PO bytes and case-independence evidence must be packet evidence; a path
+or approval boolean alone is insufficient. QA reviews the substantive independence.
+
+The append-only runtime binding also requires
+`new_rejection_status=NONE_OBSERVED`; a new generic rejection denies acceptance
+even if the pre-run guard was released. Preserve the guard and append the outcome.
+P1/P4 cannot use this exception; P1-P6 and fixture-dependent cases stay held under
+their own disposition. All existing provenance, owner, clock, resource, and
+readback checks still apply. These changes neither arm a schedule nor retry,
+retarget, reproduce or reidentify the historical rejected fixture operation.

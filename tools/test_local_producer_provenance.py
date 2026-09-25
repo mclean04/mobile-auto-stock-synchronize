@@ -12,7 +12,7 @@ from campaign_oracles import evaluate
 from test_campaign_review_regressions import notification_fixture
 
 
-def fixture(level="DIRECT", native_trigger="SCHEDULED", count=1, guard_status="RELEASED", safety="RESOLVED_SUPPORTED"):
+def fixture(level="DIRECT", native_trigger="SCHEDULED", count=1, guard_status="RELEASED", safety="RESOLVED_SUPPORTED", case="N1"):
     blobs = {}
     def save(name, value):
         raw = value.encode() if isinstance(value, str) else json.dumps(value, sort_keys=True).encode()
@@ -21,9 +21,15 @@ def fixture(level="DIRECT", native_trigger="SCHEDULED", count=1, guard_status="R
     def ref(kind, name, media="application/json"):
         return {"kind": kind, "path": name, "sha256": local.digest(blobs[name]),
                 "media_type": media, "normalization": "RAW_BYTES"}
-    ids = {"campaign_id": "synthetic-campaign", "session_id": "synthetic-session", "case_id": "N1",
+    ids = {"campaign_id": "synthetic-campaign", "session_id": "synthetic-session", "case_id": case,
            "backend_manifest_sha256": "a" * 64}
-    role, automation = "daily", local.AUTOMATIONS["daily"]
+    role = local.CASES[case]
+    automation = local.AUTOMATIONS[role]
+    minute = 5 if case == "N1" else 50
+    scheduled = f"2026-09-25T12:{minute:02d}:00Z"
+    started = f"2026-09-25T12:{minute:02d}:02Z"
+    completed = f"2026-09-25T12:{minute+1:02d}:00Z"
+    cutoff = "2026-09-25T12:19:59Z" if case == "N1" else "2026-09-25T13:04:59Z"
     template = "Campaign <CAMPAIGN_ID> Session <NOTIFICATION_SESSION_ID> Source <FRESH_SOURCE_GENERATION>"
     substitutions = {"<CAMPAIGN_ID>": ids["campaign_id"], "<NOTIFICATION_SESSION_ID>": ids["session_id"],
                      "<FRESH_SOURCE_GENERATION>": 3}
@@ -40,14 +46,14 @@ def fixture(level="DIRECT", native_trigger="SCHEDULED", count=1, guard_status="R
     policy = {"schema_version": "finance-local-producer-policy.v1", "evidence_schema_sha256": schema_hash,
               "package_manifest_sha256": package_hash, "project_id": local.PROJECT_ID,
               "project_path": local.PROJECT_PATH, "automations": local.AUTOMATIONS, "cases": rules}
-    rrule = f"FREQ=DAILY;COUNT={count};BYHOUR=12;BYMINUTE=5;BYSECOND=0"
+    rrule = f"FREQ=DAILY;COUNT={count};BYHOUR=12;BYMINUTE={minute};BYSECOND=0"
     config = {"id": automation, "project_id": local.PROJECT_ID, "cwd": local.PROJECT_PATH,
               "kind": "cron", "execution_environment": "local", "model": "gpt-6-sol",
               "reasoning_effort": "medium", "status": "ACTIVE", "prompt": prompt, "rrule": rrule}
     config_hash = save("config.toml", "\n".join(key + " = " + json.dumps(value) for key,value in config.items()))
     artifact = {"artifact_kind": "NOTIFICATION_ROW_AND_EVENT", "resource_id": "qa-resource",
                 "range_or_event_id": "qa-row/event", "campaign_marker": ids["campaign_id"],
-                "session_marker": ids["session_id"], "case_marker": "N1"}
+                "session_marker": ids["session_id"], "case_marker": case}
     artifact_hash = save("artifact.json", artifact | {"task_record_id": "task-1", "run_id": "run-1",
                          "automation_id": automation, "producer_values": {"mode": "TEST"}, "backend_values": {},
                          "source_context": {"source_id": "qa-resource", "source_generation": 3},
@@ -55,9 +61,9 @@ def fixture(level="DIRECT", native_trigger="SCHEDULED", count=1, guard_status="R
     native = ids | {"automation_id": automation if level == "DIRECT" else None,
                    "project_id": local.PROJECT_ID, "task_record_id": "task-1", "run_id": "run-1",
                    "invocation_kind": native_trigger, "manual_invocation": native_trigger == "MANUAL",
-                   "started_at": "2026-09-25T12:05:02Z", "completed_at": "2026-09-25T12:06:00Z",
+                   "started_at": started, "completed_at": completed,
                    "observed_status": "COMPLETED", "config_file_sha256": config_hash,
-                   "scheduled_at": "2026-09-25T12:05:00Z",
+                   "scheduled_at": scheduled,
                    "artifact_readback_sha256": artifact_hash}
     native_hash = save("run.json", native)
     server_hash = save("server.json", {"state": "ACTIVE", "campaign_id": ids["campaign_id"],
@@ -67,8 +73,8 @@ def fixture(level="DIRECT", native_trigger="SCHEDULED", count=1, guard_status="R
         "template_sha256": template_hash, "substitutions": substitutions, "case_readback_sha256": case_hash})
     ledger = ids | {"schema_version": "finance-local-run-binding.v1", "automation_id": automation,
         "config_file_sha256": config_hash, "server_status_sha256": server_hash,
-        "scheduled_at": "2026-09-25T12:05:00Z", "accept_by": "2026-09-25T12:19:59Z",
-        "rrule": rrule, "one_shot": True, "observed_next_run_at": "2026-09-25T12:05:00Z",
+        "scheduled_at": scheduled, "accept_by": cutoff,
+        "rrule": rrule, "one_shot": True, "observed_next_run_at": scheduled,
         "substitutions": substitutions, "rendering_binding_sha256": rendering_hash}
     if level == "INDIRECT_ACCEPTED":
         ledger["indirect_review_sha256"] = save("review.json", {"decision": level, "reviewer_role": "SYSTEM_BA",
@@ -80,7 +86,7 @@ def fixture(level="DIRECT", native_trigger="SCHEDULED", count=1, guard_status="R
     guard_hash = save("guard.json", ids | {"status": guard_status, "readiness_evidence": [approval_hash],
         "safety_block_resolution": safety, "safety_resolution_evidence_sha256": approval_hash,
         "ba_release_evidence": approval_hash, role: {"automation_id": automation,
-        "case_id": "N1", "bound_prompt_sha256": prompt_hash, "scheduled_at": ledger["scheduled_at"], "accept_by": ledger["accept_by"]}})
+        "case_id": case, "bound_prompt_sha256": prompt_hash, "scheduled_at": ledger["scheduled_at"], "accept_by": ledger["accept_by"]}})
     ledger_hash = save("ledger.json", ledger | {"guard_sha256": guard_hash})
     references = [ref("SAVED_CONFIG", "config.toml", "application/toml"), ref("BOUND_PROMPT", "prompt.txt", "text/plain"),
                   ref("RELEASE_GUARD", "guard.json"), ref("SCHEDULER_RUN_RECORD", "run.json"), ref("ARTIFACT_READBACK", "artifact.json")]
@@ -90,18 +96,46 @@ def fixture(level="DIRECT", native_trigger="SCHEDULED", count=1, guard_status="R
             "kind": "cron", "execution_environment": "local", "model": "gpt-6-sol", "reasoning_effort": "medium",
             "saved_status": "ACTIVE", "saved_prompt_sha256": prompt_hash, "saved_rrule": rrule,
             "config_file_sha256": config_hash, "config_readback_at": "2026-09-25T12:01:00Z"},
-        "binding": ids | {"guard_sha256": guard_hash, "bound_prompt_sha256": prompt_hash},
+        "binding": ids | {"guard_sha256": guard_hash, "bound_prompt_sha256": prompt_hash,
+                          "release_scope": None, "po_disposition_sha256": None},
         "run": {key: native[key] for key in ("task_record_id", "started_at", "completed_at", "observed_status")}
                | {"invocation_kind": "SCHEDULED", "record_source": references[3]},
-        "artifact": artifact | {"readback_sha256": artifact_hash, "readback_at": "2026-09-25T12:06:00Z"},
+        "artifact": artifact | {"readback_sha256": artifact_hash, "readback_at": completed},
         "scheduled_provenance": {"result": level, "evidence_refs": references, "unsupported_fields": []}}
-    packet = {"case_id": "N1", "campaign_id": ids["campaign_id"], "session_id": ids["session_id"],
+    packet = {"case_id": case, "campaign_id": ids["campaign_id"], "session_id": ids["session_id"],
         "manifest_hash": ids["backend_manifest_sha256"], "server_timestamp": "2026-09-25T12:39:00Z", "truncated": False,
-        "facts": notification_fixture() | {"provenance": proof,
+        "facts": notification_fixture(case) | {"provenance": proof,
             "provenance_runtime_binding": {"path": "ledger.json", "sha256": ledger_hash}}}
     bound = {"local_producer_policy": policy, "calendar_id": "qa-calendar", "source_context": {"source_id": "qa-resource", "source_generation": 3},
-             "policy": {"opens_after_seconds": 1500, "ends_after_seconds": 2400}}
+             "policy": {"opens_after_seconds": 1500 if case == "N1" else 4200, "ends_after_seconds": 2400 if case == "N1" else 5400}}
     return packet, bound, blobs, {"PACKAGE_SHA256": package_hash, "SCHEMA_SHA256": schema_hash}
+
+
+def independent_fixture(case="N1", release_changes=None, audit="NONE_OBSERVED"):
+    data = fixture(safety=local.HISTORICAL_UNRESOLVED, case=case)
+    packet, bound, blobs, pins = data
+    proof = packet["facts"]["provenance"]
+    guard = json.loads(blobs["guard.json"])
+    blobs["po.md"] = b"Synthetic PO disposition for unit tests, not runtime authority."
+    po_hash = local.digest(blobs["po.md"])
+    pins["PO_DISPOSITION_SHA256"] = po_hash
+    identity = {k: proof["binding"][k] for k in ("campaign_id", "session_id", "case_id", "backend_manifest_sha256")}
+    blobs["independence.json"] = json.dumps(identity | {"synthetic_review": "independent notification"}).encode()
+    guard["independent_notification_release"] = identity | {
+        "scope": local.INDEPENDENT_SCOPE, "po_disposition_path": local.PO_DISPOSITION_PATH,
+        "po_disposition_sha256": po_hash, "release_decision": "RELEASED_FOR_INDEPENDENT_NOTIFICATION",
+        "historical_planning_block_status": local.HISTORICAL_UNRESOLVED,
+        "new_rejection_status": "NONE_OBSERVED", "independence_evidence": [{"path": "independence.json",
+            "sha256": local.digest(blobs["independence.json"]), "media_type": "application/json", "normalization": "RAW_BYTES"}]
+    } | (release_changes or {})
+    blobs["guard.json"] = json.dumps(guard,sort_keys=True).encode()
+    guard_hash = local.digest(blobs["guard.json"])
+    proof["binding"].update(guard_sha256=guard_hash, release_scope=local.INDEPENDENT_SCOPE, po_disposition_sha256=po_hash)
+    next(r for r in proof["scheduled_provenance"]["evidence_refs"] if r["kind"] == "RELEASE_GUARD")["sha256"] = guard_hash
+    ledger = json.loads(blobs["ledger.json"]) | {"guard_sha256": guard_hash, "new_rejection_status": audit}
+    blobs["ledger.json"] = json.dumps(ledger,sort_keys=True).encode()
+    packet["facts"]["provenance_runtime_binding"]["sha256"] = local.digest(blobs["ledger.json"])
+    return data
 
 
 class LocalProvenanceTest(unittest.TestCase):
@@ -168,6 +202,41 @@ class LocalProvenanceTest(unittest.TestCase):
 
     def test_historical_write_blocker_cannot_be_relabelled_by_local_schedule(self):
         self.assertEqual("FAIL", self.review(fixture(safety="NOT_ESTABLISHED_FOR_HISTORICAL_REJECTED_OPERATION"))["result"])
+
+    def test_independent_n1_and_n2_preserve_unresolved_history_and_all_other_checks(self):
+        for case in ("N1", "N2"):
+            data = independent_fixture(case)
+            self.assertEqual(local.HISTORICAL_UNRESOLVED, json.loads(data[2]["guard.json"])["safety_block_resolution"])
+            result = self.review(data)
+            self.assertEqual("PASS", result["result"], result)
+            data[0]["facts"]["opened_receipt_accepted"] = False
+            self.assertEqual("FAIL", self.review(data)["result"])
+
+    def test_independent_release_requires_exact_po_case_and_hashed_independence(self):
+        for change in ({"case_id": "N2"}, {"campaign_id": "other"}, {"po_disposition_sha256": "f"*64},
+                       {"release_decision": "NOT_RELEASED"}, {"historical_planning_block_status": "RESOLVED_SUPPORTED"}):
+            self.assertEqual("FAIL", self.review(independent_fixture(release_changes=change))["result"], change)
+        for filename in ("po.md", "independence.json"):
+            data = independent_fixture(); del data[2][filename]
+            self.assertEqual("UNKNOWN", self.review(data)["result"])
+        self.assertEqual("UNKNOWN", self.review(independent_fixture(release_changes={"independence_evidence": []}))["result"])
+
+    def test_independent_notification_does_not_release_p1_or_p4(self):
+        for case in ("P1", "P4"):
+            packet, _, blobs, pins = independent_fixture()
+            guard = json.loads(blobs["guard.json"])
+            guard["independent_notification_release"]["case_id"] = case
+            identity = {k: packet["facts"]["provenance"]["binding"][k] for k in
+                        ("campaign_id", "session_id", "case_id", "backend_manifest_sha256")}
+            identity["case_id"] = case
+            with patch.multiple(local, **pins):
+                self.assertFalse(local.safety_disposition(guard, packet["facts"]["provenance"]["binding"], identity, blobs))
+                del guard["independent_notification_release"]
+                self.assertFalse(local.safety_disposition(guard, {}, identity, blobs))
+
+    def test_new_generic_rejection_stops_before_or_after_notification_release(self):
+        self.assertEqual("FAIL", self.review(independent_fixture(release_changes={"new_rejection_status": "REJECTION_OBSERVED"}))["result"])
+        self.assertEqual("FAIL", self.review(independent_fixture(audit="REJECTION_OBSERVED"))["result"])
 
 
 if __name__ == "__main__":
