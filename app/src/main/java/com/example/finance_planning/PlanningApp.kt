@@ -12,14 +12,19 @@ import com.example.finance_planning.network.Transport
 class PlanningApp : Application() {
     lateinit var repository: PlanningRepository
         private set
+    lateinit var observationLog: com.example.finance_planning.core.ProductionObservationLog
+        private set
     override fun onCreate() {
         super.onCreate()
         com.example.finance_planning.core.AppText.initialize(this)
         com.example.finance_planning.sync.PlanningMessagingService.createChannel(this)
         val identity = MobileIdentity(this)
         identity.initialize()
+        observationLog = com.example.finance_planning.core.ProductionObservationLog(
+            java.io.File(noBackupFilesDir,
+                com.example.finance_planning.core.ProductionObservationLog.DIRECTORY_NAME))
         repository = PlanningRepository(identity, Vault(this),
             Room.databaseBuilder(this, LocalDb::class.java, "planning.db").build(),
-            BackendApi(Transport(), identity::headers))
+            BackendApi(Transport(), identity::headers), observation = observationLog)
     }
 }

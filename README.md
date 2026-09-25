@@ -49,6 +49,8 @@ tránh tạo bản ghi Planning trùng nếu backend đã commit nhưng phản h
 
 Xem [đối chiếu API và yêu cầu backend](docs/API-COVERAGE.md).
 Luồng thông báo QA cục bộ được mô tả tại [docs/QA-NOTIFICATION.md](docs/QA-NOTIFICATION.md).
+Structured log cho quan sát daily/monthly production và cách export chủ động được mô tả
+tại [docs/PRODUCTION-OBSERVATION.md](docs/PRODUCTION-OBSERVATION.md).
 Room instrumented test nằm trong OutboxPersistenceTest; cần emulator/thiết bị để chạy.
 
 ## App Check cho bản debug

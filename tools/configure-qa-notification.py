@@ -43,7 +43,8 @@ if a.action == "metadata":
     metadata = json.loads(match.group(1))
     allowed = {"model", "notification_permission", "firebase_configured",
                "firebase_user_present", "approved", "target_device_id",
-               "target_uid", "fcm_token_included"}
+               "target_uid", "fcm_token_included", "qa_notification_configured",
+               "qa_notification_isolation_enabled"}
     if not set(metadata).issubset(allowed) or metadata.get("fcm_token_included") is not False:
         raise SystemExit("QA notification metadata did not match the safe output contract")
     print(json.dumps(metadata, separators=(",", ":"), sort_keys=True))

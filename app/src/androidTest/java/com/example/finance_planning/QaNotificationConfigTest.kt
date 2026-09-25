@@ -54,6 +54,8 @@ class QaNotificationConfigTest {
             .put("firebase_configured", configured)
             .put("firebase_user_present", uid != null)
             .put("approved", repo.approved())
+            .put("qa_notification_configured", repo.qaNotificationsConfigured())
+            .put("qa_notification_isolation_enabled", repo.qaNotificationIsolationEnabled())
             .put("fcm_token_included", false)
         if (uid != null) {
             val device = repo.device()

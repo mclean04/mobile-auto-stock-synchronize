@@ -214,12 +214,30 @@ class PlanningViewModel(application: Application) : AndroidViewModel(application
         }
     }
     private fun openNotification(id: String) = run {
-        val event = repo.openNotification(id)
-        getApplication<Application>().getSystemService(android.app.NotificationManager::class.java).cancel(id, 1)
-        mutable.value = mutable.value.copy(detail = event, detailKind = DetailKind.NOTIFICATION)
-        if (!event.optBoolean("local_only"))
-            SyncSchedule.receipt(getApplication(), repo.notificationDelivery(id), "OPENED")
-        AppText.get(R.string.notification_loaded)
+        val started = System.nanoTime()
+        val base = ObservationCorrelation(eventId = id)
+        repo.observation.record(ObservationComponent.NOTIFICATION, ObservationAction.NOTIFICATION_OPEN,
+            ObservationStage.OPENED, ObservationResult.STARTED, base)
+        try {
+            val event = repo.openNotification(id)
+            val delivery = if (event.optBoolean("local_only")) null else repo.notificationDelivery(id)
+            val correlation = delivery?.let { ObservationCorrelation.notification(it, event) }
+                ?: ObservationCorrelation.event(event)
+            getApplication<Application>().getSystemService(android.app.NotificationManager::class.java).cancel(id, 1)
+            mutable.value = mutable.value.copy(detail = event, detailKind = DetailKind.NOTIFICATION)
+            repo.observation.record(ObservationComponent.NOTIFICATION, ObservationAction.NOTIFICATION_OPEN,
+                ObservationStage.OPENED, ObservationResult.OBSERVED, correlation,
+                ProductionObservationLog.elapsedMs(started))
+            if (delivery != null) SyncSchedule.receipt(getApplication(), delivery, "OPENED")
+            AppText.get(R.string.notification_loaded)
+        } catch (error: Throwable) {
+            val safe = if (error is HttpFailure) ObservationError.http(error.status, error.code)
+                else ObservationError.fromThrowable(error)
+            repo.observation.record(ObservationComponent.NOTIFICATION, ObservationAction.NOTIFICATION_OPEN,
+                ObservationStage.OPENED, ObservationResult.FAILED, base,
+                ProductionObservationLog.elapsedMs(started), safe)
+            throw error
+        }
     }
     fun source(id: String) = run {
         if (!mutable.value.admin) throw AppFailure(AppText.get(R.string.this_feature_requires_admin_access))

@@ -3,15 +3,19 @@ package com.example.finance_planning.sync
 import android.content.Context
 import androidx.work.*
 import com.example.finance_planning.PlanningApp
-import com.example.finance_planning.core.AppFailure
-import com.example.finance_planning.core.NotificationDelivery
+import com.example.finance_planning.core.*
 import com.example.finance_planning.network.HttpFailure
 import kotlinx.coroutines.CancellationException
 import java.util.concurrent.TimeUnit
 
 class SyncWorker(context: Context, params: WorkerParameters) : CoroutineWorker(context, params) {
+    private fun safeError(error: Throwable): ObservationError = when (error) {
+        is HttpFailure -> ObservationError.http(error.status, error.code)
+        else -> ObservationError.fromThrowable(error)
+    }
     override suspend fun doWork(): Result {
-        val repo = (applicationContext as PlanningApp).repository
+        val app = applicationContext as PlanningApp
+        val repo = app.repository
         if (!repo.approved()) return Result.failure()
         return try {
             val event = inputData.getString("event")
@@ -23,12 +27,51 @@ class SyncWorker(context: Context, params: WorkerParameters) : CoroutineWorker(c
                 } ?: return Result.failure()
                 if (delivery.eventId != event || delivery.targetUid != expectedUid) return Result.failure()
                 val receipt = inputData.getString("receipt") ?: "RECEIVED"
-                val notification = repo.receiveNotification(event, delivery, receipt == "RECEIVED")
+                val baseCorrelation = ObservationCorrelation.notification(delivery)
+                val fetchStarted = System.nanoTime()
+                app.observationLog.record(ObservationComponent.NOTIFICATION,
+                    ObservationAction.NOTIFICATION_FETCH, ObservationStage.REQUEST,
+                    ObservationResult.STARTED, baseCorrelation)
+                val notification = try {
+                    repo.receiveNotification(event, delivery, receipt == "RECEIVED").also {
+                        app.observationLog.record(ObservationComponent.NOTIFICATION,
+                            ObservationAction.NOTIFICATION_FETCH, ObservationStage.SERVER_ACCEPTED,
+                            ObservationResult.SUCCEEDED, ObservationCorrelation.notification(delivery, it),
+                            ProductionObservationLog.elapsedMs(fetchStarted))
+                    }
+                } catch (error: Throwable) {
+                    app.observationLog.record(ObservationComponent.NOTIFICATION,
+                        ObservationAction.NOTIFICATION_FETCH, ObservationStage.REQUEST,
+                        ObservationResult.FAILED, baseCorrelation,
+                        ProductionObservationLog.elapsedMs(fetchStarted), safeError(error))
+                    throw error
+                }
+                val correlation = ObservationCorrelation.notification(delivery, notification)
                 if (repo.identity.uid() != expectedUid || !repo.approved()) return Result.failure()
                 if (receipt == "RECEIVED" && !repo.notificationOpened(event)) {
-                    PlanningMessagingService.show(applicationContext, notification)
+                    val displayed = PlanningMessagingService.show(applicationContext, notification)
+                    app.observationLog.record(ObservationComponent.NOTIFICATION,
+                        ObservationAction.FCM_RECEIVE, ObservationStage.DISPLAYED,
+                        if (displayed) ObservationResult.OBSERVED else ObservationResult.NOT_OBSERVED,
+                        correlation)
                 }
-                repo.notificationReceipt(delivery, receipt)
+                val receiptStarted = System.nanoTime()
+                app.observationLog.record(ObservationComponent.NOTIFICATION,
+                    ObservationAction.NOTIFICATION_RECEIPT, ObservationStage.RECEIPT,
+                    ObservationResult.STARTED, correlation)
+                try {
+                    repo.notificationReceipt(delivery, receipt)
+                    app.observationLog.record(ObservationComponent.NOTIFICATION,
+                        ObservationAction.NOTIFICATION_RECEIPT, ObservationStage.SERVER_ACCEPTED,
+                        ObservationResult.ACCEPTED, correlation,
+                        ProductionObservationLog.elapsedMs(receiptStarted))
+                } catch (error: Throwable) {
+                    app.observationLog.record(ObservationComponent.NOTIFICATION,
+                        ObservationAction.NOTIFICATION_RECEIPT, ObservationStage.RECEIPT,
+                        ObservationResult.FAILED, correlation,
+                        ProductionObservationLog.elapsedMs(receiptStarted), safeError(error))
+                    throw error
+                }
                 repo.notifications()
             } else {
                 repo.registerPush()
@@ -104,7 +147,11 @@ class ConsoleNotificationWorker(context: Context, params: WorkerParameters) : Co
             .put("created_at", inputData.getString("created_at")).put("local_only", true)
         repo.cacheNotifications(org.json.JSONObject().put("items", org.json.JSONArray().put(event)), uid)
         if (!repo.notificationOpened(event.getString("event_id"))) {
-            PlanningMessagingService.show(applicationContext, event)
+            val displayed = PlanningMessagingService.show(applicationContext, event)
+            (applicationContext as PlanningApp).observationLog.record(ObservationComponent.NOTIFICATION,
+                ObservationAction.FCM_RECEIVE, ObservationStage.DISPLAYED,
+                if (displayed) ObservationResult.OBSERVED else ObservationResult.NOT_OBSERVED,
+                ObservationCorrelation.event(event))
         }
         SyncSchedule.notificationRefresh(applicationContext)
         return Result.success()

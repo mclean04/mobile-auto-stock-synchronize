@@ -38,7 +38,9 @@ Lệnh chỉ xuất một JSON đã giới hạn trường: model, quyền thôn
 Firebase, trạng thái current user, quyền backend, UID và device ID nếu có. Nếu
 `firebase_configured=false`, APK hiện tại thiếu cấu hình build; nếu
 `firebase_user_present=false`, Firebase Auth trong đúng package hiện không có current
-user. Công cụ không in email, FCM token, bearer, API key hay raw instrumentation output.
+user. Hai field `qa_notification_configured` và `qa_notification_isolation_enabled` cho
+biết config QA đã pin đúng target và fail-closed routing còn hiện diện hay không. Công cụ
+không in email, FCM token, bearer, API key hay raw instrumentation output.
 
 Sau khi QA proxy được phát hành và chạy ở máy phát triển, nối cổng cho thiết bị:
 

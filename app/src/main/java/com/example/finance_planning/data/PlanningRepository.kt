@@ -25,7 +25,8 @@ import kotlinx.coroutines.withContext
 class PlanningRepository(val identity: MobileIdentity, private val vault: Vault,
                          private val db: LocalDb, val api: BackendApi,
                          private val manualBroker: (String, String, Boolean) -> DnseTradingApi =
-                             { key, secret, production -> DnseTradingApi(key, secret, production) }) {
+                             { key, secret, production -> DnseTradingApi(key, secret, production) },
+                         val observation: ObservationSink = ObservationSink.NONE) {
     private val dnseCredentials = DnseCredentialStore(vault::get, vault::put, vault::remove)
     private val lock = Mutex()
     private val dao = db.dao()
@@ -33,6 +34,39 @@ class PlanningRepository(val identity: MobileIdentity, private val vault: Vault,
     private val qaNotificationConfig = QaNotificationConfigStore(vault)
     private val planningCacheLock = Mutex()
     private val placedReportLock = Mutex()
+    private fun observationError(error: Throwable): ObservationError = when (error) {
+        is HttpFailure -> ObservationError.http(error.status, error.code)
+        is TradeHttpFailure -> ObservationError.brokerHttp(error.status)
+        else -> ObservationError.fromThrowable(error)
+    }
+    private fun planningCorrelation(value: JSONObject?): ObservationCorrelation {
+        val source = value?.let(PlanningContract::pageSource)
+        return ObservationCorrelation(sourceId = source?.sourceId,
+            sourceGeneration = source?.sourceGeneration)
+    }
+    private fun observePlanningTransitions(previous: JSONObject?, refreshed: JSONObject) {
+        if (previous == null) return
+        val oldStates = previous.objects("items").mapNotNull(PlanningIntent::parseOrNull)
+            .associate { it.intentId to it.executionState }
+        refreshed.objects("items").mapNotNull(PlanningIntent::parseOrNull).forEach { intent ->
+            if (oldStates[intent.intentId] == intent.executionState) return@forEach
+            val stage = when (intent.executionState) {
+                ExecutionState.PLACED -> ObservationStage.BROKER_ACKNOWLEDGED
+                ExecutionState.PARTIALLY_FILLED, ExecutionState.FILLED -> ObservationStage.BROKER_FILLED
+                ExecutionState.CANCEL_REQUESTED -> ObservationStage.BROKER_REQUEST
+                ExecutionState.CANCEL_UNKNOWN, ExecutionState.CANCELLED ->
+                    ObservationStage.BROKER_CANCEL_ACKNOWLEDGED
+                else -> return@forEach
+            }
+            val action = if (intent.executionState in setOf(ExecutionState.CANCEL_REQUESTED,
+                    ExecutionState.CANCEL_UNKNOWN, ExecutionState.CANCELLED))
+                ObservationAction.CANCEL_ORDER else ObservationAction.PLACE_ORDER
+            val result = if (intent.executionState == ExecutionState.CANCEL_UNKNOWN)
+                ObservationResult.NOT_OBSERVED else ObservationResult.OBSERVED
+            observation.record(ObservationComponent.PLANNING, action, stage,
+                result, ObservationCorrelation.intent(intent))
+        }
+    }
     fun owner() = identity.uid() ?: throw AppFailure(AppText.get(R.string.sign_in_to_access_data_on_this_device))
     fun device(): String {
         val key = "device:" + owner()
@@ -77,9 +111,49 @@ class PlanningRepository(val identity: MobileIdentity, private val vault: Vault,
                     dao.cache(CacheRow(uid, "planning_all", vault.seal(result.toString()), System.currentTimeMillis()))
                 }
             })
-    suspend fun localPlanningAll(): JSONObject? = planningStore(owner()).local()
+    suspend fun localPlanningAll(): JSONObject? {
+        val started = System.nanoTime()
+        return try {
+            val value = planningStore(owner()).local()
+            observation.record(ObservationComponent.CACHE, ObservationAction.PLANNING_CACHE,
+                ObservationStage.CACHE_READ,
+                if (value == null) ObservationResult.MISS else ObservationResult.HIT,
+                planningCorrelation(value), ProductionObservationLog.elapsedMs(started))
+            value
+        } catch (error: Throwable) {
+            observation.record(ObservationComponent.CACHE, ObservationAction.PLANNING_CACHE,
+                ObservationStage.CACHE_READ, ObservationResult.FAILED,
+                durationMs = ProductionObservationLog.elapsedMs(started), error = observationError(error))
+            throw error
+        }
+    }
     suspend fun refreshPlanningAll(): JSONObject = planningCacheLock.withLock {
-        planningStore(owner()).refresh()
+        val store = planningStore(owner())
+        val previous = runCatching { store.local() }.getOrNull()
+        val started = System.nanoTime()
+        observation.record(ObservationComponent.PLANNING, ObservationAction.PLANNING_REFRESH,
+            ObservationStage.REQUEST, ObservationResult.STARTED, planningCorrelation(previous))
+        try {
+            val refreshed = store.refresh()
+            val correlation = planningCorrelation(refreshed)
+            val duration = ProductionObservationLog.elapsedMs(started)
+            observation.record(ObservationComponent.PLANNING, ObservationAction.PLANNING_REFRESH,
+                ObservationStage.SERVER_ACCEPTED, ObservationResult.SUCCEEDED, correlation, duration)
+            observation.record(ObservationComponent.CACHE, ObservationAction.PLANNING_CACHE,
+                ObservationStage.CACHE_COMMIT, ObservationResult.SUCCEEDED, correlation, duration)
+            val beforeSource = PlanningContract.pageSource(previous ?: JSONObject())
+            val afterSource = PlanningContract.pageSource(refreshed)
+            if (beforeSource != null && afterSource != null && beforeSource != afterSource)
+                observation.record(ObservationComponent.SOURCE, ObservationAction.SOURCE_VALIDATE,
+                    ObservationStage.SOURCE_CHECK, ObservationResult.CHANGED, correlation, duration)
+            observePlanningTransitions(previous, refreshed)
+            refreshed
+        } catch (error: Throwable) {
+            observation.record(ObservationComponent.PLANNING, ObservationAction.PLANNING_REFRESH,
+                ObservationStage.REQUEST, ObservationResult.FAILED, planningCorrelation(previous),
+                ProductionObservationLog.elapsedMs(started), observationError(error))
+            throw error
+        }
     }
     fun observeNotifications(uid: String) = dao.observeNotificationInbox(uid).map { rows ->
         rows.map { JSONObject(vault.open(it.event.ciphertext)).put("_opened", it.opened) }
@@ -216,6 +290,16 @@ class PlanningRepository(val identity: MobileIdentity, private val vault: Vault,
         require(delivery.targetUid == owner())
         return notificationApi(delivery).receipt(delivery.eventId, device(), state)
     }
+    private fun reportCorrelation(payload: JSONObject): ObservationCorrelation {
+        val source = payload.optJSONObject("source_context")
+        val order = payload.optJSONObject("order")
+        return ObservationCorrelation(actionId = payload.optString("intent_id").takeIf(String::isNotBlank),
+            requestId = payload.optString("request_id").takeIf(String::isNotBlank),
+            brokerOrderId = order?.optString("order_id")?.takeIf(String::isNotBlank),
+            version = payload.optInt("expected_version").takeIf { it > 0 },
+            sourceId = source?.optString("source_id")?.takeIf(String::isNotBlank),
+            sourceGeneration = source?.optLong("source_generation")?.takeIf { it > 0 })
+    }
     private suspend fun reportPlacedOrder(uid: String, journalKey: String, journal: JSONObject,
                                           payload: JSONObject, apiVersion: Int = 1) {
         placedReportLock.withLock {
@@ -234,9 +318,13 @@ class PlanningRepository(val identity: MobileIdentity, private val vault: Vault,
     }
     private suspend fun sendPlacedOrderReport(uid: String, reportKey: String, report: JSONObject) {
         if (identity.uid() != uid || !approved()) return
+        val payload = report.getJSONObject("payload")
+        val correlation = reportCorrelation(payload)
+        val started = System.nanoTime()
+        observation.record(ObservationComponent.BACKEND, ObservationAction.PLACED_ORDER_UPDATE,
+            ObservationStage.REQUEST, ObservationResult.STARTED, correlation)
         var cancellation: CancellationException? = null
         try {
-            val payload = report.getJSONObject("payload")
             val response = if (report.optInt("api_version", 1) == 2) api.placedOrderV2(payload)
                 else api.placedOrder(payload)
             if (report.optInt("api_version", 1) == 2) {
@@ -253,11 +341,23 @@ class PlanningRepository(val identity: MobileIdentity, private val vault: Vault,
                 require(response.optString("database") == "committed")
             }
             report.put("state", "REPORTED")
+            observation.record(ObservationComponent.BACKEND, ObservationAction.PLACED_ORDER_UPDATE,
+                ObservationStage.SERVER_ACCEPTED, ObservationResult.ACCEPTED, correlation,
+                ProductionObservationLog.elapsedMs(started))
         } catch (e: CancellationException) {
+            observation.record(ObservationComponent.BACKEND, ObservationAction.PLACED_ORDER_UPDATE,
+                ObservationStage.REQUEST, ObservationResult.FAILED, correlation,
+                ProductionObservationLog.elapsedMs(started), ObservationError.fromThrowable(e))
             cancellation = e
         } catch (e: HttpFailure) {
+            observation.record(ObservationComponent.BACKEND, ObservationAction.PLACED_ORDER_UPDATE,
+                ObservationStage.REQUEST, ObservationResult.FAILED, correlation,
+                ProductionObservationLog.elapsedMs(started), ObservationError.http(e.status, e.code))
             report.put("state", if (e.status == 409 || e.status == 422) "REVIEW_REQUIRED" else "PENDING")
-        } catch (_: Exception) {
+        } catch (e: Exception) {
+            observation.record(ObservationComponent.BACKEND, ObservationAction.PLACED_ORDER_UPDATE,
+                ObservationStage.REQUEST, ObservationResult.FAILED, correlation,
+                ProductionObservationLog.elapsedMs(started), observationError(e))
             report.put("state", "PENDING")
         }
         withContext(NonCancellable) {
@@ -343,6 +443,11 @@ class PlanningRepository(val identity: MobileIdentity, private val vault: Vault,
         }
         fun close() { tradingToken = null; verifiedAt = 0 }
         suspend fun place(account: String, draft: TradeDraft): JSONObject = lock.withLock {
+            val baseCorrelation = ObservationCorrelation.intent(intent)
+            val placeStarted = System.nanoTime()
+            var observedStage = ObservationStage.REQUEST
+            observation.record(ObservationComponent.TRADE, ObservationAction.PLACE_ORDER,
+                ObservationStage.REQUEST, ObservationResult.STARTED, baseCorrelation)
             requirePendingTime()
             check(); draft.body()
             require(intent.matchesDraft(draft.symbol, if (draft.side == "NB") "BUY" else "SELL",
@@ -374,20 +479,60 @@ class PlanningRepository(val identity: MobileIdentity, private val vault: Vault,
                 // preflight after final confirmation. Its persistence hook is the last step before DNSE.
                 val guarded = TradeExecutionGuard.execute(intent, account, java.time.Instant.now(),
                     readCurrent = { api.planningIntent(intent.intentId.toString()) },
-                    runPreflight = { request -> api.planningPreflight(intent.intentId.toString(), request) },
+                    runPreflight = { request ->
+                        observedStage = ObservationStage.PREFLIGHT
+                        val started = System.nanoTime()
+                        observation.record(ObservationComponent.TRADE, ObservationAction.PLACE_ORDER,
+                            ObservationStage.PREFLIGHT, ObservationResult.STARTED, baseCorrelation)
+                        try {
+                            api.planningPreflight(intent.intentId.toString(), request).also {
+                                observation.record(ObservationComponent.BACKEND, ObservationAction.PLACE_ORDER,
+                                    ObservationStage.SERVER_ACCEPTED, ObservationResult.ACCEPTED,
+                                    baseCorrelation, ProductionObservationLog.elapsedMs(started))
+                            }
+                        } catch (error: Throwable) {
+                            observation.record(ObservationComponent.TRADE, ObservationAction.PLACE_ORDER,
+                                ObservationStage.PREFLIGHT, ObservationResult.FAILED, baseCorrelation,
+                                ProductionObservationLog.elapsedMs(started), observationError(error))
+                            throw error
+                        }
+                    },
                     beforeBrokerWrite = { preflight ->
                         check()
                         journal.put("preflight_id", preflight.preflightId.toString())
                         // Durable UNKNOWN marker precedes the network write. A timeout never permits retry.
                         save(journalKey, journal)
+                        observation.record(ObservationComponent.CACHE, ObservationAction.PLACE_ORDER,
+                            ObservationStage.CACHE_COMMIT, ObservationResult.SUCCEEDED, baseCorrelation)
                     },
-                    readActiveSource = { api.planningSource() },
-                    brokerWrite = { check(); requirePendingTime(); broker.place(account, draft, token) })
+                    readActiveSource = {
+                        observedStage = ObservationStage.SOURCE_CHECK
+                        val started = System.nanoTime()
+                        observation.record(ObservationComponent.SOURCE, ObservationAction.SOURCE_VALIDATE,
+                            ObservationStage.SOURCE_CHECK, ObservationResult.STARTED, baseCorrelation)
+                        api.planningSource().also {
+                            observation.record(ObservationComponent.SOURCE, ObservationAction.SOURCE_VALIDATE,
+                                ObservationStage.SOURCE_CHECK, ObservationResult.SUCCEEDED,
+                                baseCorrelation, ProductionObservationLog.elapsedMs(started))
+                        }
+                    },
+                    brokerWrite = {
+                        observedStage = ObservationStage.BROKER_REQUEST
+                        observation.record(ObservationComponent.BROKER, ObservationAction.PLACE_ORDER,
+                            ObservationStage.BROKER_REQUEST, ObservationResult.STARTED, baseCorrelation)
+                        check(); requirePendingTime(); broker.place(account, draft, token)
+                    })
                 val response = guarded.value
                 val preflight = guarded.preflight
                 val placed = response.optJSONObject("data") ?: response.optJSONObject("order") ?: response
                 val orderId = DnseApi.text(placed, "id", "orderId")
                 require(orderId.isNotBlank() && orderId != "null")
+                val brokerCorrelation = ObservationCorrelation.intent(intent, brokerOrderId = orderId)
+                observation.record(ObservationComponent.BROKER, ObservationAction.PLACE_ORDER,
+                    ObservationStage.BROKER_ACKNOWLEDGED, ObservationResult.ACCEPTED,
+                    brokerCorrelation, ProductionObservationLog.elapsedMs(placeStarted))
+                observation.record(ObservationComponent.BROKER, ObservationAction.PLACE_ORDER,
+                    ObservationStage.BROKER_FILLED, ObservationResult.NOT_OBSERVED, brokerCorrelation)
                 journal.put("state", "SUBMITTED").put("order_id", orderId)
                 kotlinx.coroutines.withContext(kotlinx.coroutines.NonCancellable) {
                     dao.cache(CacheRow(uid, journalKey, vault.seal(journal.toString()), System.currentTimeMillis()))
@@ -395,8 +540,14 @@ class PlanningRepository(val identity: MobileIdentity, private val vault: Vault,
                         intent, preflight, account, draft, response, java.time.Instant.now())
                     reportPlacedOrder(uid, journalKey, journal, payload, apiVersion = 2)
                 }
+                observation.record(ObservationComponent.TRADE, ObservationAction.PLACE_ORDER,
+                    ObservationStage.REQUEST, ObservationResult.ACCEPTED, brokerCorrelation,
+                    ProductionObservationLog.elapsedMs(placeStarted))
                 journal
             } catch (e: Exception) {
+                observation.record(ObservationComponent.TRADE, ObservationAction.PLACE_ORDER,
+                    observedStage, ObservationResult.FAILED, baseCorrelation,
+                    ProductionObservationLog.elapsedMs(placeStarted), observationError(e))
                 if (e is PlanningPreflightUnavailable)
                     throw AppFailure(AppText.get(R.string.planning_preflight_unavailable))
                 if (e is PlanningVersionChanged)
