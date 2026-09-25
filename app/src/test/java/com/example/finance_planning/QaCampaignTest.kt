@@ -67,6 +67,8 @@ class QaCampaignTest {
             .put("case_opens_at", "2026-09-25T12:25:00Z")
             .put("case_ends_at", "2026-09-25T13:30:00Z")
         c.validateNotificationBinding("N1", "observed-event", record)
+        c.validateNotificationBinding("N1", "observed-event", JSONObject(record.toString()).put("case_id", "N1"))
+        rejected { c.validateNotificationBinding("N1", "observed-event", JSONObject(record.toString()).put("case_id", "N2")) }
         rejected { c.validateNotificationBinding("N3", "observed-event", record) }
         rejected { c.validateNotificationBinding("N1", "another-event", record) }
         rejected { c.validateNotificationBinding("N1", "observed-event", record.put("session_id", "other")) }

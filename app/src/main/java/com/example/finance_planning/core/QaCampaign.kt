@@ -33,6 +33,7 @@ data class QaCampaign(val campaignId: String, val sessionId: String, val manifes
 
     fun validateNotificationBinding(caseId: String, eventId: String, readback: JSONObject) {
         require(sessionKind == "NOTIFICATION" && caseId in setOf("N1", "N2"))
+        if (readback.has("case_id")) require(readback.getString("case_id") == caseId)
         require(readback.getString("campaign_id") == campaignId)
         require(readback.getString("session_id") == sessionId)
         require(readback.getString("manifest_sha256") == manifestSha256)

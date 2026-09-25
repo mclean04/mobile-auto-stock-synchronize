@@ -36,7 +36,7 @@ namespace is a recovery mechanism. Historical connector rejections remain blocke
 for their exact actions; these tools provide no substitute producer write.
 
 `run-finance-campaign.py --manifest INDEX --output NEW_FILE inspect` validates the
-minimum BA index without runtime work. `evaluate --packet CASE.json --evidence-root DIR`
+minimum BA index without runtime work. `evaluate --wire-manifest FROZEN.json --packet CASE.json --evidence-root DIR`
 can be repeated with multiple `--packet` options in one invocation. Each packet has
 `case_id`, `campaign_id`, `session_id`, `manifest_hash`, `server_timestamp` (UTC), `facts`,
 `truncated:false`, and `evidence:[{path,sha256}]`. Paths must resolve inside the private
@@ -61,7 +61,7 @@ submitted as an updated preparation manifest.
 | N1/N2 | Actual main-app FCM pipeline; read-only `collect-campaign-notification.py` captures received/displayed/opened and explicit OPENED receipt acceptance, plus private log export |
 | N3/N4 | Backend/provider/readback plus Android inbox evidence; distinguish logical event rows, provider sends, deliveries and receipt attempts |
 | X1 | `concurrent`: verified two-device IDs, durable distinct requests, deterministic barrier; exactly one claim, fake broker invocation/ACK and accepted report, one explicit conflict |
-| X2 | `accepted` then `resume_accepted`: deliberately lose successful report ACK, restart and reconcile byte-identical report without broker retry |
+| X2 | `accepted`/`resume_accepted` for lost report ACK, plus independent `unknown` or `kill_unknown`/`resume_unknown` for durable ambiguity and no repeated action/report; both required |
 | X3 | `denied`, separately for `wrong_owner`, `unapproved`, `out_of_window`; independent observed fixture IDs |
 | X4 | `snapshot` on both devices, then `stale` with original canonical fixture; QA operator switches source while mobile waits; stale snapshot denied before broker |
 | X5 | `late` retains a report offline before the source switch; `resume_late` sends the unchanged original-source report and verifies quarantine/readback with zero repeated broker calls |
@@ -85,6 +85,35 @@ old-source economic action after the switch. Resume reports under their original
 The X1 barrier cannot reset after an abort. Recovery decisions belong to BA; no runner
 automatically retries a case or an uncertain economic action. The aggregate host result
 must match Backend claim/preflight/order/report evidence before X1 is accepted.
+
+## BA review corrections and required facts
+
+Evaluation now requires the exact immutable wire manifest as well as the mutable index.
+P1/P4 require all A:U exactly once; V:Z, unknown columns, duplicates and a partial AA:AB
+pair fail. AA:AB is required when the pinned proposal contains source_context; otherwise
+the pair is optional. Any supplied source metadata must match the pinned source tuple
+in facts.source_metadata. The oracle does not accept a caller-selected column allowlist.
+
+P4 resolves expected price/thesis from the hashed p4 fixture, including exact campaign
+and session markers. It requires exactly before.version+1, unchanged identity/source/
+environment/account/recipient/symbol/side/quantity/scheduled/window/conditions/states,
+the intended price/thesis, pinned cash_requirements, consistent principal/fee/required
+cash, and Android agreement on those fields. Missing immutable cash/delta input gives
+UNKNOWN. Expected values are never copied from observed after-state.
+
+N1 scan and device_reviewed_minute must be before40, N2 before90, and both honor any
+narrower frozen case deadline. Review must follow scan. Completion-only receipts may
+be accepted by Backend until120, but do not make late notification review PASS.
+
+X2 facts retain the lost-ACK fields and additionally identify fixture_id and intent_id.
+The required ambiguity object contains a distinct fixture_id/intent_id (both fixtures
+must be in X2's immutable policy), first_pid/restart_pid, journal_before/journal_after
+both UNKNOWN, total_broker_calls=1, restart_broker_calls=0, server_report_count=0,
+replay_denied=true and evidence_sha256 linked to an actual hashed evidence file.
+The final Backend example pins x2 and x2-unknown independently. Missing the ambiguity
+subcase prevents full X2 PASS. Each phase uses its own captured canonical ID; no claim
+or fixture is reset. Runner configs must name distinct intents.accepted and intents.unknown.
+Evidence remains subject to independent QA review, including the replay-denial proof.
 
 ## Device and logging boundaries
 

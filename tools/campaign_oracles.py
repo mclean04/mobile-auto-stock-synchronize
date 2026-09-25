@@ -5,6 +5,7 @@ import hashlib
 import json
 import re
 from datetime import datetime, timezone
+from decimal import Decimal, ROUND_CEILING, InvalidOperation
 from pathlib import Path
 
 KINDS = {
@@ -45,6 +46,51 @@ def canonical_equal(left, right):
     return all(key in left and key in right and left[key] == right[key] for key in CANONICAL)
 
 
+def producer_columns(f, bound):
+    columns = f["written_columns"]
+    required = set("ABCDEFGHIJKLMNOPQRSTU")
+    source_columns = {"AA", "AB"}
+    written = set(columns)
+    metadata = written & source_columns
+    return (len(written) == len(columns) and required <= written <= required | source_columns and
+            metadata in (set(), source_columns) and
+            (not bound["source_metadata_required"] or metadata == source_columns) and
+            (not metadata or f["source_metadata"] == bound["source_context"]))
+
+
+def field_equal(key, left, right):
+    numeric = {"quantity", "limit_price_vnd", "principal_vnd", "fee_reserve_vnd",
+               "required_cash_vnd", "fee_reserve_rate"}
+    return Decimal(str(left)) == Decimal(str(right)) if key in numeric else left == right
+
+
+def p4_delta_checks(f, bound):
+    before, after, android = f["before"], f["after"], f["android"]
+    payload, cash = bound["payload"], bound["cash_requirements"]
+    unchanged = ("plan_id", "intent_id", "source_context", "environment", "account", "recipient_uid",
+                 "symbol", "side", "quantity", "scheduled_at", "window_starts_at", "window_ends_at",
+                 "conditions", "authoring_state", "execution_state")
+    fixed = ("environment", "account", "recipient_uid", "symbol", "side", "quantity", "conditions")
+    cash_fields = ("currency", "principal_vnd", "fee_reserve_vnd", "required_cash_vnd",
+                   "fee_reserve_rate", "policy_version", "cash_only")
+    principal = Decimal(str(payload["quantity"])) * Decimal(str(payload["limit_price_vnd"]))
+    fee = (principal * Decimal(str(cash["fee_reserve_rate"]))).quantize(Decimal("1"), rounding=ROUND_CEILING)
+    return {
+        "expected_next_version": type(after["version"]) is int and after["version"] == before["version"] + 1,
+        "manifest_delta_applied": all(field_equal(k, after[k], payload[k]) for k in ("limit_price_vnd", "thesis"))
+            and any(not field_equal(k, before[k], payload[k]) for k in ("limit_price_vnd", "thesis")),
+        "unchanged_business_fields": all(field_equal(k, before[k], after[k]) for k in unchanged),
+        "manifest_business_fields": all(field_equal(k, after[k], payload[k]) for k in fixed)
+            and after["source_context"] == bound["source_context"],
+        "manifest_cash_applied": all(field_equal(k, after["cash_requirements"][k], cash[k]) for k in cash_fields),
+        "cash_pin_consistent": cash["currency"] == "VND" and cash["cash_only"] is True and
+            Decimal(str(cash["principal_vnd"])) == principal and Decimal(str(cash["fee_reserve_vnd"])) == fee and
+            Decimal(str(cash["required_cash_vnd"])) == principal + fee,
+        "android_delta_and_cash": all(field_equal(k, android[k], after[k]) for k in unchanged + ("limit_price_vnd", "thesis", "version"))
+            and all(field_equal(k, android["cash_requirements"][k], cash[k]) for k in cash_fields),
+    }
+
+
 def provenance(p):
     if p.get("level") == "DIRECT":
         return bool(p.get("task_id") and p.get("run_id") and p.get("platform_link"))
@@ -56,12 +102,12 @@ def provenance(p):
     return False
 
 
-def checks(case, f):
+def checks(case, f, bound=None):
     """Missing fields raise rather than defaulting absent counts to zero."""
     if case in {"P1", "P4"}:
         common = {
             "scheduled_provenance": provenance(f["provenance"]),
-            "producer_columns_only": f["written_columns"] == list("ABCDEFGHIJKLMNOPQRSTU"),
+            "producer_columns_only": producer_columns(f, bound),
             "exact_sheet_readback": same_digest(f["submitted_payload_sha256"], f["sheet_payload_sha256"]),
             "sandbox": f["environment"] == "sandbox",
             "accepted_before_cutoff": f["accepted_before_cutoff"] is True,
@@ -83,6 +129,7 @@ def checks(case, f):
                 admitted_before_35=0 <= f["p4_admitted_minute"] < 35,
                 artifact_before_55=f["p4_admitted_minute"] <= f["artifact_accepted_minute"] < 55,
                 review_before_90=f["artifact_accepted_minute"] <= f["android_verified_minute"] < 90)
+            common.update(p4_delta_checks(f, bound))
         return common
     if case == "P2":
         return {"canonical_ids": bool(f["canonical"]["plan_id"] and f["canonical"]["intent_id"]),
@@ -107,13 +154,17 @@ def checks(case, f):
                 "rejected": f["http_status"] == 409,
                 "canonical_unchanged": f["before"] == f["after"]}
     if case in {"N1", "N2"}:
+        policy = bound["policy"]
+        opens = max(25 if case == "N1" else 70, policy["opens_after_seconds"] / 60)
+        ends = min(40 if case == "N1" else 90, policy["ends_after_seconds"] / 60)
         return {"kind": f["kind"] == ("DAILY" if case == "N1" else "MONTHLY"),
                 "scheduled_provenance": provenance(f["provenance"]),
                 "private_test_artifact": f["calendar_private"] is True and f["calendar_transparent"] is True
                     and f["attendee_count"] == 0 and f["reminder_count"] == 0 and f["mode"] == "TEST",
                 "exact_chain": len(set(f["event_ids"])) == 1 and len(f["event_ids"]) >= 3 and all(f["event_ids"]),
                 "artifact_timely": 0 <= f["artifact_accepted_minute"] < (20 if case == "N1" else 65),
-                "scan_timely": (25 if case == "N1" else 70) <= f["scan_admitted_minute"] < 90,
+                "scan_timely": opens <= f["scan_admitted_minute"] < ends,
+                "device_review_timely": f["scan_admitted_minute"] <= f["device_reviewed_minute"] < ends,
                 "tablet_only": f["target_device_id"] == f["tablet_device_id"] and f["phone_registered"] is False,
                 "server_accepted": f["backend_accepted"] is True,
                 "provider_accepted": f["provider_result"] == "ACCEPTED",
@@ -143,12 +194,26 @@ def checks(case, f):
                     f["server_preflight_id"] == f["host_preflight_id"] and f["server_order_id"] == f["host_order_id"],
                 "fake_route": f["route"] == "ANDROID_INJECTED_FAKE_ONLY"}
     if case == "X2":
-        return {"restart": f["first_pid"] != f["restart_pid"],
+        result = {"restart": f["first_pid"] != f["restart_pid"],
                 "lost_ack": f["ack_lost_after_commit"] is True,
                 "immutable_retry": same_digest(f["original_report_sha256"], f["retry_report_sha256"]),
                 "one_economic_action": f["total_broker_calls"] == 1 and f["restart_broker_calls"] == 0,
                 "durable_reconciled": f["report_state"] == "REPORTED" and f["server_report_count"] == 1,
                 "not_ambiguous": f["ambiguous"] is False}
+        a = f.get("ambiguity")
+        result["ambiguity_subcase_present"] = isinstance(a, dict) and bool(a)
+        if result["ambiguity_subcase_present"]:
+            result.update(
+                ambiguity_independent=a["intent_id"] != f["intent_id"] and bool(a["intent_id"]) and
+                    a["fixture_id"] != f["fixture_id"] and
+                    {a["fixture_id"], f["fixture_id"]}.issubset(bound["policy"]["fixture_ids"]),
+                ambiguity_restart=a["first_pid"] != a["restart_pid"],
+                ambiguity_durable_unknown=a["journal_before"] == a["journal_after"] == "UNKNOWN",
+                ambiguity_no_retry=a["total_broker_calls"] == 1 and a["restart_broker_calls"] == 0,
+                ambiguity_no_report=a["server_report_count"] == 0,
+                ambiguity_replay_denied=a["replay_denied"] is True,
+                ambiguity_evidence=same_digest(a["evidence_sha256"], a["evidence_sha256"]))
+        return result
     if case == "X3":
         return {name: f[name]["denied"] is True and f[name]["broker_calls"] == 0 and
                 bool(f[name]["reason"]) for name in ("wrong_owner", "unapproved", "out_of_window")}
@@ -175,7 +240,7 @@ def checks(case, f):
     raise ValueError("unknown_case")
 
 
-def evaluate(packet: dict, evidence_root: Path) -> dict:
+def evaluate(packet: dict, evidence_root: Path, bound=None) -> dict:
     """Verify referenced files before checking owner-produced facts. QA still reviews provenance."""
     no_secrets(packet)
     case = packet["case_id"]
@@ -206,8 +271,13 @@ def evaluate(packet: dict, evidence_root: Path) -> dict:
         if hashlib.sha256(path.read_bytes()).hexdigest() != ref["sha256"]:
             return base | {"result": "FAIL", "reason": "evidence_digest_mismatch"}
     try:
-        outcomes = checks(case, packet["facts"])
-    except (KeyError, TypeError, ValueError, IndexError):
+        if case in {"P1", "P4", "N1", "N2", "X2"} and bound is None:
+            return base | {"reason": "missing_immutable_case_expectations"}
+        outcomes = checks(case, packet["facts"], bound)
+        if case == "X2" and packet["facts"].get("ambiguity"):
+            outcomes["ambiguity_evidence_linked"] = packet["facts"]["ambiguity"]["evidence_sha256"] in {
+                ref["sha256"] for ref in refs}
+    except (KeyError, TypeError, ValueError, IndexError, InvalidOperation):
         return base | {"reason": "incomplete_or_malformed_facts"}
     return base | {"checks": outcomes, "result": "PASS" if all(outcomes.values()) else "FAIL",
                    "basis": "OWNER_FACTS_WITH_HASHED_EVIDENCE_REQUIRES_INDEPENDENT_QA_REVIEW",

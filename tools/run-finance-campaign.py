@@ -15,7 +15,7 @@ from campaign_oracles import KINDS, campaign_result, evaluate, no_secrets
 ROOT = Path(__file__).resolve().parents[1]
 PHASES = {
     "P3": ("planning_display",), "P4": ("planning_display",),
-    "X1": ("concurrent",), "X2": ("accepted", "resume_accepted"),
+    "X1": ("concurrent",), "X2": ("accepted", "resume_accepted", "unknown", "kill_unknown", "resume_unknown"),
     "X3": ("denied",), "X4": ("snapshot", "stale"),
     "X5": ("late", "resume_late"),
 }
@@ -80,7 +80,8 @@ def validate_wire_manifest(wire, index, session):
             raise ValueError("p4_separate_gates_required")
         if case in {"N1", "N2"}:
             accept, process = (1200, 1500) if case == "N1" else (3900, 4200)
-            if bound.get("accept_before_seconds") != accept or not process <= bound["opens_after_seconds"] < bound["ends_after_seconds"] <= 5400:
+            cap = 2400 if case == "N1" else 5400
+            if bound.get("accept_before_seconds") != accept or not process <= bound["opens_after_seconds"] < bound["ends_after_seconds"] <= cap:
                 raise ValueError("notification_separate_gates_required")
     return digest
 
@@ -94,6 +95,30 @@ def write_private(path, value):
         json.dump(value, stream, indent=2, sort_keys=True)
 
 
+def case_expectations(wire, session, case):
+    frozen = next(s for s in wire["sessions"] if s["id"] == session["id"])
+    bound = {"policy": frozen["backend_policy"]["cases"][case]}
+    if case in {"P1", "P4"}:
+        fixture = next(f for f in wire["fixtures"] if f["id"] == case.lower())
+        payload = dict(fixture["payload"])
+        digest = hashlib.sha256(json.dumps(payload, sort_keys=True, separators=(",", ":"),
+                                         ensure_ascii=False, allow_nan=False).encode()).hexdigest()
+        if fixture["sha256"] != digest:
+            raise ValueError("fixture_digest_mismatch")
+        source = wire["resources"]["source_context"]
+        if "source_context" in payload and payload["source_context"] not in ("$source_context", source):
+            raise ValueError("fixture_source_mismatch")
+        if "thesis" in payload:
+            payload["thesis"] = payload["thesis"].replace("$campaign_id", wire["campaign_id"]).replace("$session_id", session["id"])
+            if "$" in payload["thesis"]:
+                raise ValueError("unresolved_thesis_binding")
+        bound.update(payload=payload, source_context=source,
+                     source_metadata_required="source_context" in payload)
+        if case == "P4":
+            bound["cash_requirements"] = fixture["cash_requirements"]
+    return bound
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--manifest", type=Path, required=True)
@@ -103,6 +128,7 @@ def main():
     review = sub.add_parser("evaluate")
     review.add_argument("--packet", type=Path, action="append", required=True)
     review.add_argument("--evidence-root", type=Path, required=True)
+    review.add_argument("--wire-manifest", type=Path, required=True)
     run = sub.add_parser("device-phase")
     run.add_argument("--case", required=True, choices=PHASES)
     run.add_argument("--phase", required=True)
@@ -122,6 +148,7 @@ def main():
             "errors": errors, "cases": KINDS, "runtime_started": False})
         return
     if args.command == "evaluate":
+        wire = json.loads(args.wire_manifest.read_text())
         records = []
         for path in args.packet:
             packet = json.loads(path.read_text())
@@ -131,7 +158,12 @@ def main():
             if (packet.get("session_id") != session["id"] or
                     packet.get("manifest_hash") != session["preparation_manifest_hash"]):
                 raise ValueError("packet_session_or_manifest_mismatch")
-            records.append(evaluate(packet, args.evidence_root))
+            validate_wire_manifest(wire, manifest, session)
+            try:
+                bound = case_expectations(wire, session, packet["case_id"])
+            except (KeyError, ValueError, StopIteration):
+                bound = None  # Missing immutable expectations remain UNKNOWN, never inferred from after-state.
+            records.append(evaluate(packet, args.evidence_root, bound))
         result = campaign_result(records)
         closure = manifest.get("closure", {})
         cleanup = all(closure.get(key) is True for key in (
@@ -158,6 +190,10 @@ def main():
         devices = {d["device_id"] if isinstance(d, dict) else d for d in manifest["android"]["devices"]}
         if cfg["device_id"] not in devices:
             raise ValueError("device_not_in_manifest")
+        if args.case == "X2" and args.phase in {"unknown", "kill_unknown", "resume_unknown"}:
+            intents = cfg["intents"]
+            if not intents.get("unknown") or not intents.get("accepted") or intents["unknown"] == intents["accepted"]:
+                raise ValueError("independent_ambiguity_intent_required")
     artifacts = (("app_sha256", "app/build/outputs/apk/debug/app-debug.apk"),
                  ("test_sha256", "app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk"))
     for key, relative in artifacts:
