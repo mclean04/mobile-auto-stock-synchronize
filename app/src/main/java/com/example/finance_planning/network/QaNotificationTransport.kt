@@ -8,16 +8,35 @@ import com.example.finance_planning.core.QaStartupIsolation
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
-import java.io.ByteArrayOutputStream
-import java.net.Socket
 import java.net.URI
 import java.util.UUID
+import java.net.Proxy
+import java.util.concurrent.TimeUnit
+import okhttp3.OkHttpClient
+import okhttp3.RequestBody.Companion.toRequestBody
+import okhttp3.MediaType.Companion.toMediaType
 
 /** Debug-only, loopback-only QA transport. It never logs or accepts a bearer/URL from FCM. */
 class QaNotificationTransport(private val bearer: String, private val config: QaNotificationConfig? = null) : Transport() {
     init {
         require(BuildConfig.DEBUG)
         require(bearer.isNotBlank() && bearer.length <= 4096 && '\r' !in bearer && '\n' !in bearer)
+    }
+
+    private val service by lazy {
+        val client = OkHttpClient.Builder().singleExchange()
+            .proxy(Proxy.NO_PROXY)
+            .protocols(listOf(okhttp3.Protocol.HTTP_1_1))
+            .dns(object : okhttp3.Dns {
+                override fun lookup(hostname: String): List<java.net.InetAddress> {
+                    require(hostname == "127.0.0.1")
+                    return listOf(java.net.InetAddress.getByAddress(byteArrayOf(127, 0, 0, 1)))
+                }
+            })
+            .connectTimeout(0, TimeUnit.SECONDS).readTimeout(45, TimeUnit.SECONDS)
+            .writeTimeout(0, TimeUnit.SECONDS).callTimeout(0, TimeUnit.SECONDS)
+            .addInterceptor(HttpBodyLimit(4_000_000)).build()
+        httpService(NotificationDeliveryPolicy.QA_BASE_URL + "/", client)
     }
 
     override suspend fun request(url: String, method: String, headers: Map<String, String>,
@@ -74,63 +93,25 @@ class QaNotificationTransport(private val bearer: String, private val config: Qa
         }
     }
 
-    private fun exchange(url: String, method: String, body: JSONObject?, campaignHeaders: Map<String, String>): String {
+    private suspend fun exchange(url: String, method: String, body: JSONObject?, campaignHeaders: Map<String, String>): String {
         require(allowlisted(url, method))
         val uri = URI(url)
         requireIsolatedTarget(uri, method, body)
         val payload = body?.toString()?.toByteArray(Charsets.UTF_8) ?: byteArrayOf()
         require(payload.size <= 2 * 1024 * 1024)
-        Socket("127.0.0.1", 18766).use { socket ->
-            socket.soTimeout = 45_000
-            val target = uri.rawPath + (uri.rawQuery?.let { "?$it" } ?: "")
-            val head = "$method $target HTTP/1.1\r\nHost: 127.0.0.1:18766\r\n" +
-                "X-Planning-Authorization: Bearer $bearer\r\nAccept: application/json\r\n" +
-                campaignHeaders.entries.joinToString("") { "${it.key}: ${it.value}\r\n" } +
-                "Content-Type: application/json\r\nContent-Length: ${payload.size}\r\nConnection: close\r\n\r\n"
-            socket.getOutputStream().apply { write(head.toByteArray(Charsets.UTF_8)); write(payload); flush() }
-            val input = socket.getInputStream().buffered()
-            fun line(): String {
-                val out = ByteArrayOutputStream()
-                while (true) {
-                    val next = input.read()
-                    if (next == -1 || next == 10) break
-                    if (next != 13) out.write(next)
-                    require(out.size() < 16_384)
-                }
-                return out.toString("UTF-8")
+        val headers = mapOf("X-Planning-Authorization" to "Bearer $bearer", "Accept" to "application/json",
+            "Content-Type" to "application/json", "Content-Length" to payload.size.toString(),
+            "Connection" to "close", "Accept-Encoding" to "identity") + campaignHeaders
+        try {
+            val response = service.request(url, method, headers,
+                if (method in setOf("POST", "PUT")) payload.toRequestBody("application/json".toMediaType()) else null)
+            (response.body() ?: response.errorBody()).use {
+                val raw = it?.readLimited(4_000_000) ?: ""
+                if (!response.isSuccessful) throw HttpFailure(response.code(), HttpFailure.safeCode(raw))
+                return raw.ifBlank { "{}" }
             }
-            val status = line().split(" ")[1].toInt()
-            val responseHeaders = mutableMapOf<String, String>()
-            while (true) {
-                val next = line()
-                if (next.isEmpty()) break
-                responseHeaders[next.substringBefore(":").lowercase()] = next.substringAfter(":").trim()
-            }
-            fun bytes(length: Int): ByteArray {
-                require(length in 0..4_000_000)
-                val value = ByteArray(length)
-                var offset = 0
-                while (offset < length) {
-                    val count = input.read(value, offset, length - offset)
-                    check(count > 0)
-                    offset += count
-                }
-                return value
-            }
-            val raw = if (responseHeaders["transfer-encoding"]?.lowercase() == "chunked") {
-                val out = ByteArrayOutputStream()
-                while (true) {
-                    val size = line().substringBefore(';').trim().toInt(16)
-                    if (size == 0) break
-                    require(size <= 4_000_000 - out.size())
-                    out.write(bytes(size)); check(line().isEmpty())
-                }
-                out.toByteArray()
-            } else if (status == 204) byteArrayOf()
-            else bytes(responseHeaders.getValue("content-length").toInt())
-            val response = String(raw, Charsets.UTF_8)
-            if (status !in 200..299) throw HttpFailure(status, HttpFailure.safeCode(response))
-            return response.ifBlank { "{}" }
+        } catch (_: HttpResponseTooLarge) {
+            throw IllegalArgumentException("Response exceeds size limit")
         }
     }
 

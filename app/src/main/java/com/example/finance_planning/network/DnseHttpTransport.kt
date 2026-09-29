@@ -28,7 +28,7 @@ object DnseHttpTransport {
     private val client = OkHttpClient.Builder()
         .connectTimeout(20, TimeUnit.SECONDS).readTimeout(40, TimeUnit.SECONDS)
         .callTimeout(60, TimeUnit.SECONDS)
-        .followRedirects(false).followSslRedirects(false).retryOnConnectionFailure(false)
+        .singleExchange()
         .addInterceptor(ResponseSizeLimitInterceptor())
         .apply {
             if (BuildConfig.DEBUG) addInterceptor(DebugBodyLoggingInterceptor(log = {

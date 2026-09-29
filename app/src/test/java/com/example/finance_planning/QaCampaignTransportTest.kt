@@ -96,4 +96,28 @@ class QaCampaignTransportTest {
             assertNull(server.takeRequest(20, TimeUnit.MILLISECONDS))
         }
     }
+
+    @Test fun otherTargetsAndMethodsAreDeniedBeforeDispatchAndRedirectNeverEscapesLoopback() = runBlocking {
+        server().use { server ->
+            val transport = com.example.finance_planning.network.QaNotificationTransport(config.bearer, config)
+            for ((url, method) in listOf("http://localhost:18766/v1/notifications" to "GET",
+                    "http://127.0.0.1:18767/v1/notifications" to "GET",
+                    "http://192.168.1.1:18766/v1/notifications" to "GET",
+                    "https://127.0.0.1:18766/v1/notifications" to "GET",
+                    "http://127.0.0.1:18766/v1/orders" to "POST",
+                    "http://127.0.0.1:18766/v1/notifications?target=other" to "GET")) {
+                assertTrue(runCatching { transport.request(url, method, emptyMap(), null) }.isFailure)
+            }
+            assertEquals(0, server.requestCount)
+            MockWebServer().use { destination ->
+                destination.start()
+                server.enqueue(response(status()))
+                server.enqueue(MockResponse().setResponseCode(307).setHeader("Location", destination.url("/private")))
+                val error = runCatching { BackendApi.qaNotifications(config).notifications() }.exceptionOrNull()
+                assertEquals(307, (error as com.example.finance_planning.network.HttpFailure).status)
+                assertEquals(2, server.requestCount)
+                assertNull(destination.takeRequest(30, TimeUnit.MILLISECONDS))
+            }
+        }
+    }
 }

@@ -61,9 +61,9 @@ class DnseHttpTest {
             val logs = mutableListOf<String>()
             server.enqueue(MockResponse().setBody("{}"))
             val client = OkHttpClient.Builder().addInterceptor(DebugBodyLoggingInterceptor(logs::add, false)).build()
-            client.newCall(okhttp3.Request.Builder().url(server.url("/")).build()).execute().use {
-                assertEquals("{}", it.body!!.string())
-            }
+            val service = Retrofit.Builder().baseUrl(server.url("/")).client(client).build()
+                .create(DnseReadService::class.java)
+            assertEquals("{}", service.get(server.url("/").toString(), emptyMap()).body()!!.use { it.string() })
             assertTrue(logs.isEmpty())
         } finally { server.shutdown() }
     }

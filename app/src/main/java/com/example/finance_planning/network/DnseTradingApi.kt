@@ -3,7 +3,6 @@ package com.example.finance_planning.network
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
-import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import okhttp3.MediaType.Companion.toMediaType
 import org.json.JSONObject
@@ -28,9 +27,14 @@ class DnseTradingApi(private val key: String, private val secret: String, produc
     }
     // An injected fake interceptor may return a response. Any fall-through is denied BEFORE DNS/socket I/O.
     private val guardedClient = if (qaInMemoryFakeOnly) client.newBuilder().addInterceptor {
-        throw com.example.finance_planning.core.QaIsolationDenied()
+        throw java.io.IOException("QA_ISOLATION_DENIED", com.example.finance_planning.core.QaIsolationDenied())
     }.build() else client
     private val host = if (production) "https://openapi.dnse.com.vn" else "https://sb-openapi.dnse.com.vn"
+    private val service by lazy {
+        val builder = guardedClient.newBuilder().singleExchange()
+        builder.interceptors().add(0, HttpBodyLimit(65536, omitErrors = diagnostic == null))
+        httpService("$host/", builder.build())
+    }
     companion object {
         private fun tradingClient() = OkHttpClient.Builder().connectTimeout(20, TimeUnit.SECONDS)
         .readTimeout(40, TimeUnit.SECONDS).callTimeout(60, TimeUnit.SECONDS)
@@ -45,23 +49,33 @@ class DnseTradingApi(private val key: String, private val secret: String, produc
         val suffix = if (query.isEmpty()) "" else query.entries.joinToString("&", "?") {
             URLEncoder.encode(it.key, "UTF-8") + "=" + URLEncoder.encode(it.value, "UTF-8")
         }
-        val request = Request.Builder().url(host + path + suffix).header("X-Api-Key", key)
-            .header("X-Signature", DnseSigning.signature(key, secret, path, date, nonce, method.lowercase(Locale.US)))
-            .header("Date", date).header("version", "2026-07-23").header("Accept", "application/json")
-        token?.let { request.header("trading-token", it) }
-        request.method(method, if (method == "POST") (body?.toString() ?: "").toRequestBody("application/json".toMediaType()) else null)
-        guardedClient.newCall(request.build()).execute().use { response ->
-            if (diagnostic == null && !response.isSuccessful) throw TradeHttpFailure(response.code)
-            val source = response.body?.source()
-            source?.request(65537)
-            val raw = source?.buffer?.readUtf8(minOf(source.buffer.size, 65537)) ?: ""
-            require(raw.toByteArray().size <= 65536)
-            diagnostic?.invoke(BrokerResponse(method, path + suffix, response.code,
-                BrokerResponseRedaction.body(raw, listOfNotNull(key, secret, token, body?.optString("passcode")))))
-            if (!response.isSuccessful) throw TradeHttpFailure(response.code)
-            if (raw.isBlank()) JSONObject() else JSONTokener(raw).nextValue()
+        val headers = mutableMapOf("X-Api-Key" to key,
+            "X-Signature" to DnseSigning.signature(key, secret, path, date, nonce, method.lowercase(Locale.US)),
+            "Date" to date, "version" to "2026-07-23", "Accept" to "application/json")
+        token?.let { headers["trading-token"] = it }
+        try {
+            val response = service.request(host + path + suffix, method, headers,
+                if (method == "POST") (body?.toString() ?: "").toRequestBody("application/json".toMediaType()) else null)
+            val responseBody = response.body() ?: response.errorBody()
+            responseBody.use {
+                if (diagnostic == null && !response.isSuccessful) throw TradeHttpFailure(response.code())
+                val raw = it?.readLimited(65536) ?: ""
+                diagnostic?.invoke(BrokerResponse(method, path + suffix, response.code(),
+                    BrokerResponseRedaction.body(raw, listOfNotNull(key, secret, token, body?.optString("passcode")))))
+                if (!response.isSuccessful) throw TradeHttpFailure(response.code())
+                if (raw.isBlank()) JSONObject() else JSONTokener(raw).nextValue()
+            }
+        } catch (_: HttpResponseTooLarge) {
+            throw IllegalArgumentException("Response exceeds size limit")
+        } catch (error: java.io.IOException) {
+            // Coroutine stack recovery may wrap IOException while retaining its cause chain.
+            if (qaInMemoryFakeOnly && generateSequence<Throwable>(error) { it.cause }.take(8)
+                    .any { it is com.example.finance_planning.core.QaIsolationDenied })
+                throw com.example.finance_planning.core.QaIsolationDenied()
+            throw error
         }
     }
+
     suspend fun balances(account: String) = call("/accounts/${id(account)}/balances")
     suspend fun accounts() = DnseApi.rows(call("/accounts"), "accounts", "data", "items")
     suspend fun packages(account: String, symbol: String) = DnseApi.rows(call("/accounts/${id(account)}/loan-packages",
