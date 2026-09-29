@@ -91,6 +91,10 @@ class MainActivity : ComponentActivity() {
 @Composable
 private fun PlanningScreen(model: PlanningViewModel) {
     val s by model.state.collectAsState()
+    if (!s.signedIn) {
+        SignInScreen(s) { model.signIn(it) }
+        return // Dispose authenticated tabs, dialogs, saved scroll positions and their BackHandler.
+    }
     var tab by rememberSaveable { mutableIntStateOf(0) }
     var showNotifications by rememberSaveable { mutableStateOf(false) }
     BackHandler(enabled = showNotifications) { showNotifications = false }
@@ -213,6 +217,30 @@ private fun PlanningScreen(model: PlanningViewModel) {
                 else if (s.detailKind == DetailKind.ORDER) OrderDetails(OrderContent.payload(detail), false) else BatchDetails(detail)
             }},
             confirmButton = { TextButton(onClick = model::dismissDetail) { Text(text(R.string.close)) } })
+    }
+}
+
+@Composable
+private fun SignInScreen(s: ScreenState, signIn: (android.content.Context) -> Unit) {
+    val context = LocalContext.current
+    Scaffold { padding ->
+        Box(Modifier.fillMaxSize().padding(padding).padding(24.dp),
+            contentAlignment = androidx.compose.ui.Alignment.Center) {
+            Card(Modifier.widthIn(max = 480.dp).fillMaxWidth(), shape = RoundedCornerShape(24.dp)) {
+                Column(Modifier.padding(24.dp).verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                    Text(text(R.string.app_heading), style = MaterialTheme.typography.headlineSmall)
+                    Text(text(R.string.google_account), style = MaterialTheme.typography.titleMedium)
+                    Text(s.message, style = MaterialTheme.typography.bodyMedium)
+                    if (!s.configured) Text(text(R.string.sign_in_configuration_required))
+                    if (s.busy) LinearProgressIndicator(Modifier.fillMaxWidth())
+                    Button(onClick = { signIn(context) }, enabled = s.configured && !s.busy,
+                        modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) {
+                        Text(text(R.string.sign_in_with_google))
+                    }
+                }
+            }
+        }
     }
 }
 @Composable

@@ -41,6 +41,10 @@ data class ScreenState(
     val localQueue: List<String> = emptyList()
 )
 
+/** Drop all account/navigation payloads, retaining only the current operation's UI feedback. */
+internal fun ScreenState.withoutAccount(configured: Boolean) = ScreenState(
+    configured = configured, busy = busy, message = message)
+
 class PlanningViewModel(application: Application) : AndroidViewModel(application) {
     val repo = (application as PlanningApp).repository
     private val mutable = MutableStateFlow(ScreenState(configured = repo.identity.configured))
@@ -87,6 +91,11 @@ class PlanningViewModel(application: Application) : AndroidViewModel(application
     }
     private fun flags() {
         observeNotifications()
+        if (repo.identity.uid() == null) {
+            repo.api.readSource = null
+            mutable.value = mutable.value.withoutAccount(repo.identity.configured)
+            return
+        }
         if (!repo.approved()) {
             repo.api.readSource = null
             mutable.value = mutable.value.copy(admin = false, sources = emptyList(),
@@ -101,21 +110,28 @@ class PlanningViewModel(application: Application) : AndroidViewModel(application
             lastSync = repo.lastSync() ?: AppText.get(R.string.not_synced_yet), hasDnse = repo.hasDnse(), dnseProduction = repo.dnseProduction(),
             hasProductionKeys = repo.hasDnse(true), hasSandboxKeys = repo.hasDnse(false))
     }
-    private fun run(action: suspend () -> String) {
+    private fun run(failureMessage: Int? = null, action: suspend () -> String) {
         if (mutable.value.busy) return
+        mutable.value = mutable.value.copy(busy = true)
+        fun failed(message: String) {
+            mutable.value = mutable.value.copy(message = failureMessage?.let { AppText.get(it, message) } ?: message)
+        }
         viewModelScope.launch {
-            mutable.value = mutable.value.copy(busy = true)
             try {
                 // The action may update state while suspended. Copy its latest result, not the old state.
                 val message = action()
                 mutable.value = mutable.value.copy(message = message)
             }
             catch (e: CancellationException) { throw e }
-            catch (e: HttpFailure) { if (e.status == 401 || e.status == 403) repo.invalidateSession(); mutable.value = mutable.value.copy(message = e.safe().safeMessage) }
-            catch (e: AppFailure) { mutable.value = mutable.value.copy(message = e.safeMessage) }
-            catch (_: Exception) { mutable.value = mutable.value.copy(message =
-                AppText.get(R.string.operation_incomplete)) }
-            finally { flags(); mutable.value = mutable.value.copy(busy = false) }
+            catch (e: HttpFailure) { if (e.status == 401 || e.status == 403) repo.invalidateSession(); failed(e.safe().safeMessage) }
+            catch (e: AppFailure) { failed(e.safeMessage) }
+            catch (_: Exception) { failed(AppText.get(R.string.operation_incomplete)) }
+            finally {
+                try { flags() }
+                catch (e: CancellationException) { throw e }
+                catch (_: Exception) { failed(AppText.get(R.string.operation_incomplete)) }
+                finally { mutable.value = mutable.value.copy(busy = false) }
+            }
         }
     }
     fun restore() = run {
@@ -297,11 +313,11 @@ class PlanningViewModel(application: Application) : AndroidViewModel(application
         } else SyncSchedule.cancel(getApplication())
         if (enabled) AppText.get(R.string.sync_schedule_enabled) else AppText.get(R.string.scheduled_sync_disabled)
     }
-    fun logout() = run {
+    fun logout() = run(failureMessage = R.string.logout_failed_retry) {
         repo.logout()
         repo.api.readSource = null
         SyncSchedule.cancelAccount(getApplication())
-        mutable.value = ScreenState(configured = repo.identity.configured)
+        mutable.value = mutable.value.withoutAccount(repo.identity.configured)
         AppText.get(R.string.logout_complete)
     }
 }

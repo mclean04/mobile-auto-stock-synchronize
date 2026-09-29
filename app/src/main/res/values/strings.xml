@@ -167,6 +167,7 @@
     <string name="sync_schedule_enabled">"Đã bật lịch mỗi 6 giờ; Android có thể chạy trễ khi tiết kiệm pin."</string>
     <string name="scheduled_sync_disabled">"Đã tắt lịch đồng bộ."</string>
     <string name="logout_complete">"Đã gỡ thiết bị khỏi backend và xóa khóa/dữ liệu local của phiên này."</string>
+    <string name="logout_failed_retry">"Đăng xuất chưa hoàn tất. %1$s Hãy thử lại. Nếu màn hình đăng nhập đã xuất hiện, hãy đăng nhập lại trước khi thử đăng xuất lần nữa."</string>
     <string name="review_buy_sell_order">"Nhắc xem xét mua/bán"</string>
     <string name="review_order_cancellation">"Nhắc xem xét hủy lệnh"</string>
     <string name="plan_withdrawn">"Kế hoạch đã được rút lại"</string>

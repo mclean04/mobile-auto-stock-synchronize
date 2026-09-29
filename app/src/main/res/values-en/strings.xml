@@ -167,6 +167,7 @@
     <string name="sync_schedule_enabled">"Sync enabled every 6 hours; Android may delay it in battery saving mode."</string>
     <string name="scheduled_sync_disabled">"Scheduled sync disabled."</string>
     <string name="logout_complete">"Device removed from the backend and local keys/data cleared for this session."</string>
+    <string name="logout_failed_retry">"Sign-out did not complete. %1$s Try again. If the sign-in screen is already shown, sign in again before retrying sign-out."</string>
     <string name="review_buy_sell_order">"Review buy/sell order"</string>
     <string name="review_order_cancellation">"Review order cancellation"</string>
     <string name="plan_withdrawn">"Plan withdrawn"</string>
