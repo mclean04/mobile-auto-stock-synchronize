@@ -30,6 +30,8 @@ android {
         testApplicationId = "com.example.finance_planning.qa.test"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         buildConfigField("boolean", "QA_STARTUP_ISOLATED", "false")
+        buildConfigField("boolean", "LOCAL_BACKEND", "false")
+        buildConfigField("String", "BACKEND_ORIGIN", "\"https://planning-backend-1026748304024.asia-southeast1.run.app\"")
         buildConfigField("String", "FIREBASE_APP_ID", mobileValue("firebase.appId"))
         buildConfigField("String", "FIREBASE_API_KEY", mobileValue("firebase.apiKey"))
         buildConfigField("String", "FIREBASE_PROJECT_ID", mobileValue("firebase.projectId"))
@@ -40,7 +42,18 @@ android {
         debug {
             buildConfigField("boolean", "QA_STARTUP_ISOLATED", qaStartupIsolation)
         }
+        create("localDebug") {
+            initWith(getByName("debug"))
+            versionNameSuffix = "-local"
+            matchingFallbacks += "debug"
+            buildConfigField("boolean", "LOCAL_BACKEND", "true")
+            buildConfigField("boolean", "QA_STARTUP_ISOLATED", "false")
+            buildConfigField("String", "BACKEND_ORIGIN", "\"http://127.0.0.1:8080\"")
+        }
         release { optimization { enable = false } }
+    }
+    sourceSets.getByName("localDebug") {
+        res.srcDir("src/debug/res")
     }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
@@ -51,6 +64,7 @@ android {
 dependencies {
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
     implementation("com.squareup.retrofit2:retrofit:2.11.0")
+    implementation("com.google.code.gson:gson:2.11.0")
     testImplementation("com.squareup.okhttp3:mockwebserver:4.12.0")
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.10.0")
     implementation("androidx.room:room-runtime:2.8.5")

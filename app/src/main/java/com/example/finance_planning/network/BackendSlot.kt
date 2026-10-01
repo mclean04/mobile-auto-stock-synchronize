@@ -13,7 +13,8 @@ import java.util.concurrent.TimeUnit
 enum class BackendWireVersion { LEGACY, MOBILE_V1 }
 
 /** Ordinary Backend only. QA retains its reviewed isolated transport until its own migration. */
-data class BackendConfiguration(val wireVersion: BackendWireVersion = BackendWireVersion.LEGACY) {
+data class BackendConfiguration(val wireVersion: BackendWireVersion = BackendWireVersion.LEGACY,
+    val sessionEnabled: Boolean = com.example.finance_planning.BuildConfig.LOCAL_BACKEND) {
     val origin: String get() = Contracts.BACKEND + "/"
 }
 
@@ -28,10 +29,15 @@ class BackendSlot internal constructor(
     internal val retrofit: Retrofit
     internal val legacy: HttpApiService
     private val mobile: MobileBackendService
+    internal val session: BackendEndpoint
     init {
         QaStartupIsolation.requireBusiness()
         val origin = configuration.origin.toHttpUrl()
         val builder = seed.newBuilder().singleExchange()
+        if (com.example.finance_planning.core.LocalBackend.active) {
+            check(com.example.finance_planning.core.LocalBackend.accepts(configuration.origin))
+            builder.proxy(java.net.Proxy.NO_PROXY)
+        }
         builder.interceptors().add(0, okhttp3.Interceptor { chain ->
             checkActive()
             if (QaStartupIsolation.active) throw IOException("QA_ISOLATION_DENIED")
@@ -41,6 +47,12 @@ class BackendSlot internal constructor(
                 request.url.password.isNotEmpty()) throw IOException("Backend origin mismatch")
             val type = request.tag(Invocation::class.java)?.method()?.declaringClass
             when (type) {
+                BackendEndpoint::class.java -> {
+                    if (!configuration.sessionEnabled || request.url.encodedPath != "/mobile/v2/session")
+                        throw IOException("Session Backend contract is inactive")
+                    (request.tag(SessionRequestContext::class.java)
+                        ?: throw IOException("Missing session request context")).check()
+                }
                 MobileBackendService::class.java -> {
                     if (configuration.wireVersion != BackendWireVersion.MOBILE_V1)
                         throw IOException("Mobile Backend contract is inactive")
@@ -53,15 +65,22 @@ class BackendSlot internal constructor(
                 }
                 else -> throw IOException("Unsupported Backend service")
             }
-            HttpBodyLimit(4_194_304, truncateErrors = configuration.wireVersion == BackendWireVersion.LEGACY)
+            HttpBodyLimit(4_194_304, truncateErrors = type != BackendEndpoint::class.java && configuration.wireVersion == BackendWireVersion.LEGACY)
                 .intercept(chain)
         })
         builder.interceptors().add(1, DebugBodyLoggingInterceptor(logger))
         client = builder.build()
         retrofit = Retrofit.Builder().baseUrl(configuration.origin).client(client)
+            .addConverterFactory(com.example.finance_planning.network.session.SessionConverter())
             .addConverterFactory(MobileContractConverter()).build()
+        session = retrofit.create(BackendEndpoint::class.java)
         legacy = retrofit.create(HttpApiService::class.java)
         mobile = retrofit.create(MobileBackendService::class.java)
+    }
+    fun sessionDataSource(headers: suspend () -> Map<String, String>): com.example.finance_planning.network.session.SessionRemoteDataSource {
+        check(configuration.sessionEnabled)
+        checkActive()
+        return com.example.finance_planning.network.session.SessionRemoteDataSource(session, headers)
     }
     fun mobileDataSource(identity: MobileIdentityProvider): MobileBackendDataSource {
         QaStartupIsolation.requireBusiness()

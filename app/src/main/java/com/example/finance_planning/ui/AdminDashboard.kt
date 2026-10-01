@@ -32,7 +32,7 @@ fun AdminDashboard(s: ScreenState, model: PlanningViewModel, importPlanning: () 
         selected?.optString("uid") == ownUid -> s.email
         else -> text(R.string.admin_google_data_account)
     }
-    val sheetEnabled = s.status?.opt("sheet_writes") as? Boolean
+    val sheetEnabled = s.status?.sheetWrites
     Column {
         Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             listOf(R.string.admin_overview_section, R.string.admin_accounts_section, R.string.admin_plans_section).forEachIndexed { index, label ->
@@ -64,7 +64,7 @@ fun AdminDashboard(s: ScreenState, model: PlanningViewModel, importPlanning: () 
                         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             Text(text(R.string.google_sheet_write_state, text(when(sheetEnabled) { true -> R.string.enabled; false -> R.string.sheet_writes_off; null -> R.string.sheet_writes_unknown })),
                                 style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                            Text(text(R.string.batches_awaiting_sheet_updates, s.status?.optInt("pending_sheet_batches") ?: 0), style = MaterialTheme.typography.bodyLarge)
+                            Text(text(R.string.batches_awaiting_sheet_updates, s.status?.pendingSheetBatches ?: 0), style = MaterialTheme.typography.bodyLarge)
                         }
                     }
                  } }

@@ -9,6 +9,8 @@ import androidx.lifecycle.viewModelScope
 import com.example.finance_planning.PlanningApp
 import com.example.finance_planning.core.*
 import com.example.finance_planning.network.HttpFailure
+import com.example.finance_planning.network.session.SessionServerFailure
+import com.example.finance_planning.data.SessionStatus
 import com.example.finance_planning.sync.SyncSchedule
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.Job
@@ -35,7 +37,7 @@ data class ScreenState(
     val planning: JSONObject? = null, val notifications: List<JSONObject> = emptyList(),
     val orders: List<JSONObject> = emptyList(), val batches: List<JSONObject> = emptyList(),
     val notificationCursor: String? = null, val orderCursor: String? = null, val batchCursor: String? = null,
-    val status: JSONObject? = null, val detail: JSONObject? = null, val detailKind: DetailKind? = null,
+    val status: SessionStatus? = null, val detail: JSONObject? = null, val detailKind: DetailKind? = null,
     val lastSync: String = AppText.get(R.string.not_synced_yet), val hasDnse: Boolean = false, val dnseProduction: Boolean? = null,
     val hasProductionKeys: Boolean = false, val hasSandboxKeys: Boolean = false,
     val localQueue: List<String> = emptyList()
@@ -92,12 +94,12 @@ class PlanningViewModel(application: Application) : AndroidViewModel(application
     private fun flags() {
         observeNotifications()
         if (repo.identity.uid() == null) {
-            repo.api.readSource = null
+            repo.readSource = null
             mutable.value = mutable.value.withoutAccount(repo.identity.configured)
             return
         }
         if (!repo.approved()) {
-            repo.api.readSource = null
+            repo.readSource = null
             mutable.value = mutable.value.copy(admin = false, sources = emptyList(),
                 selectedSource = null, adminRecords = emptyList(), planning = null,
                 planningSavedAt = null, planningExecutionFresh = false,
@@ -123,7 +125,12 @@ class PlanningViewModel(application: Application) : AndroidViewModel(application
                 mutable.value = mutable.value.copy(message = message)
             }
             catch (e: CancellationException) { throw e }
-            catch (e: HttpFailure) { if (e.status == 401 || e.status == 403) repo.invalidateSession(); failed(e.safe().safeMessage) }
+            catch (e: SessionServerFailure) {
+                val response = e.response
+                if ((response.code == 401 || response.code == 403) && !repo.logoutPending()) repo.invalidateSession()
+                failed(HttpFailure(response.code, response.error?.code).safe().safeMessage)
+            }
+            catch (e: HttpFailure) { if ((e.status == 401 || e.status == 403) && !repo.logoutPending()) repo.invalidateSession(); failed(e.safe().safeMessage) }
             catch (e: AppFailure) { failed(e.safeMessage) }
             catch (_: Exception) { failed(AppText.get(R.string.operation_incomplete)) }
             finally {
@@ -179,7 +186,7 @@ class PlanningViewModel(application: Application) : AndroidViewModel(application
         AppText.get(R.string.planning_cache_refreshed)
     }
     fun deleteDnse(production: Boolean) = run { repo.deleteDnse(production); queue(); AppText.get(R.string.dnse_keys_deleted) }
-    private suspend fun refreshAll(knownStatus: JSONObject? = null): String {
+    private suspend fun refreshAll(knownStatus: SessionStatus? = null): String {
         restoreCachedPlanning()
         if (QaStartupIsolation.active) {
             val status = knownStatus ?: repo.verifySession()
@@ -187,17 +194,19 @@ class PlanningViewModel(application: Application) : AndroidViewModel(application
             mutable.value = mutable.value.copy(status = status, notificationCursor = cursor(events))
             return AppText.get(R.string.qa_notification_isolation_active)
         }
-        val status = knownStatus ?: repo.api.syncStatus()
-        val admin = status.optString("role") == "admin"
-        if (!admin) repo.api.readSource = null
+        val status = knownStatus ?: if (com.example.finance_planning.BuildConfig.LOCAL_BACKEND)
+            repo.verifySession() else SessionStatus.legacy(repo.api.syncStatus())
+        val admin = status.admin
+        if (!admin) repo.readSource = null
+        val selectedSource = repo.readSource
         val sources = if (admin) repo.api.adminSources() else JSONObject()
-        val records = if (admin && repo.api.readSource != null)
-            repo.api.adminRecords(repo.api.readSource!!) else JSONObject()
+        val records = if (admin && selectedSource != null)
+            repo.api.adminRecords(selectedSource) else JSONObject()
         val events = repo.notifications()
-        val orders = repo.api.orders()
-        val batches = repo.api.batches()
+        val orders = repo.api.orders(source = selectedSource)
+        val batches = repo.api.batches(source = selectedSource)
         mutable.value = mutable.value.copy(status = status, admin = admin, sources = sources.objects("items"),
-            sourceCursor = cursor(sources), selectedSource = repo.api.readSource,
+            sourceCursor = cursor(sources), selectedSource = selectedSource,
             adminRecords = records.objects("items"), recordCursor = cursor(records),
             notificationCursor = cursor(events),
             orders = orders.objects("items"), orderCursor = cursor(orders),
@@ -215,11 +224,11 @@ class PlanningViewModel(application: Application) : AndroidViewModel(application
                 mutable.value = mutable.value.copy(notificationCursor = cursor(p))
             }
             "orders" -> s.orderCursor?.let { cursor ->
-                val p = repo.api.orders(cursor)
+                val p = repo.api.orders(cursor, source = s.selectedSource)
                 mutable.value = s.copy(orders = (s.orders + p.objects("items")).distinctBy { it.optString("id") }, orderCursor = cursor(p))
             }
             "batches" -> s.batchCursor?.let { cursor ->
-                val p = repo.api.batches(cursor)
+                val p = repo.api.batches(cursor, source = s.selectedSource)
                 mutable.value = s.copy(batches = (s.batches + p.objects("items")).distinctBy { it.optString("id") }, batchCursor = cursor(p))
             }
         }
@@ -264,7 +273,7 @@ class PlanningViewModel(application: Application) : AndroidViewModel(application
     }
     fun source(id: String) = run {
         if (!mutable.value.admin) throw AppFailure(AppText.get(R.string.this_feature_requires_admin_access))
-        repo.api.readSource = id
+        repo.readSource = id
         refreshAll()
     }
     fun moreSources() = run {
@@ -285,12 +294,12 @@ class PlanningViewModel(application: Application) : AndroidViewModel(application
     }
     fun order(row: JSONObject) = run {
         val p = row.optJSONObject("payload") ?: row
-        mutable.value = mutable.value.copy(detail = repo.api.order(p.getString("account"), p.getString("order_id")),
+        mutable.value = mutable.value.copy(detail = repo.api.order(p.getString("account"), p.getString("order_id"), source = repo.readSource),
             detailKind = DetailKind.ORDER)
         AppText.get(R.string.synced_order_notice)
     }
     fun batch(id: String) = run {
-        mutable.value = mutable.value.copy(detail = repo.api.batch(id), detailKind = DetailKind.BATCH)
+        mutable.value = mutable.value.copy(detail = repo.api.batch(id, source = repo.readSource), detailKind = DetailKind.BATCH)
         AppText.get(R.string.details_loaded)
     }
     fun dismissDetail() { mutable.value = mutable.value.copy(detail = null) }
@@ -315,7 +324,7 @@ class PlanningViewModel(application: Application) : AndroidViewModel(application
     }
     fun logout() = run(failureMessage = R.string.logout_failed_retry) {
         repo.logout()
-        repo.api.readSource = null
+        repo.readSource = null
         SyncSchedule.cancelAccount(getApplication())
         mutable.value = mutable.value.withoutAccount(repo.identity.configured)
         AppText.get(R.string.logout_complete)

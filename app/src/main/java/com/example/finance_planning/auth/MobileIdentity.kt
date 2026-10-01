@@ -71,7 +71,8 @@ open class MobileIdentity(private val context: Context) {
     suspend fun signOut() {
         QaStartupIsolation.requireBusiness()
         context.getSystemService(android.app.NotificationManager::class.java).cancelAll()
-        if (configured) FirebaseAuth.getInstance().signOut()
         CredentialManager.create(context).clearCredentialState(ClearCredentialStateRequest())
+        // Keep Firebase identity recoverable if credential-state cleanup fails during confirmed logout.
+        if (configured) FirebaseAuth.getInstance().signOut()
     }
 }

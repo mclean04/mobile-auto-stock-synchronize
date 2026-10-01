@@ -13,7 +13,8 @@ class LogoutScreenStateTest {
         val privateData = JSONObject().put("private", true)
         val state = ScreenState(signedIn = true, approved = true, admin = true, busy = true,
             email = "unit@example.invalid", notificationNavigation = 4, detail = privateData,
-            detailKind = DetailKind.NOTIFICATION, status = privateData, planning = privateData,
+            detailKind = DetailKind.NOTIFICATION,
+            status = com.example.finance_planning.data.SessionStatus(1, 200, true, true), planning = privateData,
             dnse = privateData, notifications = listOf(privateData), selectedSource = "unit-source",
             orders = listOf(privateData), batches = listOf(privateData), localQueue = listOf("unit-pending"),
             hasDnse = true, hasProductionKeys = true, pushRegistered = true, message = "working")

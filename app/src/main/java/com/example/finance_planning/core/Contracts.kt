@@ -9,7 +9,7 @@ fun JSONObject.objects(key: String): List<JSONObject> =
     optJSONArray(key)?.let { array -> (0 until array.length()).map { array.getJSONObject(it) } } ?: emptyList()
 
 object Contracts {
-    const val BACKEND = "https://planning-backend-1026748304024.asia-southeast1.run.app"
+    const val BACKEND = com.example.finance_planning.BuildConfig.BACKEND_ORIGIN
     fun id(value: String): String {
         require(Regex("^[A-Za-z0-9_:.-]{1,100}$").matches(value)) { "Invalid identifier" }
         return value

@@ -23,10 +23,13 @@ import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.withContext
 
 class PlanningRepository(val identity: MobileIdentity, private val vault: Vault,
-                         private val db: LocalDb, val api: BackendApi,
+                         private val db: LocalDb, val api: PlanningBackend,
+                         private val networkClients: NetworkClients = NetworkClients.application,
                          private val manualBroker: (String, String, Boolean) -> DnseTradingApi =
-                             { key, secret, production -> DnseTradingApi(key, secret, production) },
+                             { key, secret, production -> DnseTradingApi(key, secret, production,
+                                 sharedSlot = networkClients.dnse(DnseConfiguration(production))) },
                          val observation: ObservationSink = ObservationSink.NONE,
+                         private val stopAccountWork: () -> Unit = {},
                          private val qaInMemoryFakeBusiness: Boolean = false) {
     init { require(!qaInMemoryFakeBusiness || com.example.finance_planning.BuildConfig.DEBUG) }
     private fun requireBusiness() {
@@ -34,10 +37,14 @@ class PlanningRepository(val identity: MobileIdentity, private val vault: Vault,
     }
     private val dnseCredentials = DnseCredentialStore(vault::get, vault::put, vault::remove)
     private val lock = Mutex()
+    private val registrationGate = SessionRegistrationGate(::logoutPending)
+    private val tokenEventLock = Any()
     private val dao = db.dao()
     private val notificationLock = Mutex()
     private val qaNotificationConfig = QaNotificationConfigStore(vault)
     private val planningCacheLock = Mutex()
+    /** Screen-selected source is repository state, never shared transport configuration. */
+    var readSource: String? = null
     private val placedReportLock = Mutex()
     private fun observationError(error: Throwable): ObservationError = when (error) {
         is HttpFailure -> ObservationError.http(error.status, error.code)
@@ -74,7 +81,7 @@ class PlanningRepository(val identity: MobileIdentity, private val vault: Vault,
     }
     fun owner() = identity.uid() ?: throw AppFailure(AppText.get(R.string.sign_in_to_access_data_on_this_device))
     internal fun existingDevice(): String? = identity.uid()?.let { vault.get("device:$it") }
-    fun device(): String {
+    @Synchronized fun device(): String {
         val key = "device:" + owner()
         return existingDevice() ?: run {
             requireBusiness()
@@ -82,18 +89,31 @@ class PlanningRepository(val identity: MobileIdentity, private val vault: Vault,
         }
     }
     fun invalidateSession() { if (!QaStartupIsolation.active) vault.remove("approved") }
-    fun approved(): Boolean = identity.uid()?.let { vault.get("approved") == it && vault.get("mobile_scope") == "uploader-v1:$it" } ?: false
-    suspend fun verifySession(): JSONObject {
+    fun logoutPending(): Boolean = identity.uid()?.let { vault.get("logout_pending:$it") == "true" } ?: false
+    fun approved(): Boolean = !logoutPending() && (identity.uid()?.let { vault.get("approved") == it && vault.get("mobile_scope") == "uploader-v1:$it" } ?: false)
+    suspend fun verifySession(): SessionStatus {
         if (QaStartupIsolation.active && !qaInMemoryFakeBusiness) {
             val config = requireNotNull(checkedQaNotificationConfig())
-            QaNotificationTransport(config.bearer, config).verifyCampaignBindings()
-            return JSONObject().put("qa_isolated", true)
+            QaNotificationTransport(config.bearer, config, networkClients::qaNotifications).verifyCampaignBindings()
+            return SessionStatus(0, 200, null, false, qaIsolated = true)
         }
-        val status = api.syncStatus() // Firebase sign-in alone is not backend authorization.
-        if (vault.get("mobile_scope") != "uploader-v1:${owner()}") save("dnse", JSONObject())
-        vault.put("mobile_scope", "uploader-v1:${owner()}")
-        vault.put("approved", owner())
-        registerPush()
+        val uid = owner()
+        val status = registrationGate.register {
+            val deviceId = device()
+            val context = SessionRequestContext { identity.uid() == uid && existingDevice() == deviceId && !logoutPending() }
+            context.check()
+            val status = if (com.example.finance_planning.BuildConfig.LOCAL_BACKEND) combinedSession(deviceId, context)
+                else SessionStatus.legacy(api.syncStatus())
+            context.check()
+            if (!com.example.finance_planning.BuildConfig.LOCAL_BACKEND) registerLegacyPush(uid, deviceId, context)
+            context.check()
+            if (vault.get("mobile_scope") != "uploader-v1:$uid") save("dnse", JSONObject())
+            context.check()
+            vault.put("mobile_scope", "uploader-v1:$uid")
+            vault.put("approved", uid)
+            vault.put(pushKey(uid), "true")
+            status
+        }
         try {
             retryPlacedOrderReports()
         } catch (e: CancellationException) {
@@ -103,10 +123,31 @@ class PlanningRepository(val identity: MobileIdentity, private val vault: Vault,
         }
         return status
     }
+    private suspend fun combinedSession(deviceId: String, context: SessionRequestContext): SessionStatus {
+        val token = FirebaseMessaging.getInstance().token.await() // Obtain current token inside the registration lock.
+        context.check()
+        val remote = networkClients.backend().sessionDataSource(identity::headers)
+        return SessionStatus.from(remote.establish(
+            com.example.finance_planning.network.session.SessionRegistrationRequest(deviceId, token), context).session)
+    }
+    private suspend fun registerLegacyPush(uid: String, deviceId: String, context: SessionRequestContext) {
+        val qa = checkedQaNotificationConfig(uid)
+        val endpoint = qa?.let { BackendApi.qaNotifications(it, networkClients) } ?: api
+        val token = FirebaseMessaging.getInstance().token.await()
+        context.check()
+        endpoint.registerDevice(deviceId, token)
+        context.check()
+    }
     suspend fun cached(key: String): JSONObject? =
         dao.cached(owner(), key)?.let { JSONObject(vault.open(it.ciphertext)) }
     private suspend fun save(key: String, json: JSONObject) {
-        dao.cache(CacheRow(owner(), key, vault.seal(json.toString()), System.currentTimeMillis()))
+        val uid = owner()
+        val deviceId = existingDevice()
+        db.withTransaction {
+            if (identity.uid() != uid || logoutPending() || existingDevice() != deviceId)
+                throw SupersededNetworkContext()
+            dao.cache(CacheRow(uid, key, vault.seal(json.toString()), System.currentTimeMillis()))
+        }
     }
     suspend fun cachedTime(key: String): String? = dao.cached(owner(), key)?.let {
         java.time.Instant.ofEpochMilli(it.savedAt).toString()
@@ -177,7 +218,10 @@ class PlanningRepository(val identity: MobileIdentity, private val vault: Vault,
     private suspend fun cacheNotifications(page: JSONObject, uid: String,
                                            route: (JSONObject) -> NotificationDelivery) {
         if (identity.uid() != uid || !approved()) throw AppFailure(AppText.get(R.string.the_sign_in_session_has_changed))
+        val deviceId = existingDevice()
         db.withTransaction {
+            if (identity.uid() != uid || !approved() || existingDevice() != deviceId)
+                throw SupersededNetworkContext()
             for (event in page.objects("items")) {
                 val id = event.optString("event_id", event.optString("id"))
                 UUID.fromString(id)
@@ -228,13 +272,13 @@ class PlanningRepository(val identity: MobileIdentity, private val vault: Vault,
         QaStartupIsolation.requireNotification(config, uid, existingDevice())
         require(config.targetUid == uid && config.targetDeviceId == device())
         currentQaNotificationConfig(uid)?.let(config::requireAppendOnly)
-        QaNotificationTransport(config.bearer, config).verifyCampaignBindings()
+        QaNotificationTransport(config.bearer, config, networkClients::qaNotifications).verifyCampaignBindings()
         qaNotificationConfig.install(value, uid, device())
     }
 
     internal fun clearQaNotificationConfig() = qaNotificationConfig.clear()
 
-    private fun notificationApi(delivery: NotificationDelivery): BackendApi = when (delivery.endpoint) {
+    private fun notificationApi(delivery: NotificationDelivery): PlanningBackend = when (delivery.endpoint) {
         NotificationEndpoint.PRODUCTION -> { requireBusiness(); api }
         NotificationEndpoint.QA -> {
             val config = checkedQaNotificationConfig(delivery.targetUid)
@@ -242,7 +286,7 @@ class PlanningRepository(val identity: MobileIdentity, private val vault: Vault,
             if (config.namespace != delivery.namespace || config.campaign != delivery.campaign ||
                 (config.campaign != null && config.eventCases[delivery.eventId] != delivery.caseId))
                 throw AppFailure(AppText.get(R.string.backend_data_format_invalid))
-            BackendApi.qaNotifications(config)
+            BackendApi.qaNotifications(config, networkClients)
         }
     }
 
@@ -259,7 +303,7 @@ class PlanningRepository(val identity: MobileIdentity, private val vault: Vault,
     suspend fun notifications(refresh: Boolean = true): JSONObject = notificationLock.withLock {
         val uid = owner()
         val qa = checkedQaNotificationConfig(uid)
-        val endpoint = qa?.let(BackendApi::qaNotifications) ?: api
+        val endpoint = qa?.let { BackendApi.qaNotifications(it, networkClients) } ?: api
         if (refresh) {
             var next: String? = null
             val seen = mutableSetOf<String>()
@@ -282,7 +326,7 @@ class PlanningRepository(val identity: MobileIdentity, private val vault: Vault,
     suspend fun notificationPage(cursor: String): JSONObject {
         val uid = owner()
         val qa = checkedQaNotificationConfig(uid)
-        val page = (qa?.let(BackendApi::qaNotifications) ?: api).notifications(cursor)
+        val page = (qa?.let { BackendApi.qaNotifications(it, networkClients) } ?: api).notifications(cursor)
         cacheNotifications(page, uid) { event ->
             if (qa == null) NotificationDelivery.production(
                 event.optString("event_id", event.optString("id")), uid)
@@ -643,7 +687,8 @@ class PlanningRepository(val identity: MobileIdentity, private val vault: Vault,
         private val reports = kotlinx.coroutines.flow.MutableStateFlow<List<BrokerResponse>>(emptyList())
         val responses = reports.asStateFlow()
         private val broker = DnseTradingApi(settings.getString("key"), settings.getString("secret"), false,
-            diagnostic = { report -> reports.value = (reports.value + report).takeLast(20) }, checkContext = ::check)
+            diagnostic = { report -> reports.value = (reports.value + report).takeLast(20) }, checkContext = ::check,
+            sharedSlot = networkClients.dnse(DnseConfiguration(false)))
         private fun check() {
             if (identity.uid() != uid || !approved() || dnseCredentials.config(uid, false) != config)
                 throw AppFailure(AppText.get(R.string.the_sign_in_session_has_changed))
@@ -771,19 +816,19 @@ class PlanningRepository(val identity: MobileIdentity, private val vault: Vault,
         if (!DnseCredentialFormat.valid(key.trim(), secret.trim()))
             throw AppFailure(AppText.get(R.string.dnse_keys_invalid_format))
         dnseCredentials.save(owner(), key, secret, production, vndPerUnit)
-        NetworkClients.application.invalidateDnse()
+        networkClients.invalidateDnse()
     }
     fun saveDnseEnvironment(production: Boolean) {
         requireBusiness()
         dnseCredentials.select(owner(), production)
-        NetworkClients.application.invalidateDnse()
+        networkClients.invalidateDnse()
     }
     fun dnseProduction(): Boolean? = identity.uid()?.let { dnseCredentials.production(it) }
     suspend fun deleteDnse(production: Boolean) = lock.withLock {
         requireBusiness()
         val uid = owner()
         dnseCredentials.delete(uid, production)
-        NetworkClients.application.invalidateDnse()
+        networkClients.invalidateDnse()
         if (dnseCredentials.production(uid) == production) {
             save("dnse", JSONObject())
             vault.remove("last_sync:$uid")
@@ -809,6 +854,7 @@ class PlanningRepository(val identity: MobileIdentity, private val vault: Vault,
         val production = config.getBoolean("production")
         val sourceContext = if (production) PlanningContract.activeSource(api.planningSource()) else null
         val dnse = DnseApi(config.getString("key"), config.getString("secret"), production,
+            slot = networkClients.dnse(DnseConfiguration(production)),
             checkContext = {
                 if (identity.uid() != uid || !approved() || dnseCredentials.config(uid) != configRaw)
                     throw SupersededNetworkContext()
@@ -944,35 +990,72 @@ class PlanningRepository(val identity: MobileIdentity, private val vault: Vault,
         }
     }
     fun lastSync() = identity.uid()?.let { vault.get("last_sync:$it") } ?: AppText.get(R.string.not_synced_yet)
-    suspend fun registerPush() {
-        if (approved()) {
-            val uid = owner()
-            val qa = checkedQaNotificationConfig(uid)
-            vault.remove(pushKey(uid))
-            val endpoint = qa?.let(BackendApi::qaNotifications) ?: api
-            endpoint.registerDevice(device(), FirebaseMessaging.getInstance().token.await())
-            if (owner() == uid) vault.put(pushKey(uid), "true")
+    fun newTokenRefresh(): TokenRefreshTicket? = synchronized(tokenEventLock) {
+        val uid = identity.uid() ?: return@synchronized null
+        if (!approved()) return@synchronized null
+        TokenRefreshTicket(uid, device(), UUID.randomUUID().toString()).also {
+            vault.put("token_refresh:$uid", it.eventId)
         }
     }
-    suspend fun logout() = lock.withLock {
+    suspend fun registerPush(ticket: TokenRefreshTicket? = null) {
+        val uid = identity.uid() ?: return
+        registrationGate.register {
+            if (!approved() || identity.uid() != uid) return@register
+            val deviceId = device()
+            if (ticket != null) {
+                val admitted = synchronized(tokenEventLock) {
+                    if (ticket.uid != uid || ticket.deviceId != deviceId ||
+                        vault.get("token_refresh:$uid") != ticket.eventId) false
+                    else { vault.remove("token_refresh:$uid"); true }
+                }
+                if (!admitted) return@register
+            }
+            val context = SessionRequestContext { identity.uid() == uid && existingDevice() == deviceId && !logoutPending() }
+            vault.remove(pushKey(uid))
+            if (com.example.finance_planning.BuildConfig.LOCAL_BACKEND) combinedSession(deviceId, context)
+            else registerLegacyPush(uid, deviceId, context)
+            context.check()
+            vault.put(pushKey(uid), "true")
+        }
+    }
+    suspend fun logout() {
         requireBusiness()
         val uid = owner()
-        // Revoke through the endpoint that registered this device. A mismatched QA config
-        // fails closed: it must never redirect a QA device operation to Production.
-        if (approved()) {
-            val qa = currentQaNotificationConfig(uid)
-            if (qa != null) BackendApi.qaNotifications(qa).removeDevice(device())
-            else if (!qaNotificationConfig.present()) api.removeDevice(device())
+        registrationGate.logout(fence = { synchronized(tokenEventLock) {
+            vault.put("logout_pending:$uid", "true")
+        } }) {
+            lock.withLock {
+                if (identity.uid() != uid) throw SupersededNetworkContext()
+                val deviceId = device()
+                val qa = currentQaNotificationConfig(uid)
+                if (qaNotificationConfig.present() && qa == null) throw SupersededNetworkContext()
+                val endpoint = qa?.let { BackendApi.qaNotifications(it, networkClients) } ?: api
+                val result = endpoint.removeDevice(deviceId)
+                // A completed HTTP exchange alone does not confirm the owner slot was revoked.
+                if (result.optString("device_id") != deviceId || result.opt("registered") != false)
+                    throw AppFailure(AppText.get(R.string.operation_incomplete), true)
+                if (identity.uid() != uid) throw SupersededNetworkContext()
+                stopAccountWork()
+                networkClients.invalidateBackend()
+                networkClients.invalidateDnse()
+                FirebaseMessaging.getInstance().deleteToken().await()
+                // Drain existing local writers before clearing this account's data.
+                planningCacheLock.withLock { notificationLock.withLock { placedReportLock.withLock {
+                    db.withTransaction { dao.clearCache(uid); dao.clearBatches(uid) }
+                } } }
+                dnseCredentials.clear(uid)
+                vault.remove(pushKey(uid))
+                vault.remove("push_registered:$uid")
+                vault.remove("qa_push_registered:$uid")
+                vault.remove("last_sync:$uid")
+                vault.remove("token_refresh:$uid")
+                vault.remove("approved")
+                vault.remove("mobile_scope")
+                readSource = null
+                identity.signOut()
+                vault.remove("device:$uid")
+                vault.remove("logout_pending:$uid")
+            }
         }
-        // Keep the installation token for repeated Firebase Console tests in debug builds.
-        // Backend device revocation above still disconnects the signed-out account.
-        if (!com.example.finance_planning.BuildConfig.DEBUG)
-            FirebaseMessaging.getInstance().deleteToken().await()
-        vault.remove("approved")
-        dnseCredentials.clear(uid)
-        vault.remove("push_registered:$uid")
-        vault.remove("last_sync:$uid")
-        db.withTransaction { dao.clearCache(uid); dao.clearBatches(uid) }
-        identity.signOut()
     }
 }

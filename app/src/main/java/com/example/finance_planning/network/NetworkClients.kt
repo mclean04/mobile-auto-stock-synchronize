@@ -21,6 +21,9 @@ internal class DnseCallContext(val diagnostics: Boolean, private val check: () -
 
 /** Application-owned factories. A slot never changes origin, policy or Retrofit instance. */
 class NetworkClients {
+    private var qaBackendSlot: QaBackendSlot? = null
+    @Synchronized fun qaNotifications(): QaBackendSlot =
+        qaBackendSlot ?: QaBackendSlot().also { qaBackendSlot = it }
     private var backendSlot: BackendSlot? = null
     @Synchronized fun backend(configuration: BackendConfiguration = BackendConfiguration()): BackendSlot {
         backendSlot?.takeIf { it.configuration == configuration }?.let { return it }

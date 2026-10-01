@@ -22,6 +22,19 @@ class SyncWorker(context: Context, params: WorkerParameters) : CoroutineWorker(c
         val app = applicationContext as PlanningApp
         val repo = app.repository
         if (!repo.approved()) return Result.failure()
+        if (inputData.getBoolean("token_refresh", false)) {
+            // An SDK event is consumed durably before dispatch. WorkManager retries cannot replay it.
+            val uid = inputData.getString("uid") ?: return Result.failure()
+            val device = inputData.getString("device") ?: return Result.failure()
+            val event = inputData.getString("token_event") ?: return Result.failure()
+            if (runAttemptCount > 0 || repo.identity.uid() != uid || repo.existingDevice() != device)
+                return Result.failure()
+            return try {
+                repo.registerPush(com.example.finance_planning.data.TokenRefreshTicket(uid, device, event))
+                Result.success()
+            } catch (e: CancellationException) { throw e }
+            catch (_: Exception) { Result.failure() }
+        }
         return try {
             val event = inputData.getString("event")
             if (event != null) {
@@ -85,7 +98,6 @@ class SyncWorker(context: Context, params: WorkerParameters) : CoroutineWorker(c
                 // The admitted event is already cached. QA does not refresh the whole inbox per receipt.
                 if (!QaStartupIsolation.active) repo.notifications()
             } else {
-                repo.registerPush()
                 repo.notifications()
                 if (repo.hasDnse()) repo.sync() else repo.retryPending()
             }
@@ -144,8 +156,12 @@ object SyncSchedule {
     }
     fun refresh(context: Context) {
         if (QaStartupIsolation.active) return
-        WorkManager.getInstance(context).enqueueUniqueWork("planning-refresh", ExistingWorkPolicy.KEEP,
-            OneTimeWorkRequestBuilder<SyncWorker>().setConstraints(constraints()).addTag("account-sync").build())
+        val ticket = (context.applicationContext as PlanningApp).repository.newTokenRefresh() ?: return
+        WorkManager.getInstance(context).enqueueUniqueWork("planning-token-refresh", ExistingWorkPolicy.APPEND_OR_REPLACE,
+            OneTimeWorkRequestBuilder<SyncWorker>().setConstraints(constraints())
+                .setInputData(workDataOf("token_refresh" to true, "uid" to ticket.uid,
+                    "device" to ticket.deviceId, "token_event" to ticket.eventId))
+                .addTag("account-sync").build())
     }
 }
 

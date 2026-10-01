@@ -11,24 +11,26 @@ import okhttp3.RequestBody.Companion.toRequestBody
 import okhttp3.MediaType.Companion.toMediaType
 import org.json.JSONObject
 import java.net.URI
-import java.util.concurrent.TimeUnit
 
-open class Transport(client: OkHttpClient = backendClient()) {
-    private val service by lazy {
-        httpService("https://localhost/", client.newBuilder().singleExchange()
-            .addInterceptor(HttpBodyLimit(4L * 1024 * 1024, truncateErrors = true)).build())
-    }
+open class Transport(client: OkHttpClient? = null,
+                     private val slotProvider: () -> BackendSlot = { NetworkClients.application.backend() }) {
+    // Explicit client injection is the existing local component-test seam.
+    private val testSlot by lazy { client?.let { BackendSlot(BackendConfiguration(), it, logger = {}) } }
     open suspend fun request(url: String, method: String = "GET", headers: Map<String, String> = emptyMap(),
                              body: JSONObject? = null): String = withContext(Dispatchers.IO) {
         QaStartupIsolation.requireBusiness()
         val uri = URI(url)
-        if (uri.scheme != "https" || uri.userInfo != null)
+        if ((com.example.finance_planning.core.LocalBackend.active &&
+                !com.example.finance_planning.core.LocalBackend.accepts(url)) ||
+            (uri.scheme != "https" && !com.example.finance_planning.core.LocalBackend.accepts(url)) || uri.userInfo != null)
             throw AppFailure(AppText.get(R.string.invalid_connection_address))
         val bytes = body?.toString()?.toByteArray(Charsets.UTF_8)
         if (bytes != null && bytes.size > 2 * 1024 * 1024)
             throw AppFailure(AppText.get(R.string.data_batch_exceeds_the_2_mb_limit))
         try {
-            val response = service.request(url, method, mapOf("Accept" to "application/json") + headers,
+            val slot = testSlot ?: slotProvider()
+            slot.checkActive()
+            val response = slot.legacy.request(url, method, mapOf("Accept" to "application/json") + headers,
                 bytes?.toRequestBody("application/json".toMediaType()))
             val responseBody = response.body() ?: response.errorBody()
             responseBody.use {
@@ -46,13 +48,6 @@ open class Transport(client: OkHttpClient = backendClient()) {
         } catch (e: java.io.IOException) {
             throw AppFailure(AppText.get(R.string.backend_connection_failed, ApiDiagnostics.failure(e)), true)
         }
-    }
-    companion object {
-        private fun backendClient() = OkHttpClient.Builder()
-            .connectTimeout(20, TimeUnit.SECONDS).readTimeout(40, TimeUnit.SECONDS)
-            .writeTimeout(0, TimeUnit.SECONDS).callTimeout(0, TimeUnit.SECONDS)
-            .addInterceptor(DebugBodyLoggingInterceptor(log = { android.util.Log.w("OkHttp", it) }))
-            .build()
     }
 }
 class HttpFailure(val status: Int, val code: String? = null) : Exception("HTTP $status") {

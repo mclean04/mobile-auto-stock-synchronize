@@ -1,0 +1,417 @@
+{
+  "$defs": {
+    "ApiError": {
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "pattern": "^[a-z][a-z0-9_]{0,99}$",
+          "title": "Code",
+          "type": "string"
+        },
+        "message": {
+          "maxLength": 300,
+          "title": "Message",
+          "type": "string"
+        },
+        "validation": {
+          "items": {
+            "$ref": "#/$defs/ValidationIssue"
+          },
+          "maxItems": 50,
+          "title": "Validation",
+          "type": "array"
+        },
+        "operation": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/OperationOutcome"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "code",
+        "message",
+        "validation",
+        "operation"
+      ],
+      "title": "ApiError",
+      "type": "object"
+    },
+    "DeviceRegistrationResultDto": {
+      "additionalProperties": false,
+      "properties": {
+        "device_id": {
+          "format": "uuid",
+          "title": "Device Id",
+          "type": "string"
+        },
+        "registered": {
+          "title": "Registered",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "device_id",
+        "registered"
+      ],
+      "title": "DeviceRegistrationResultDto",
+      "type": "object"
+    },
+    "ErrorMeta": {
+      "additionalProperties": false,
+      "properties": {
+        "contract_version": {
+          "const": "mobile-envelope.v2",
+          "title": "Contract Version",
+          "type": "string"
+        },
+        "request_id": {
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+          "title": "Request Id",
+          "type": "string"
+        },
+        "http_status": {
+          "maximum": 599,
+          "minimum": 400,
+          "title": "Http Status",
+          "type": "integer"
+        },
+        "pagination": {
+          "title": "Pagination",
+          "type": "null"
+        }
+      },
+      "required": [
+        "contract_version",
+        "request_id",
+        "http_status",
+        "pagination"
+      ],
+      "title": "ErrorMeta",
+      "type": "object"
+    },
+    "Failure": {
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "maximum": 599,
+          "minimum": 400,
+          "title": "Code",
+          "type": "integer"
+        },
+        "data": {
+          "title": "Data",
+          "type": "null"
+        },
+        "error": {
+          "$ref": "#/$defs/ApiError"
+        },
+        "meta": {
+          "$ref": "#/$defs/ErrorMeta"
+        }
+      },
+      "required": [
+        "code",
+        "data",
+        "error",
+        "meta"
+      ],
+      "title": "Failure",
+      "type": "object"
+    },
+    "OperationOutcome": {
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "oneOf": [
+            {
+              "properties": {
+                "database": {
+                  "enum": [
+                    "NOT_APPLIED"
+                  ]
+                },
+                "committed_steps": {
+                  "maxItems": 0
+                },
+                "projection": {
+                  "enum": [
+                    "NOT_APPLICABLE"
+                  ]
+                }
+              }
+            },
+            {
+              "properties": {
+                "database": {
+                  "enum": [
+                    "COMMITTED"
+                  ]
+                },
+                "committed_steps": {
+                  "minItems": 1
+                }
+              }
+            },
+            {
+              "properties": {
+                "database": {
+                  "enum": [
+                    "UNKNOWN"
+                  ]
+                },
+                "projection": {
+                  "enum": [
+                    "UNKNOWN"
+                  ]
+                }
+              }
+            }
+          ]
+        }
+      ],
+      "properties": {
+        "operation_id": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Operation Id"
+        },
+        "database": {
+          "enum": [
+            "NOT_APPLIED",
+            "COMMITTED",
+            "UNKNOWN"
+          ],
+          "title": "Database",
+          "type": "string"
+        },
+        "projection": {
+          "enum": [
+            "NOT_APPLICABLE",
+            "PENDING",
+            "UP_TO_DATE",
+            "QUARANTINED",
+            "UNKNOWN"
+          ],
+          "title": "Projection",
+          "type": "string"
+        },
+        "environment": {
+          "anyOf": [
+            {
+              "enum": [
+                "sandbox",
+                "production"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Environment"
+        },
+        "committed_steps": {
+          "items": {
+            "enum": [
+              "SYNC_BATCH",
+              "PREFLIGHT",
+              "PLACED_REPORT",
+              "BROKER_RECORDS",
+              "NOTIFICATION",
+              "DEVICE_REGISTRATION",
+              "RECEIPT",
+              "LEGACY_IMPORT",
+              "TEST_RECEIPT"
+            ],
+            "type": "string"
+          },
+          "maxItems": 9,
+          "title": "Committed Steps",
+          "type": "array",
+          "uniqueItems": true
+        }
+      },
+      "required": [
+        "operation_id",
+        "database",
+        "projection",
+        "environment",
+        "committed_steps"
+      ],
+      "title": "OperationOutcome",
+      "type": "object"
+    },
+    "SessionRegistrationDto": {
+      "additionalProperties": false,
+      "properties": {
+        "session": {
+          "$ref": "#/$defs/SyncStatusDto"
+        },
+        "registration": {
+          "$ref": "#/$defs/DeviceRegistrationResultDto"
+        }
+      },
+      "required": [
+        "session",
+        "registration"
+      ],
+      "title": "SessionRegistrationDto",
+      "type": "object"
+    },
+    "SuccessMeta": {
+      "additionalProperties": false,
+      "properties": {
+        "contract_version": {
+          "const": "mobile-envelope.v2",
+          "title": "Contract Version",
+          "type": "string"
+        },
+        "request_id": {
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+          "title": "Request Id",
+          "type": "string"
+        },
+        "http_status": {
+          "const": 200,
+          "title": "Http Status",
+          "type": "integer"
+        },
+        "pagination": {
+          "title": "Pagination",
+          "type": "null"
+        }
+      },
+      "required": [
+        "contract_version",
+        "request_id",
+        "http_status",
+        "pagination"
+      ],
+      "title": "SuccessMeta",
+      "type": "object"
+    },
+    "Success_SessionRegistrationDto_": {
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "const": 200,
+          "title": "Code",
+          "type": "integer"
+        },
+        "data": {
+          "$ref": "#/$defs/SessionRegistrationDto"
+        },
+        "error": {
+          "title": "Error",
+          "type": "null"
+        },
+        "meta": {
+          "$ref": "#/$defs/SuccessMeta"
+        }
+      },
+      "required": [
+        "code",
+        "data",
+        "error",
+        "meta"
+      ],
+      "title": "Success[SessionRegistrationDto]",
+      "type": "object"
+    },
+    "SyncStatusDto": {
+      "additionalProperties": false,
+      "properties": {
+        "pending_sheet_batches": {
+          "maximum": 200,
+          "minimum": 0,
+          "title": "Pending Sheet Batches",
+          "type": "integer"
+        },
+        "count_capped_at": {
+          "const": 200,
+          "title": "Count Capped At",
+          "type": "integer"
+        },
+        "sheet_writes": {
+          "title": "Sheet Writes",
+          "type": "boolean"
+        },
+        "role": {
+          "enum": [
+            "admin",
+            "uploader"
+          ],
+          "title": "Role",
+          "type": "string"
+        }
+      },
+      "required": [
+        "pending_sheet_batches",
+        "count_capped_at",
+        "sheet_writes",
+        "role"
+      ],
+      "title": "SyncStatusDto",
+      "type": "object"
+    },
+    "ValidationIssue": {
+      "additionalProperties": false,
+      "properties": {
+        "location": {
+          "enum": [
+            "body",
+            "query",
+            "path",
+            "header"
+          ],
+          "title": "Location",
+          "type": "string"
+        },
+        "pointer": {
+          "maxLength": 256,
+          "pattern": "^(?:/(?:[^~/]|~[01])*)*$",
+          "title": "Pointer",
+          "type": "string"
+        },
+        "code": {
+          "pattern": "^[a-z][a-z0-9_]{0,79}$",
+          "title": "Code",
+          "type": "string"
+        },
+        "message": {
+          "maxLength": 200,
+          "title": "Message",
+          "type": "string"
+        }
+      },
+      "required": [
+        "location",
+        "pointer",
+        "code",
+        "message"
+      ],
+      "title": "ValidationIssue",
+      "type": "object"
+    }
+  },
+  "anyOf": [
+    {
+      "$ref": "#/$defs/Success_SessionRegistrationDto_"
+    },
+    {
+      "$ref": "#/$defs/Failure"
+    }
+  ]
+}

@@ -1,13 +1,7 @@
 package com.example.finance_planning
 
 import android.app.Application
-import androidx.room.Room
-import com.example.finance_planning.auth.MobileIdentity
-import com.example.finance_planning.core.Vault
-import com.example.finance_planning.data.LocalDb
 import com.example.finance_planning.data.PlanningRepository
-import com.example.finance_planning.network.BackendApi
-import com.example.finance_planning.network.Transport
 
 class PlanningApp : Application() {
     override fun attachBaseContext(base: android.content.Context) {
@@ -18,17 +12,14 @@ class PlanningApp : Application() {
         private set
     lateinit var observationLog: com.example.finance_planning.core.ProductionObservationLog
         private set
+    lateinit var container: AppContainer
+        private set
     override fun onCreate() {
         super.onCreate()
         com.example.finance_planning.core.AppText.initialize(this)
         com.example.finance_planning.sync.PlanningMessagingService.createChannel(this)
-        val identity = MobileIdentity(this)
-        identity.initialize()
-        observationLog = com.example.finance_planning.core.ProductionObservationLog(
-            java.io.File(noBackupFilesDir,
-                com.example.finance_planning.core.ProductionObservationLog.DIRECTORY_NAME))
-        repository = PlanningRepository(identity, Vault(this),
-            Room.databaseBuilder(this, LocalDb::class.java, "planning.db").build(),
-            BackendApi(Transport(), identity::headers), observation = observationLog)
+        container = AppContainer(this)
+        observationLog = container.observationLog
+        repository = container.repository
     }
 }

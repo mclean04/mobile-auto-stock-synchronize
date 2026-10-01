@@ -10,33 +10,15 @@ import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import java.net.URI
 import java.util.UUID
-import java.net.Proxy
-import java.util.concurrent.TimeUnit
-import okhttp3.OkHttpClient
 import okhttp3.RequestBody.Companion.toRequestBody
 import okhttp3.MediaType.Companion.toMediaType
 
 /** Debug-only, loopback-only QA transport. It never logs or accepts a bearer/URL from FCM. */
-class QaNotificationTransport(private val bearer: String, private val config: QaNotificationConfig? = null) : Transport() {
+class QaNotificationTransport(private val bearer: String, private val config: QaNotificationConfig? = null,
+    private val slotProvider: () -> QaBackendSlot = NetworkClients.application::qaNotifications) : Transport() {
     init {
         require(BuildConfig.DEBUG)
         require(bearer.isNotBlank() && bearer.length <= 4096 && '\r' !in bearer && '\n' !in bearer)
-    }
-
-    private val service by lazy {
-        val client = OkHttpClient.Builder().singleExchange()
-            .proxy(Proxy.NO_PROXY)
-            .protocols(listOf(okhttp3.Protocol.HTTP_1_1))
-            .dns(object : okhttp3.Dns {
-                override fun lookup(hostname: String): List<java.net.InetAddress> {
-                    require(hostname == "127.0.0.1")
-                    return listOf(java.net.InetAddress.getByAddress(byteArrayOf(127, 0, 0, 1)))
-                }
-            })
-            .connectTimeout(0, TimeUnit.SECONDS).readTimeout(45, TimeUnit.SECONDS)
-            .writeTimeout(0, TimeUnit.SECONDS).callTimeout(0, TimeUnit.SECONDS)
-            .addInterceptor(HttpBodyLimit(4_000_000)).build()
-        httpService(NotificationDeliveryPolicy.QA_BASE_URL + "/", client)
     }
 
     override suspend fun request(url: String, method: String, headers: Map<String, String>,
@@ -103,8 +85,9 @@ class QaNotificationTransport(private val bearer: String, private val config: Qa
             "Content-Type" to "application/json", "Content-Length" to payload.size.toString(),
             "Connection" to "close", "Accept-Encoding" to "identity") + campaignHeaders
         try {
-            val response = service.request(url, method, headers,
-                if (method in setOf("POST", "PUT")) payload.toRequestBody("application/json".toMediaType()) else null)
+            val response = slotProvider().request(url, method, headers,
+                if (method in setOf("POST", "PUT")) payload.toRequestBody("application/json".toMediaType()) else null,
+                verify = { requireIsolatedTarget(uri, method, body) })
             (response.body() ?: response.errorBody()).use {
                 val raw = it?.readLimited(4_000_000) ?: ""
                 if (!response.isSuccessful) throw HttpFailure(response.code(), HttpFailure.safeCode(raw))

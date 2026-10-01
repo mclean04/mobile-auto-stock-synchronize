@@ -456,7 +456,7 @@ private fun Settings(s: ScreenState, model: PlanningViewModel, confirm: (String)
             SyncNote(text(R.string.sync_schedule_explanation))
             } }
             SyncStatusLine(text(R.string.last_sync, s.lastSync))
-            val sheetWrites = s.status?.opt("sheet_writes") as? Boolean
+            val sheetWrites = s.status?.sheetWrites
             SyncStatusLine(text(R.string.google_sheet_write_state, text(when (sheetWrites) {
                 true -> R.string.enabled
                 false -> R.string.sheet_writes_off
@@ -466,7 +466,7 @@ private fun Settings(s: ScreenState, model: PlanningViewModel, confirm: (String)
             SyncStatusLine(text(R.string.sheet_status_verification, text(if (sheetWrites == null)
                 R.string.sheet_status_not_received else R.string.sheet_status_received)))
             SyncNote(text(R.string.sheet_status_verification_note))
-            SyncStatusLine(text(R.string.batches_awaiting_sheet_updates, s.status?.optInt("pending_sheet_batches") ?: 0))
+            SyncStatusLine(text(R.string.batches_awaiting_sheet_updates, s.status?.pendingSheetBatches ?: 0))
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
             SyncNote(text(R.string.sync_now_explanation))
             Button(onClick = model::sync, enabled = s.approved && s.hasDnse && !s.busy,

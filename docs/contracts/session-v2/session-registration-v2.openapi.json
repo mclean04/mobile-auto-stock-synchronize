@@ -1,0 +1,657 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Combined session API",
+    "version": "mobile-envelope.v2"
+  },
+  "paths": {
+    "/mobile/v2/session": {
+      "post": {
+        "tags": [
+          "session"
+        ],
+        "summary": "Session",
+        "operationId": "establishSession",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "x-planning-authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Planning-Authorization"
+            }
+          },
+          {
+            "name": "x-firebase-appcheck",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Firebase-Appcheck"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SessionRegistrationRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Success_SessionRegistrationDto_"
+                }
+              }
+            },
+            "headers": {
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "description": "Equals meta.request_id."
+              }
+            }
+          },
+          "401": {
+            "headers": {
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "description": "Equals meta.request_id."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Failure"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "headers": {
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "description": "Equals meta.request_id."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Failure"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "405": {
+            "headers": {
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "description": "Equals meta.request_id."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Failure"
+                }
+              }
+            },
+            "description": "Method Not Allowed"
+          },
+          "409": {
+            "headers": {
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "description": "Equals meta.request_id."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Failure"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "413": {
+            "headers": {
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "description": "Equals meta.request_id."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Failure"
+                }
+              }
+            },
+            "description": "Content Too Large"
+          },
+          "422": {
+            "headers": {
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "description": "Equals meta.request_id."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Failure"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "503": {
+            "headers": {
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "description": "Equals meta.request_id."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Failure"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "ApiError": {
+        "properties": {
+          "code": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]{0,99}$",
+            "title": "Code"
+          },
+          "message": {
+            "type": "string",
+            "maxLength": 300,
+            "title": "Message"
+          },
+          "validation": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationIssue"
+            },
+            "type": "array",
+            "maxItems": 50,
+            "title": "Validation"
+          },
+          "operation": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/OperationOutcome"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "code",
+          "message",
+          "validation",
+          "operation"
+        ],
+        "title": "ApiError"
+      },
+      "DeviceRegistrationResultDto": {
+        "properties": {
+          "device_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Device Id"
+          },
+          "registered": {
+            "type": "boolean",
+            "title": "Registered"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "device_id",
+          "registered"
+        ],
+        "title": "DeviceRegistrationResultDto"
+      },
+      "ErrorMeta": {
+        "properties": {
+          "contract_version": {
+            "type": "string",
+            "const": "mobile-envelope.v2",
+            "title": "Contract Version"
+          },
+          "request_id": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+            "title": "Request Id"
+          },
+          "http_status": {
+            "type": "integer",
+            "maximum": 599.0,
+            "minimum": 400.0,
+            "title": "Http Status"
+          },
+          "pagination": {
+            "type": "null",
+            "title": "Pagination"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "contract_version",
+          "request_id",
+          "http_status",
+          "pagination"
+        ],
+        "title": "ErrorMeta"
+      },
+      "Failure": {
+        "properties": {
+          "code": {
+            "type": "integer",
+            "maximum": 599.0,
+            "minimum": 400.0,
+            "title": "Code"
+          },
+          "data": {
+            "type": "null",
+            "title": "Data"
+          },
+          "error": {
+            "$ref": "#/components/schemas/ApiError"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/ErrorMeta"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "code",
+          "data",
+          "error",
+          "meta"
+        ],
+        "title": "Failure"
+      },
+      "OperationOutcome": {
+        "allOf": [
+          {
+            "oneOf": [
+              {
+                "properties": {
+                  "database": {
+                    "enum": [
+                      "NOT_APPLIED"
+                    ]
+                  },
+                  "committed_steps": {
+                    "maxItems": 0
+                  },
+                  "projection": {
+                    "enum": [
+                      "NOT_APPLICABLE"
+                    ]
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "database": {
+                    "enum": [
+                      "COMMITTED"
+                    ]
+                  },
+                  "committed_steps": {
+                    "minItems": 1
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "database": {
+                    "enum": [
+                      "UNKNOWN"
+                    ]
+                  },
+                  "projection": {
+                    "enum": [
+                      "UNKNOWN"
+                    ]
+                  }
+                }
+              }
+            ]
+          }
+        ],
+        "properties": {
+          "operation_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Operation Id"
+          },
+          "database": {
+            "type": "string",
+            "enum": [
+              "NOT_APPLIED",
+              "COMMITTED",
+              "UNKNOWN"
+            ],
+            "title": "Database"
+          },
+          "projection": {
+            "type": "string",
+            "enum": [
+              "NOT_APPLICABLE",
+              "PENDING",
+              "UP_TO_DATE",
+              "QUARANTINED",
+              "UNKNOWN"
+            ],
+            "title": "Projection"
+          },
+          "environment": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "sandbox",
+                  "production"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Environment"
+          },
+          "committed_steps": {
+            "items": {
+              "type": "string",
+              "enum": [
+                "SYNC_BATCH",
+                "PREFLIGHT",
+                "PLACED_REPORT",
+                "BROKER_RECORDS",
+                "NOTIFICATION",
+                "DEVICE_REGISTRATION",
+                "RECEIPT",
+                "LEGACY_IMPORT",
+                "TEST_RECEIPT"
+              ]
+            },
+            "type": "array",
+            "maxItems": 9,
+            "uniqueItems": true,
+            "title": "Committed Steps"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "operation_id",
+          "database",
+          "projection",
+          "environment",
+          "committed_steps"
+        ],
+        "title": "OperationOutcome"
+      },
+      "SessionRegistrationDto": {
+        "properties": {
+          "session": {
+            "$ref": "#/components/schemas/SyncStatusDto"
+          },
+          "registration": {
+            "$ref": "#/components/schemas/DeviceRegistrationResultDto"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "session",
+          "registration"
+        ],
+        "title": "SessionRegistrationDto"
+      },
+      "SessionRegistrationRequest": {
+        "properties": {
+          "fcm_token": {
+            "type": "string",
+            "maxLength": 4096,
+            "minLength": 20,
+            "title": "Fcm Token"
+          },
+          "device_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Device Id"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "fcm_token",
+          "device_id"
+        ],
+        "title": "SessionRegistrationRequest"
+      },
+      "SuccessMeta": {
+        "properties": {
+          "contract_version": {
+            "type": "string",
+            "const": "mobile-envelope.v2",
+            "title": "Contract Version"
+          },
+          "request_id": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+            "title": "Request Id"
+          },
+          "http_status": {
+            "type": "integer",
+            "const": 200,
+            "title": "Http Status"
+          },
+          "pagination": {
+            "type": "null",
+            "title": "Pagination"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "contract_version",
+          "request_id",
+          "http_status",
+          "pagination"
+        ],
+        "title": "SuccessMeta"
+      },
+      "Success_SessionRegistrationDto_": {
+        "properties": {
+          "code": {
+            "type": "integer",
+            "const": 200,
+            "title": "Code"
+          },
+          "data": {
+            "$ref": "#/components/schemas/SessionRegistrationDto"
+          },
+          "error": {
+            "type": "null",
+            "title": "Error"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/SuccessMeta"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "code",
+          "data",
+          "error",
+          "meta"
+        ],
+        "title": "Success[SessionRegistrationDto]"
+      },
+      "SyncStatusDto": {
+        "properties": {
+          "pending_sheet_batches": {
+            "type": "integer",
+            "maximum": 200.0,
+            "minimum": 0.0,
+            "title": "Pending Sheet Batches"
+          },
+          "count_capped_at": {
+            "type": "integer",
+            "const": 200,
+            "title": "Count Capped At"
+          },
+          "sheet_writes": {
+            "type": "boolean",
+            "title": "Sheet Writes"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "admin",
+              "uploader"
+            ],
+            "title": "Role"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "pending_sheet_batches",
+          "count_capped_at",
+          "sheet_writes",
+          "role"
+        ],
+        "title": "SyncStatusDto"
+      },
+      "ValidationIssue": {
+        "properties": {
+          "location": {
+            "type": "string",
+            "enum": [
+              "body",
+              "query",
+              "path",
+              "header"
+            ],
+            "title": "Location"
+          },
+          "pointer": {
+            "type": "string",
+            "maxLength": 256,
+            "pattern": "^(?:/(?:[^~/]|~[01])*)*$",
+            "title": "Pointer"
+          },
+          "code": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]{0,79}$",
+            "title": "Code"
+          },
+          "message": {
+            "type": "string",
+            "maxLength": 200,
+            "title": "Message"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "location",
+          "pointer",
+          "code",
+          "message"
+        ],
+        "title": "ValidationIssue"
+      }
+    }
+  }
+}
