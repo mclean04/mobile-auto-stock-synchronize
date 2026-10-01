@@ -1,0 +1,339 @@
+{
+  "$schema": "http://json-schema.org/draft-04/schema#",
+  "id": "urn:finance:mobile-envelope:v1:proposal",
+  "title": "PROPOSAL ONLY \u2014 Mobile ApiResponse<T> v1",
+  "description": "DESIGN ONLY revision 2. Draft 4. Endpoint response bindings are mandatory. committed_steps records only confirmed durable writes; UNKNOWN may retain confirmed partial steps. IDs may be null when not known. HTTP/header equality and byte bounds are separate transport invariants.",
+  "oneOf": [
+    {
+      "$ref": "urn:finance:mobile-envelope:v1:proposal#/definitions/Success"
+    },
+    {
+      "$ref": "urn:finance:mobile-envelope:v1:proposal#/definitions/Failure"
+    }
+  ],
+  "definitions": {
+    "Success": {
+      "type": "object",
+      "properties": {
+        "data": {
+          "type": [
+            "object",
+            "null"
+          ]
+        },
+        "error": {
+          "type": "null"
+        },
+        "meta": {
+          "allOf": [
+            {
+              "$ref": "urn:finance:mobile-envelope:v1:proposal#/definitions/Meta"
+            },
+            {
+              "properties": {
+                "http_status": {
+                  "minimum": 200,
+                  "maximum": 299,
+                  "not": {
+                    "enum": [
+                      204
+                    ]
+                  }
+                }
+              }
+            }
+          ]
+        }
+      },
+      "required": [
+        "data",
+        "error",
+        "meta"
+      ],
+      "additionalProperties": false
+    },
+    "Failure": {
+      "type": "object",
+      "properties": {
+        "data": {
+          "type": "null"
+        },
+        "error": {
+          "$ref": "urn:finance:mobile-envelope:v1:proposal#/definitions/ApiError"
+        },
+        "meta": {
+          "allOf": [
+            {
+              "$ref": "urn:finance:mobile-envelope:v1:proposal#/definitions/Meta"
+            },
+            {
+              "properties": {
+                "http_status": {
+                  "minimum": 400,
+                  "maximum": 599
+                },
+                "pagination": {
+                  "type": "null"
+                }
+              }
+            }
+          ]
+        }
+      },
+      "required": [
+        "data",
+        "error",
+        "meta"
+      ],
+      "additionalProperties": false
+    },
+    "Meta": {
+      "type": "object",
+      "properties": {
+        "contract_version": {
+          "enum": [
+            "mobile-envelope.v1"
+          ]
+        },
+        "request_id": {
+          "type": "string",
+          "format": "uuid",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+        },
+        "http_status": {
+          "type": "integer",
+          "minimum": 200,
+          "maximum": 599
+        },
+        "pagination": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "urn:finance:mobile-envelope:v1:proposal#/definitions/Pagination"
+            }
+          ]
+        }
+      },
+      "required": [
+        "contract_version",
+        "request_id",
+        "http_status",
+        "pagination"
+      ],
+      "additionalProperties": false
+    },
+    "Pagination": {
+      "type": "object",
+      "properties": {
+        "limit": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 200
+        },
+        "next_cursor": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1,
+          "maxLength": 2048
+        },
+        "total_count": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        }
+      },
+      "required": [
+        "limit",
+        "next_cursor",
+        "total_count"
+      ],
+      "additionalProperties": false
+    },
+    "ApiError": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]{0,99}$"
+        },
+        "message": {
+          "type": "string",
+          "maxLength": 300
+        },
+        "validation": {
+          "type": "array",
+          "maxItems": 50,
+          "items": {
+            "$ref": "urn:finance:mobile-envelope:v1:proposal#/definitions/ValidationIssue"
+          }
+        },
+        "operation": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "urn:finance:mobile-envelope:v1:proposal#/definitions/OperationOutcome"
+            }
+          ]
+        }
+      },
+      "required": [
+        "code",
+        "message",
+        "validation",
+        "operation"
+      ],
+      "additionalProperties": false
+    },
+    "ValidationIssue": {
+      "type": "object",
+      "properties": {
+        "location": {
+          "enum": [
+            "body",
+            "query",
+            "path",
+            "header"
+          ]
+        },
+        "pointer": {
+          "type": "string",
+          "maxLength": 256,
+          "pattern": "^(?:/(?:[^~/]|~[01])*)*$"
+        },
+        "code": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]{0,79}$"
+        },
+        "message": {
+          "type": "string",
+          "maxLength": 200
+        }
+      },
+      "required": [
+        "location",
+        "pointer",
+        "code",
+        "message"
+      ],
+      "additionalProperties": false
+    },
+    "OperationOutcome": {
+      "type": "object",
+      "properties": {
+        "operation_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "uuid"
+        },
+        "database": {
+          "enum": [
+            "NOT_APPLIED",
+            "COMMITTED",
+            "UNKNOWN"
+          ]
+        },
+        "projection": {
+          "enum": [
+            "NOT_APPLICABLE",
+            "PENDING",
+            "UP_TO_DATE",
+            "QUARANTINED",
+            "UNKNOWN"
+          ]
+        },
+        "environment": {
+          "enum": [
+            "sandbox",
+            "production",
+            null
+          ]
+        },
+        "committed_steps": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "SYNC_BATCH",
+              "PREFLIGHT",
+              "PLACED_REPORT",
+              "BROKER_RECORDS",
+              "NOTIFICATION",
+              "DEVICE_REGISTRATION",
+              "RECEIPT",
+              "LEGACY_IMPORT",
+              "TEST_RECEIPT"
+            ]
+          },
+          "uniqueItems": true,
+          "maxItems": 9
+        }
+      },
+      "required": [
+        "operation_id",
+        "database",
+        "projection",
+        "environment",
+        "committed_steps"
+      ],
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "oneOf": [
+            {
+              "properties": {
+                "database": {
+                  "enum": [
+                    "NOT_APPLIED"
+                  ]
+                },
+                "committed_steps": {
+                  "maxItems": 0
+                },
+                "projection": {
+                  "enum": [
+                    "NOT_APPLICABLE"
+                  ]
+                }
+              }
+            },
+            {
+              "properties": {
+                "database": {
+                  "enum": [
+                    "COMMITTED"
+                  ]
+                },
+                "committed_steps": {
+                  "minItems": 1
+                }
+              }
+            },
+            {
+              "properties": {
+                "database": {
+                  "enum": [
+                    "UNKNOWN"
+                  ]
+                },
+                "projection": {
+                  "enum": [
+                    "UNKNOWN"
+                  ]
+                }
+              }
+            }
+          ]
+        }
+      ]
+    }
+  }
+}
