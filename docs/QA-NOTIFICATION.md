@@ -31,7 +31,7 @@ Chỉ dùng Samsung SM-X730 đã đăng nhập đúng tài khoản Firebase và 
 Lấy metadata không nhạy cảm trước:
 
 ```bash
-python3 tools/configure-qa-notification.py metadata \
+python3 '/Users/tuanh/finance root/Test/TestProject/tools/configure-qa-notification.py' metadata \
   --transport-id <adb-transport-id> --expected-model <exact-android-model>
 ```
 
@@ -68,8 +68,8 @@ Tạo file JSON cục bộ với đúng bốn trường sau và đặt quyền `
 
 ```bash
 chmod 600 /duong-dan/qa-notification.json
-python3 tools/configure-qa-notification.py install --config /duong-dan/qa-notification.json --transport-id <adb-transport-id>
-python3 tools/configure-qa-notification.py register --transport-id <adb-transport-id>
+python3 '/Users/tuanh/finance root/Test/TestProject/tools/configure-qa-notification.py' install --config /duong-dan/qa-notification.json --transport-id <adb-transport-id>
+python3 '/Users/tuanh/finance root/Test/TestProject/tools/configure-qa-notification.py' register --transport-id <adb-transport-id>
 ```
 
 `install` truyền cấu hình thẳng vào instrumented helper, lưu bằng Android Keystore/Vault
@@ -79,7 +79,7 @@ với QA API. Các bước này phải chạy riêng để việc cài cấu hì
 Xóa cấu hình sau khi kiểm thử:
 
 ```bash
-python3 tools/configure-qa-notification.py clear --transport-id <adb-transport-id>
+python3 '/Users/tuanh/finance root/Test/TestProject/tools/configure-qa-notification.py' clear --transport-id <adb-transport-id>
 ```
 
 Sau khi xóa, bản debug trở lại luồng production thông thường. Không ghi FCM token, bearer,

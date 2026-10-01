@@ -39,7 +39,7 @@ cục bộ khi cần; không có network overhead.
 Trên debug build đã được USB-debugging authorize, BA/QA chạy:
 
 ```bash
-python3 tools/export-production-observation.py \
+python3 '/Users/tuanh/finance root/Test/TestProject/tools/export-production-observation.py' \
   --transport-id <adb-transport-id> \
   --output /private/tmp/android-production-observation-<timestamp>
 ```
@@ -61,7 +61,7 @@ notification observation chưa được phép bắt đầu với state này.
 Existing clear operator:
 
 ```bash
-python3 tools/configure-qa-notification.py clear --transport-id <adb-transport-id>
+python3 '/Users/tuanh/finance root/Test/TestProject/tools/configure-qa-notification.py' clear --transport-id <adb-transport-id>
 ```
 
 Lệnh chỉ xóa config QA local. Nó không revoke QA device record và không tự đăng ký lại

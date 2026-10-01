@@ -80,11 +80,12 @@ The readback endpoint must identify native Google QA rows, not a fake writer.
 ## Build and run
 
 ```sh
+cd '/Users/tuanh/finance root/mobile-auto-stock-synchronize'
 JAVA_HOME='/Applications/Android Studio.app/Contents/jbr/Contents/Home' bash gradlew :app:assembleDebug :app:assembleDebugAndroidTest --console=plain
-python3 tools/run-b3-device.py --config /private/tmp/b3-config.json --transport-id 7 \
+python3 '/Users/tuanh/finance root/Test/TestProject/tools/run-b3-device.py' --config /private/tmp/b3-config.json --transport-id 7 \
   --phase accepted --output /private/tmp/b3-evidence --install \
   --session-start-utc <T0-UTC> --session-end-utc <T0-plus-at-most-2h-UTC>
-python3 tools/run-b3-device.py --config /private/tmp/b3-config.json --transport-id 7 \
+python3 '/Users/tuanh/finance root/Test/TestProject/tools/run-b3-device.py' --config /private/tmp/b3-config.json --transport-id 7 \
   --phase resume_accepted --output /private/tmp/b3-evidence \
   --session-start-utc <T0-UTC> --session-end-utc <T0-plus-at-most-2h-UTC>
 ```
@@ -94,7 +95,7 @@ not concurrency evidence:
 
 ```sh
 chmod 600 /private/tmp/b3-device-one.json /private/tmp/b3-device-two.json
-python3 tools/run-b3-two-device.py \
+python3 '/Users/tuanh/finance root/Test/TestProject/tools/run-b3-two-device.py' \
   --device-one-config /private/tmp/b3-device-one.json \
   --device-two-config /private/tmp/b3-device-two.json \
   --transport-one <tablet-transport> \
