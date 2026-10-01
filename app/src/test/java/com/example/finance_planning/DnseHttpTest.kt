@@ -9,6 +9,13 @@ import org.junit.Assert.*
 import org.junit.Test
 import retrofit2.Retrofit
 
+/** Dynamic URL is confined to this local logging fixture; product endpoints are fixed. */
+private interface DnseReadService {
+    @retrofit2.http.Streaming @retrofit2.http.GET
+    suspend fun get(@retrofit2.http.Url url: String,
+                    @retrofit2.http.HeaderMap headers: Map<String, String>): retrofit2.Response<okhttp3.ResponseBody>
+}
+
 class DnseHttpTest {
     @org.junit.Before fun initializeTextResources() { TestText.install() }
     @Test fun debugBodyLoggingPreservesRawBodyHeadersAndUrl() = runBlocking {

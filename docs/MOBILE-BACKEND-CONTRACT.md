@@ -3,8 +3,8 @@
 This is an **isolated, inactive contract implementation** of the accepted September
 29 revision-2 design. It creates no client, initializes no SDK and does not change
 the app's runtime configuration. Existing BackendApi/legacy endpoints remain in
-use. The shared-client/DNSE integration is separately blocked by tool review; this
-module does not integrate or bypass that operation. Repository/DataSource wiring
+use. The DNSE shared-client integration was subsequently directly authorized and
+permitted by tool review; see `DNSE-SHARED-TRANSPORT.md`. Backend Repository/DataSource wiring
 also awaits the actual Backend contract/OpenAPI handoff through BA.
 
 ## Files and responsibilities

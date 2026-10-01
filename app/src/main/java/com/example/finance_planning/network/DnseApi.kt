@@ -30,13 +30,17 @@ object DnseSigning {
 }
 
 class DnseApi(private val key: String,
-              private val secret: String, private val production: Boolean) {
+              private val secret: String, private val production: Boolean,
+              internal val slot: DnseSlot = NetworkClients.application.dnse(DnseConfiguration(production)),
+              private val checkContext: () -> Unit = {}) {
+    init { require(slot.configuration == DnseConfiguration(production)) }
     private val host = if (production) "https://openapi.dnse.com.vn" else "https://sb-openapi.dnse.com.vn"
     private fun id(s: String): String {
         if (!Regex("[A-Za-z0-9._-]{1,80}").matches(s)) throw AppFailure(AppText.get(R.string.invalid_dnse_identifier))
         return s
     }
     private suspend fun get(path: String, query: Map<String, String> = emptyMap()): Any {
+        checkContext(); slot.checkActive()
         val date = ZonedDateTime.now(ZoneOffset.UTC).format(
             DateTimeFormatter.ofPattern("EEE, dd MMM yyyy HH:mm:ss Z", Locale.US))
         val nonce = UUID.randomUUID().toString().replace("-", "")
@@ -45,7 +49,7 @@ class DnseApi(private val key: String,
         }
         val body = try { DnseHttpTransport.request(host + path + suffix, headers = mapOf(
             "X-Api-Key" to key, "X-Signature" to DnseSigning.signature(key, secret, path, date, nonce),
-            "Date" to date, "version" to "2026-07-23"))
+            "Date" to date, "version" to "2026-07-23"), slot = slot, checkContext = checkContext)
         } catch (e: HttpFailure) {
             val environment = if (production) AppText.get(R.string.production_live) else AppText.get(R.string.sandbox_test)
             val reason = when (e.code) {
@@ -57,6 +61,7 @@ class DnseApi(private val key: String,
             throw AppFailure(AppText.get(R.string.http_error_details, reason, e.status, e.code ?: "unclassified"),
                 e.status == 429 || e.status >= 500)
         }
+        checkContext(); slot.checkActive()
         return JSONTokener(body).nextValue()
     }
     suspend fun accounts() = rows(get("/accounts"), "accounts", "data", "items")

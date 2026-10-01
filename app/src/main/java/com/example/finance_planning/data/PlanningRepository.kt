@@ -424,6 +424,7 @@ class PlanningRepository(val identity: MobileIdentity, private val vault: Vault,
         val production = settings.getBoolean("production")
         val intent = PlanningIntent.parse(plan)
         private val broker = manualBroker(settings.getString("key"), settings.getString("secret"), production)
+            .withRequestContext(::check)
         private var tradingToken: String? = null
         private var verifiedAt = 0L
         private fun check() {
@@ -642,7 +643,7 @@ class PlanningRepository(val identity: MobileIdentity, private val vault: Vault,
         private val reports = kotlinx.coroutines.flow.MutableStateFlow<List<BrokerResponse>>(emptyList())
         val responses = reports.asStateFlow()
         private val broker = DnseTradingApi(settings.getString("key"), settings.getString("secret"), false,
-            diagnostic = { report -> reports.value = (reports.value + report).takeLast(20) })
+            diagnostic = { report -> reports.value = (reports.value + report).takeLast(20) }, checkContext = ::check)
         private fun check() {
             if (identity.uid() != uid || !approved() || dnseCredentials.config(uid, false) != config)
                 throw AppFailure(AppText.get(R.string.the_sign_in_session_has_changed))
@@ -770,13 +771,19 @@ class PlanningRepository(val identity: MobileIdentity, private val vault: Vault,
         if (!DnseCredentialFormat.valid(key.trim(), secret.trim()))
             throw AppFailure(AppText.get(R.string.dnse_keys_invalid_format))
         dnseCredentials.save(owner(), key, secret, production, vndPerUnit)
+        NetworkClients.application.invalidateDnse()
     }
-    fun saveDnseEnvironment(production: Boolean) { requireBusiness(); dnseCredentials.select(owner(), production) }
+    fun saveDnseEnvironment(production: Boolean) {
+        requireBusiness()
+        dnseCredentials.select(owner(), production)
+        NetworkClients.application.invalidateDnse()
+    }
     fun dnseProduction(): Boolean? = identity.uid()?.let { dnseCredentials.production(it) }
     suspend fun deleteDnse(production: Boolean) = lock.withLock {
         requireBusiness()
         val uid = owner()
         dnseCredentials.delete(uid, production)
+        NetworkClients.application.invalidateDnse()
         if (dnseCredentials.production(uid) == production) {
             save("dnse", JSONObject())
             vault.remove("last_sync:$uid")
@@ -801,7 +808,11 @@ class PlanningRepository(val identity: MobileIdentity, private val vault: Vault,
         val config = JSONObject(configRaw)
         val production = config.getBoolean("production")
         val sourceContext = if (production) PlanningContract.activeSource(api.planningSource()) else null
-        val dnse = DnseApi(config.getString("key"), config.getString("secret"), production)
+        val dnse = DnseApi(config.getString("key"), config.getString("secret"), production,
+            checkContext = {
+                if (identity.uid() != uid || !approved() || dnseCredentials.config(uid) != configRaw)
+                    throw SupersededNetworkContext()
+            })
         val now = LocalDate.now(ZoneId.of("Asia/Ho_Chi_Minh"))
         val orders = linkedMapOf<String, JSONObject>()
         val executions = linkedMapOf<String, JSONObject>()

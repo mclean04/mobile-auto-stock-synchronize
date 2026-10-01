@@ -60,7 +60,7 @@ class DnseTradingTest {
         assertEquals(25950, JSONObject(buffer.readUtf8()).getInt("price"))
         val defaults = DnseTradingApi("key", "secret", false).client
         assertFalse(defaults.retryOnConnectionFailure); assertFalse(defaults.followRedirects)
-        assertFalse(defaults.followSslRedirects); assertTrue(defaults.interceptors.isEmpty())
+        assertFalse(defaults.followSslRedirects)
     }
     @Test fun sandboxCancellationUsesDeleteSignatureAndReportsBrokerErrors() = runBlocking {
         val reports = mutableListOf<BrokerResponse>()

@@ -13,37 +13,35 @@ import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 import java.util.UUID
-import java.util.concurrent.TimeUnit
 
-/** Separate client: OTP, signatures and trading tokens must never enter HTTP debug logs. */
-class DnseTradingApi(private val key: String, private val secret: String, production: Boolean,
-                     internal val client: OkHttpClient = tradingClient(),
+/** Shared DNSE instance; its trading-service policy never enables raw debug logging. */
+class DnseTradingApi(private val key: String, private val secret: String, private val production: Boolean,
+                     client: OkHttpClient? = null,
                      private val diagnostic: ((BrokerResponse) -> Unit)? = null,
-                     private val qaInMemoryFakeOnly: Boolean = false) {
+                     private val qaInMemoryFakeOnly: Boolean = false,
+                     private val checkContext: () -> Unit = {},
+                     sharedSlot: DnseSlot? = null) {
     init {
         require(com.example.finance_planning.core.DnseCredentialFormat.valid(key, secret)) { "Invalid DNSE credential format" }
         require(!production || diagnostic == null)
         require(!qaInMemoryFakeOnly || (com.example.finance_planning.BuildConfig.DEBUG && !production))
+        require(client == null || sharedSlot == null)
+        require(!qaInMemoryFakeOnly || client != null || sharedSlot?.fakeOnly == true)
+        require(sharedSlot == null || sharedSlot.configuration == DnseConfiguration(production))
     }
-    // An injected fake interceptor may return a response. Any fall-through is denied BEFORE DNS/socket I/O.
-    private val guardedClient = if (qaInMemoryFakeOnly) client.newBuilder().addInterceptor {
-        throw java.io.IOException("QA_ISOLATION_DENIED", com.example.finance_planning.core.QaIsolationDenied())
-    }.build() else client
-    private val host = if (production) "https://openapi.dnse.com.vn" else "https://sb-openapi.dnse.com.vn"
-    private val service by lazy {
-        val builder = guardedClient.newBuilder().singleExchange()
-        builder.interceptors().add(0, HttpBodyLimit(65536, omitErrors = diagnostic == null))
-        httpService("$host/", builder.build())
-    }
-    companion object {
-        private fun tradingClient() = OkHttpClient.Builder().connectTimeout(20, TimeUnit.SECONDS)
-        .readTimeout(40, TimeUnit.SECONDS).callTimeout(60, TimeUnit.SECONDS)
-        .followRedirects(false).followSslRedirects(false).retryOnConnectionFailure(false).build()
-    }
+    // Explicit injected clients are isolated test seams; normal read/trade wrappers share the app slot.
+    internal val slot = sharedSlot ?: if (client != null) DnseSlot(DnseConfiguration(production), client, qaInMemoryFakeOnly)
+        else NetworkClients.application.dnse(DnseConfiguration(production))
+    internal val client: OkHttpClient get() = slot.client
+    /** Bind the owning session without changing the shared transport or storing credentials in it. */
+    fun withRequestContext(check: () -> Unit) = DnseTradingApi(key, secret, production,
+        diagnostic = diagnostic, qaInMemoryFakeOnly = qaInMemoryFakeOnly,
+        checkContext = { checkContext(); check() }, sharedSlot = slot)
     private fun id(value: String): String = value.also { require(Regex("[A-Za-z0-9._-]{1,80}").matches(it)) }
     private suspend fun call(path: String, method: String = "GET", query: Map<String, String> = emptyMap(),
                              body: JSONObject? = null, token: String? = null): Any = withContext(Dispatchers.IO) {
         if (!qaInMemoryFakeOnly) com.example.finance_planning.core.QaStartupIsolation.requireBusiness()
+        checkContext(); slot.checkActive()
         val date = ZonedDateTime.now(ZoneOffset.UTC).format(DateTimeFormatter.ofPattern("EEE, dd MMM yyyy HH:mm:ss Z", Locale.US))
         val nonce = UUID.randomUUID().toString().replace("-", "")
         val suffix = if (query.isEmpty()) "" else query.entries.joinToString("&", "?") {
@@ -54,8 +52,9 @@ class DnseTradingApi(private val key: String, private val secret: String, produc
             "Date" to date, "version" to "2026-07-23", "Accept" to "application/json")
         token?.let { headers["trading-token"] = it }
         try {
-            val response = service.request(host + path + suffix, method, headers,
-                if (method == "POST") (body?.toString() ?: "").toRequestBody("application/json".toMediaType()) else null)
+            val response = slot.trade(path, method, query, headers,
+                if (method == "POST") (body?.toString() ?: "").toRequestBody("application/json".toMediaType()) else null,
+                diagnostic != null, checkContext)
             val responseBody = response.body() ?: response.errorBody()
             responseBody.use {
                 if (diagnostic == null && !response.isSuccessful) throw TradeHttpFailure(response.code())
@@ -63,6 +62,8 @@ class DnseTradingApi(private val key: String, private val secret: String, produc
                 diagnostic?.invoke(BrokerResponse(method, path + suffix, response.code(),
                     BrokerResponseRedaction.body(raw, listOfNotNull(key, secret, token, body?.optString("passcode")))))
                 if (!response.isSuccessful) throw TradeHttpFailure(response.code())
+                if (method == "GET") { checkContext(); slot.checkActive() }
+                // An acknowledged mutation belongs to the original journal, even if context retires.
                 if (raw.isBlank()) JSONObject() else JSONTokener(raw).nextValue()
             }
         } catch (_: HttpResponseTooLarge) {
