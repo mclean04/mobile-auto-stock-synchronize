@@ -247,28 +247,57 @@ OUTPUT.mkdir(parents=True, exist_ok=True)
 service = [header, 'import retrofit2.Response\nimport retrofit2.http.*\n',
            '/** Inactive until an explicitly configured, approved client is injected. No dynamic URLs. */',
            'interface MobileBackendService {']
+data_source = [header,
+    '/** Typed boundary; request validation and identity/result ownership are injected. No client construction. */',
+    'class MobileBackendDataSource(private val service: MobileBackendService, private val executor: MobileRequestExecutor) {']
 for entry in bindings:
     name = entry['operation']
     request = schemas[ref_name(entry['request_schema'])]['properties']
     params = []
+    arguments = []
+    source_params = []
+    path_fields = []
+    query_fields = []
     for key in request['path']['properties']:
         params.append(f'@Path({quote(key)}) {field(key)}: String')
+        source_params.append(f'{field(key)}: String')
+        arguments.append(field(key))
+        path_fields.append(f'.put({quote(key)}, {field(key)})')
     query = request['query']
     if '$ref' not in query:
         for key, prop in query.get('properties', {}).items():
             typ = 'Int' if prop.get('type') == 'integer' else 'String'
             params.append(f'@Query({quote(key)}) {field(key)}: {typ}? = null')
+            source_params.append(f'{field(key)}: {typ}? = null')
+            arguments.append(field(key))
+            query_fields.append(f'.apply {{ {field(key)}?.let {{ put({quote(key)}, it) }} }}')
     if '$ref' in request['body']:
         params.append(f'@Body body: {ref_name(request["body"])}')
+        source_params.append(f'body: {ref_name(request["body"])}')
+        arguments.append('body')
     if entry.get('auth') != 'none':
         params.append('@HeaderMap headers: Map<String, String>')
+        arguments.append('headers')
+    params.append('@Tag context: MobileRequestContext? = null')
+    arguments.append('context')
     response_name = ref_name(entry['responses']['200'])
     data_type = response_name if entry.get('envelope') is False else ref_name(schemas[response_name]['allOf'][1]['properties']['data'])
     result = data_type if entry.get('envelope') is False else f'MobileSuccess<{data_type}>'
     service.append(f'    @MobileOperation({quote(name)}) @{entry["method"]}({quote(entry["proposed_path"].lstrip("/"))})')
     service.append(f'    suspend fun {name}({", ".join(params)}): Response<{result}>\n')
+    if entry.get('envelope') is False:
+        data_source.append(f'    suspend fun {name}(): MobileHealthResult = executor.health {{ context -> service.{name}(context) }}\n')
+    else:
+        mutation = str(entry['method'] not in ('GET', 'HEAD')).lower()
+        body = 'body' if '$ref' in request['body'] else 'null'
+        data_source.append(f'    suspend fun {name}({", ".join(source_params)}): OwnedMobileResult<{data_type}> =')
+        data_source.append(f'        executor.execute({quote(name)}, {mutation}, JSONObject(){"".join(path_fields)},')
+        data_source.append(f'            JSONObject(){"".join(query_fields)}, {body}) {{ headers, context ->')
+        data_source.append(f'            service.{name}({", ".join(arguments)})\n        }}\n')
 service.append('}\n')
+data_source.append('}\n')
 (OUTPUT / 'MobileBackendService.kt').write_text('\n'.join(service))
+(OUTPUT / 'MobileBackendDataSource.kt').write_text('\n'.join(data_source))
 
 registry = [header, 'internal object MobileDtoCodecs {', '    fun decode(type: Class<*>, value: JSONObject): MobileDto = when (type) {']
 for name in models:

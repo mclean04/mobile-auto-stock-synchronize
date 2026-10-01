@@ -21,6 +21,13 @@ internal class DnseCallContext(val diagnostics: Boolean, private val check: () -
 
 /** Application-owned factories. A slot never changes origin, policy or Retrofit instance. */
 class NetworkClients {
+    private var backendSlot: BackendSlot? = null
+    @Synchronized fun backend(configuration: BackendConfiguration = BackendConfiguration()): BackendSlot {
+        backendSlot?.takeIf { it.configuration == configuration }?.let { return it }
+        backendSlot?.retire()
+        return BackendSlot(configuration).also { backendSlot = it }
+    }
+    @Synchronized fun invalidateBackend() { backendSlot?.retire(); backendSlot = null }
     private var dnseSlot: DnseSlot? = null
     @Synchronized fun dnse(configuration: DnseConfiguration): DnseSlot {
         dnseSlot?.takeIf { it.configuration == configuration }?.let { return it }

@@ -71,10 +71,16 @@ internal fun readMobileObject(body: ResponseBody): JSONObject = body.use {
     } catch (_: org.json.JSONException) { throw MobileContractViolation("Malformed JSON response") }
 }
 
+enum class MobileTransportKind { TIMEOUT, DNS, CONNECTION, IO }
+
 sealed interface MobileResult<out T> {
     data class Success<T>(val data: T, val meta: Meta) : MobileResult<T>
     data class ServerFailure(val status: Int, val error: ApiError, val meta: Meta) : MobileResult<Nothing>
-    data class ProtocolFailure(val status: Int, val requestId: String?) : MobileResult<Nothing>
+    data class ProtocolFailure(val status: Int?, val requestId: String?) : MobileResult<Nothing>
+    data class TransportFailure(val kind: MobileTransportKind, val mutationOutcomeUnknown: Boolean) : MobileResult<Nothing>
+    data object ContextChanged : MobileResult<Nothing>
+    data object InvalidRequest : MobileResult<Nothing>
+    data object CredentialsUnavailable : MobileResult<Nothing>
 }
 
 /** No sign-out, refresh, retry, cache write or broker effect is performed by response mapping. */
