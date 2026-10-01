@@ -46,7 +46,8 @@ class TradeExecutionGuardTest {
     @Test fun successfulTraceIsFreshReadThenPreflightThenPersistenceThenBroker() = runBlocking {
         val trace = mutableListOf<String>()
         val expected = PlanningIntent.parse(intent())
-        val result = TradeExecutionGuard.execute(expected, "012345", Instant.now(),
+        val now = Instant.parse("2026-10-01T02:10:01Z")
+        val result = TradeExecutionGuard.execute(expected, "012345", now,
             readCurrent = { trace += "fresh"; intent() },
             runPreflight = { request ->
                 trace += "preflight"
@@ -58,6 +59,7 @@ class TradeExecutionGuardTest {
             beforeBrokerWrite = { trace += "persist:${it.preflightId}" },
             readActiveSource = { trace += "source"; sourceEndpoint() },
             brokerWrite = { trace += "broker"; "order-42" },
+            clock = { now },
             requestId = requestId, deviceId = deviceId)
         assertEquals("order-42", result.value)
         assertEquals(listOf("fresh", "preflight", "persist:c7e13b2f-0512-4947-b7ad-d0d9902a4d62", "source", "broker"), trace)
