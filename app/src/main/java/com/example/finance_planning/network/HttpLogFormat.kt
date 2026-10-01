@@ -2,16 +2,14 @@ package com.example.finance_planning.network
 
 import com.example.finance_planning.BuildConfig
 
-/** Raw diagnostics are permitted only in debug builds. */
+/** Compatibility helpers: arbitrary header/body contents must never reach a log sink. */
 object HttpLogFormat {
     fun headers(headers: Iterable<Pair<String, String>>, log: (String) -> Unit) {
         if (!BuildConfig.DEBUG) return
-        headers.forEach { (name, value) -> log("$name: $value") }
+        log("(headers omitted)")
     }
     fun body(raw: String?, log: (String) -> Unit) {
         if (!BuildConfig.DEBUG || raw.isNullOrEmpty()) return
-        log("")
-        // Keep UTF-8 chunks small enough for Logcat, including non-ASCII text.
-        raw.chunked(900).forEach(log)
+        log("(body omitted)")
     }
 }

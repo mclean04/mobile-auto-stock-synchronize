@@ -65,6 +65,15 @@ object ApiDiagnostics {
             else -> body.optString("code").takeIf(dnseCodes::contains)
         }
     } catch (_: Exception) { null }
+    // Only fixed source-known labels may leave the diagnostic parser. Never log arbitrary code/detail/message.
+    private val registrationCodes = setOf("device_limit_10", "device_owned_by_another_user",
+        "token_owned_by_another_user", "device_not_registered")
+    fun httpErrorCode(raw: String?): String? = try {
+        HttpFailure.safeCode(raw) ?: dnseCode(raw) ?: JSONObject(raw ?: "{}").let { body ->
+            val code = body.optJSONObject("error")?.opt("code") ?: body.opt("detail")
+            (code as? String)?.takeIf(registrationCodes::contains)
+        }
+    } catch (_: Exception) { null }
     fun failure(e: Exception): String = when (e) {
         is java.net.SocketTimeoutException -> "timeout"
         is java.net.UnknownHostException -> "dns"

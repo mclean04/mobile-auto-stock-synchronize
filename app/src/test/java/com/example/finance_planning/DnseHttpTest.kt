@@ -18,7 +18,7 @@ private interface DnseReadService {
 
 class DnseHttpTest {
     @org.junit.Before fun initializeTextResources() { TestText.install() }
-    @Test fun debugBodyLoggingPreservesRawBodyHeadersAndUrl() = runBlocking {
+    @Test fun debugLoggingOmitsSecretsWithoutChangingTheExchange() = runBlocking {
         val server = MockWebServer()
         server.start()
         try {
@@ -37,11 +37,11 @@ class DnseHttpTest {
             assertEquals("PRIVATE-SIGNATURE", request.getHeader("X-Signature"))
             val printed = logs.joinToString("\n")
             for (secret in listOf("PRIVATE-ACCOUNT", "PRIVATE-TOKEN", "PRIVATE-SECRET", "PRIVATE-KEY", "PRIVATE-SIGNATURE", "987654321"))
-                assertTrue(printed.contains(secret))
+                assertFalse(printed.contains(secret))
             assertTrue(logs.first().startsWith("--> GET "))
             assertTrue(logs.any { it.startsWith("<-- 200 ") })
-            assertTrue(logs.last().startsWith("<-- END HTTP"))
-            assertTrue(printed.contains("availableCash"))
+            assertFalse(printed.contains("availableCash"))
+            assertFalse(printed.contains("api_key="))
         } finally { server.shutdown() }
     }
     @Test fun interceptorRetainsErrorBodyAndSafeErrorCode() = runBlocking {
@@ -57,8 +57,8 @@ class DnseHttpTest {
             val response = service.get(server.url("/accounts").toString(), emptyMap())
             assertEquals(401, response.code())
             assertEquals(raw, response.errorBody()!!.use { it.string() })
-            assertTrue(logs.any { "DNSE-error-code: OA-401" in it })
-            assertTrue(logs.any { "PRIVATE-SECRET" in it })
+            assertTrue(logs.any { "error-code: OA-401" in it })
+            assertFalse(logs.any { "PRIVATE-SECRET" in it })
         } finally { server.shutdown() }
     }
     @Test fun disabledInterceptorEmitsNothing() = runBlocking {

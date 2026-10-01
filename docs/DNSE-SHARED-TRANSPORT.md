@@ -56,7 +56,7 @@ The Retrofit method's declaring interface selects policy, including for the same
 |---|---|---|
 | Connect/read/call timeout | 20/40/60 seconds | 20/40/60 seconds |
 | Response bound | 4 MiB; 4096-byte error interpretation | 64 KiB |
-| Logging | Existing approved raw DEBUG read logging | No raw logger; optional redacted Sandbox diagnostics |
+| Logging | DEBUG method, sanitized route, status/timing and allowlisted error code only; no raw headers/bodies/URLs | No read logger; optional redacted Sandbox diagnostics |
 | Error buffering | Bounded before Retrofit buffers | Omitted without diagnostics; bounded with diagnostics |
 | Redirect/auth followup/retry | Disabled | Disabled, including mutation replay |
 
