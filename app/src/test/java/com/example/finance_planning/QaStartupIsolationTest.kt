@@ -69,7 +69,7 @@ class QaStartupIsolationTest {
         val client = OkHttpClient.Builder().addInterceptor { intercepted.incrementAndGet(); error("must not reach client") }.build()
         val broker = DnseTradingApi("unit-key", "unit-secret", false, client)
         assertTrue(runCatching { Transport().request("https://example.invalid/v1/sync/batches", "POST", emptyMap(), JSONObject()) }.exceptionOrNull() is QaIsolationDenied)
-        assertTrue(runCatching { DnseHttpTransport.request("https://openapi.dnse.com.vn/accounts", emptyMap()) }.exceptionOrNull() is QaIsolationDenied)
+        assertTrue(runCatching { DnseHttpTransport.request("https://openapi.dnse.com.vn/accounts", DnseCredentials("synthetic-key", "synthetic-secret", true)) }.exceptionOrNull() is QaIsolationDenied)
         assertTrue(runCatching { broker.accounts() }.exceptionOrNull() is QaIsolationDenied)
         assertTrue(runCatching { broker.emailOtp() }.exceptionOrNull() is QaIsolationDenied)
         assertTrue(runCatching { broker.cancel("account", "order", "unit-token") }.exceptionOrNull() is QaIsolationDenied)

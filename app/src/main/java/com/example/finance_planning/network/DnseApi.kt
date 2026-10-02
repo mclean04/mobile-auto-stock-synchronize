@@ -8,7 +8,6 @@ import org.json.JSONObject
 import org.json.JSONTokener
 import java.net.URLEncoder
 import java.time.*
-import java.time.format.DateTimeFormatter
 import java.util.*
 import javax.crypto.Mac
 import javax.crypto.spec.SecretKeySpec
@@ -41,15 +40,10 @@ class DnseApi(private val key: String,
     }
     private suspend fun get(path: String, query: Map<String, String> = emptyMap()): Any {
         checkContext(); slot.checkActive()
-        val date = ZonedDateTime.now(ZoneOffset.UTC).format(
-            DateTimeFormatter.ofPattern("EEE, dd MMM yyyy HH:mm:ss Z", Locale.US))
-        val nonce = UUID.randomUUID().toString().replace("-", "")
         val suffix = if (query.isEmpty()) "" else query.entries.joinToString("&", "?") {
             URLEncoder.encode(it.key, "UTF-8") + "=" + URLEncoder.encode(it.value, "UTF-8")
         }
-        val body = try { DnseHttpTransport.request(host + path + suffix, headers = mapOf(
-            "X-Api-Key" to key, "X-Signature" to DnseSigning.signature(key, secret, path, date, nonce),
-            "Date" to date, "version" to "2026-07-23"), slot = slot, checkContext = checkContext)
+        val body = try { DnseHttpTransport.request(host + path + suffix, credentials = DnseCredentials(key, secret, production), slot = slot, checkContext = checkContext)
         } catch (e: HttpFailure) {
             val environment = if (production) AppText.get(R.string.production_live) else AppText.get(R.string.sandbox_test)
             val reason = when (e.code) {

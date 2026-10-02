@@ -8,9 +8,8 @@ class SessionRemoteDataSource(private val endpoint: BackendEndpoint,
                               private val headers: suspend () -> Map<String, String>) {
     suspend fun establish(request: SessionRegistrationRequest, context: SessionRequestContext): SessionRegistrationDto {
         context.check()
-        val auth = headers()
-        context.check()
-        val response = endpoint.establishSession(auth + ("Accept" to "application/json"), context, request)
+        val credentials = com.example.finance_planning.network.BackendCredentials.capture(headers, context::check)
+        val response = endpoint.establishSession(mapOf("Accept" to "application/json"), context, request, credentials)
         val body = try {
             context.check()
             if (response.isSuccessful) response.body() ?: throw SessionProtocolFailure()

@@ -68,7 +68,10 @@ class BackendSlot internal constructor(
             HttpBodyLimit(4_194_304, truncateErrors = type != BackendEndpoint::class.java && configuration.wireVersion == BackendWireVersion.LEGACY)
                 .intercept(chain)
         })
-        builder.interceptors().add(1, DebugBodyLoggingInterceptor(logger))
+        builder.interceptors().add(1, BackendCredentialsInterceptor())
+        builder.interceptors().add(2, DebugBodyLoggingInterceptor(logger, fullBodies = true))
+        if (com.example.finance_planning.BuildConfig.DEBUG)
+            builder.eventListenerFactory { BackendExchangeDiagnostics(logger) }
         client = builder.build()
         retrofit = Retrofit.Builder().baseUrl(configuration.origin).client(client)
             .addConverterFactory(com.example.finance_planning.network.session.SessionConverter())

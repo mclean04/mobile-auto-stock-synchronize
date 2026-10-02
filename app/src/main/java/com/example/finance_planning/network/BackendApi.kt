@@ -5,7 +5,8 @@ import org.json.JSONObject
 import java.net.URLEncoder
 
 class BackendApi(private val transport: Transport, private val headers: suspend () -> Map<String, String>,
-                 private val baseUrl: String = Contracts.BACKEND) : PlanningBackend {
+                 private val baseUrl: String = Contracts.BACKEND,
+                 private val requestContext: ((String, String) -> SessionRequestContext)? = null) : PlanningBackend {
     private fun scoped(path: String, source: String?): String = source?.let {
         path + (if ("?" in path) "&" else "?") + "source=" + URLEncoder.encode(it, "UTF-8")
     } ?: path
@@ -13,7 +14,11 @@ class BackendApi(private val transport: Transport, private val headers: suspend 
     override suspend fun adminRecords(source: String, cursor: String?) =
         call(page("/v1/admin/sources/" + Contracts.id(source) + "/records", cursor))
     private suspend fun call(path: String, method: String = "GET", body: JSONObject? = null): JSONObject =
-        JSONObject(transport.request(baseUrl + path, method, headers(), body))
+        requestContext?.let { factory ->
+            val context = factory(path, method)
+            val credentials = BackendCredentials.capture(headers, context::check)
+            JSONObject(transport.requestWithContext(baseUrl + path, method, emptyMap(), body, credentials))
+        } ?: JSONObject(transport.request(baseUrl + path, method, headers(), body))
     override suspend fun health() = JSONObject(transport.request(baseUrl + "/health"))
     override suspend fun syncStatus() = call("/v1/sync/status")
     override suspend fun allPlanning(cursor: String?): JSONObject {

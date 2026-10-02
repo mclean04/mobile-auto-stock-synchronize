@@ -74,10 +74,30 @@ object ApiDiagnostics {
             (code as? String)?.takeIf(registrationCodes::contains)
         }
     } catch (_: Exception) { null }
+    /** Class names and a bounded cause chain only; never exception messages or stacks. */
+    fun exception(error: Throwable): String = error.javaClass.name
+    fun causes(error: Throwable): String {
+        val seen = java.util.Collections.newSetFromMap(java.util.IdentityHashMap<Throwable, Boolean>())
+        val names = mutableListOf<String>()
+        var current: Throwable? = error.cause
+        while (current != null && names.size < 8 && seen.add(current)) {
+            names += exception(current)
+            current = current.cause
+        }
+        return names.joinToString(">").ifEmpty { "none" }
+    }
     fun failure(e: Exception): String = when (e) {
+        is SupersededNetworkContext -> "context_changed"
+        is HttpResponseTooLarge -> "response_limit"
+        is com.example.finance_planning.network.session.SessionProtocolFailure -> "session_protocol"
         is java.net.SocketTimeoutException -> "timeout"
         is java.net.UnknownHostException -> "dns"
         is javax.net.ssl.SSLException -> "tls"
+        is java.net.ConnectException -> "connect"
+        is java.net.SocketException -> "socket"
+        is java.io.EOFException -> "eof"
+        is java.net.ProtocolException -> "protocol"
+        is java.io.InterruptedIOException -> "interrupted_io"
         is java.io.IOException -> "network_io"
         is HttpFailure -> "http_error"
         else -> "local_error"

@@ -20,7 +20,16 @@ class AppContainer(context: Context) {
     // Lazy resolution is required: startup QA must never construct an ordinary Backend slot.
     private val backend = BackendApi(Transport(slotProvider = {
         networks.backend(BackendConfiguration(BackendWireVersion.LEGACY))
-    }), identity::headers)
+    }), identity::headers, requestContext = { path, method ->
+        val uid = identity.uid()
+        val device = uid?.let { vault.get("device:$it") }
+        // A confirmed logout still needs its owner/device DELETE while its persistent fence is set.
+        val revoke = method == "DELETE" && device != null && path == "/v1/devices/$device"
+        SessionRequestContext {
+            uid != null && identity.uid() == uid && vault.get("device:$uid") == device &&
+                (revoke || vault.get("logout_pending:$uid") != "true")
+        }
+    })
     val repository = PlanningRepository(identity, vault, database, backend,
         stopAccountWork = { com.example.finance_planning.sync.SyncSchedule.cancelAccount(context) },
         networkClients = networks, observation = observationLog)

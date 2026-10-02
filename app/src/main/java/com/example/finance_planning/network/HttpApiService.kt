@@ -11,23 +11,23 @@ import java.io.IOException
 
 /** Raw JSON stays byte-for-byte caller-owned; Retrofit owns dispatch and coroutine cancellation. */
 internal interface HttpApiService {
-    @Streaming @GET suspend fun get(@Url url: String, @HeaderMap headers: Map<String, String>): Response<ResponseBody>
-    @Streaming @POST suspend fun post(@Url url: String, @HeaderMap headers: Map<String, String>, @Body body: RequestBody): Response<ResponseBody>
-    @Streaming @PUT suspend fun put(@Url url: String, @HeaderMap headers: Map<String, String>, @Body body: RequestBody): Response<ResponseBody>
-    @Streaming @PATCH suspend fun patch(@Url url: String, @HeaderMap headers: Map<String, String>, @Body body: RequestBody): Response<ResponseBody>
-    @Streaming @DELETE suspend fun delete(@Url url: String, @HeaderMap headers: Map<String, String>): Response<ResponseBody>
+    @Streaming @GET suspend fun get(@Url url: String, @HeaderMap headers: Map<String, String>, @Tag credentials: BackendCredentials? = null): Response<ResponseBody>
+    @Streaming @POST suspend fun post(@Url url: String, @HeaderMap headers: Map<String, String>, @Body body: RequestBody, @Tag credentials: BackendCredentials? = null): Response<ResponseBody>
+    @Streaming @PUT suspend fun put(@Url url: String, @HeaderMap headers: Map<String, String>, @Body body: RequestBody, @Tag credentials: BackendCredentials? = null): Response<ResponseBody>
+    @Streaming @PATCH suspend fun patch(@Url url: String, @HeaderMap headers: Map<String, String>, @Body body: RequestBody, @Tag credentials: BackendCredentials? = null): Response<ResponseBody>
+    @Streaming @DELETE suspend fun delete(@Url url: String, @HeaderMap headers: Map<String, String>, @Tag credentials: BackendCredentials? = null): Response<ResponseBody>
 }
 
 internal fun httpService(baseUrl: String, client: OkHttpClient): HttpApiService =
     Retrofit.Builder().baseUrl(baseUrl).client(client).build().create(HttpApiService::class.java)
 
 internal suspend fun HttpApiService.request(url: String, method: String, headers: Map<String, String>,
-                                          body: RequestBody? = null): Response<ResponseBody> = when (method) {
-    "GET" -> { require(body == null); get(url, headers) }
-    "DELETE" -> { require(body == null); delete(url, headers) }
-    "POST" -> post(url, headers, body ?: byteArrayOf().toRequestBody())
-    "PUT" -> put(url, headers, body ?: byteArrayOf().toRequestBody())
-    "PATCH" -> patch(url, headers, body ?: byteArrayOf().toRequestBody())
+                                          body: RequestBody? = null, credentials: BackendCredentials? = null): Response<ResponseBody> = when (method) {
+    "GET" -> { require(body == null); get(url, headers, credentials) }
+    "DELETE" -> { require(body == null); delete(url, headers, credentials) }
+    "POST" -> post(url, headers, body ?: byteArrayOf().toRequestBody(), credentials)
+    "PUT" -> put(url, headers, body ?: byteArrayOf().toRequestBody(), credentials)
+    "PATCH" -> patch(url, headers, body ?: byteArrayOf().toRequestBody(), credentials)
     else -> error("Unsupported HTTP method")
 }
 

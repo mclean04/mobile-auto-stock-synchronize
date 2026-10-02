@@ -8,7 +8,7 @@ import kotlinx.coroutines.withContext
 import java.net.URI
 
 object DnseHttpTransport {
-    suspend fun request(url: String, headers: Map<String, String>, slot: DnseSlot? = null,
+    suspend fun request(url: String, credentials: DnseCredentials, slot: DnseSlot? = null,
                         checkContext: () -> Unit = {}): String = withContext(Dispatchers.IO) {
         com.example.finance_planning.core.QaStartupIsolation.requireBusiness()
         val uri = URI(url)
@@ -21,7 +21,7 @@ object DnseHttpTransport {
                 val fields = it.split('=', limit = 2)
                 java.net.URLDecoder.decode(fields[0], "UTF-8") to java.net.URLDecoder.decode(fields.getOrElse(1) { "" }, "UTF-8")
             } ?: emptyMap()
-            val response = selected.read(uri.rawPath, query, headers + ("Accept" to "application/json"), checkContext)
+            val response = selected.read(uri.rawPath, query, credentials, checkContext)
             val body = response.body() ?: response.errorBody()
             body?.use {
                 val limit = if (response.isSuccessful) 4 * 1024 * 1024 else 4096

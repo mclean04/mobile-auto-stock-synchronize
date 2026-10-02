@@ -80,7 +80,8 @@ class DnseSlot internal constructor(
                 omitErrors = type == DnseTradeEndpoints::class.java && !context.diagnostics)
                 .intercept(chain)
         })
-        builder.interceptors().add(1, Interceptor { chain ->
+        builder.interceptors().add(1, DnseCredentialsInterceptor())
+        builder.interceptors().add(2, Interceptor { chain ->
             if (chain.request().tag(Invocation::class.java)?.method()?.declaringClass == DnseReadEndpoints::class.java)
                 loggerInterceptor.intercept(chain) else chain.proceed(chain.request())
         })
@@ -98,43 +99,43 @@ class DnseSlot internal constructor(
         require(path.startsWith('/') && parts.all { Regex("[A-Za-z0-9._-]{1,80}").matches(it) && it !in setOf(".", "..") })
     }
     private fun query(values: Map<String, String>) = values.mapValues { URLEncoder.encode(it.value, "UTF-8") }
-    internal suspend fun read(path: String, query: Map<String, String>, headers: Map<String, String>,
+    internal suspend fun read(path: String, query: Map<String, String>, credentials: DnseCredentials,
                               checkContext: () -> Unit = {}): retrofit2.Response<ResponseBody> {
         checkActive(); checkContext(); val p = parts(path); val q = query(query)
         val context = DnseCallContext(false, checkContext)
         return when {
-            p == listOf("accounts") -> read.accounts(headers, context)
+            p == listOf("accounts") -> read.accounts(credentials, context)
             p.size == 3 && p[0] == "accounts" -> when (p[2]) {
-                "balances" -> read.balances(p[1], headers, context)
-                "positions" -> read.positions(p[1], q, headers, context)
-                "orders" -> read.orders(p[1], q, headers, context)
+                "balances" -> read.balances(p[1], credentials, context)
+                "positions" -> read.positions(p[1], q, credentials, context)
+                "orders" -> read.orders(p[1], q, credentials, context)
                 else -> error("Unsupported DNSE read endpoint")
             }
             p.size == 4 && p[0] == "accounts" && p[2] == "orders" ->
-                if (p[3] == "history") read.history(p[1], q, headers, context) else read.order(p[1], p[3], headers, context)
-            p.size == 4 && p[0] == "accounts" && p[2] == "executions" -> read.executions(p[1], p[3], headers, context)
+                if (p[3] == "history") read.history(p[1], q, credentials, context) else read.order(p[1], p[3], credentials, context)
+            p.size == 4 && p[0] == "accounts" && p[2] == "executions" -> read.executions(p[1], p[3], credentials, context)
             else -> error("Unsupported DNSE read endpoint")
         }
     }
-    internal suspend fun trade(path: String, method: String, query: Map<String, String>, headers: Map<String, String>,
+    internal suspend fun trade(path: String, method: String, query: Map<String, String>, credentials: DnseCredentials,
                                body: RequestBody?, diagnostics: Boolean = false,
                                checkContext: () -> Unit = {}): retrofit2.Response<ResponseBody> {
         checkActive(); checkContext(); val p = parts(path); val q = query(query)
         val context = DnseCallContext(diagnostics, checkContext)
         return when {
-            method == "GET" && p == listOf("accounts") -> trade.accounts(headers, context)
-            method == "POST" && p == listOf("registration", "send-email-otp") -> trade.emailOtp(headers, context, body ?: byteArrayOf().toRequestBody())
-            method == "POST" && p == listOf("registration", "trading-token") -> trade.token(headers, context, requireNotNull(body))
+            method == "GET" && p == listOf("accounts") -> trade.accounts(credentials, context)
+            method == "POST" && p == listOf("registration", "send-email-otp") -> trade.emailOtp(credentials, context, body ?: byteArrayOf().toRequestBody())
+            method == "POST" && p == listOf("registration", "trading-token") -> trade.token(credentials, context, requireNotNull(body))
             p.size == 3 && p[0] == "accounts" && method == "GET" -> when (p[2]) {
-                "balances" -> trade.balances(p[1], headers, context)
-                "loan-packages" -> trade.packages(p[1], q, headers, context)
-                "ppse" -> trade.ppse(p[1], q, headers, context)
-                "orders" -> trade.orders(p[1], q, headers, context)
+                "balances" -> trade.balances(p[1], credentials, context)
+                "loan-packages" -> trade.packages(p[1], q, credentials, context)
+                "ppse" -> trade.ppse(p[1], q, credentials, context)
+                "orders" -> trade.orders(p[1], q, credentials, context)
                 else -> error("Unsupported DNSE trading endpoint")
             }
-            p.size == 3 && p[0] == "accounts" && p[2] == "orders" && method == "POST" -> trade.place(p[1], q, headers, context, requireNotNull(body))
-            p.size == 4 && p[0] == "accounts" && p[2] == "orders" && method == "GET" -> trade.order(p[1], p[3], q, headers, context)
-            p.size == 4 && p[0] == "accounts" && p[2] == "orders" && method == "DELETE" -> trade.cancel(p[1], p[3], q, headers, context)
+            p.size == 3 && p[0] == "accounts" && p[2] == "orders" && method == "POST" -> trade.place(p[1], q, credentials, context, requireNotNull(body))
+            p.size == 4 && p[0] == "accounts" && p[2] == "orders" && method == "GET" -> trade.order(p[1], p[3], q, credentials, context)
+            p.size == 4 && p[0] == "accounts" && p[2] == "orders" && method == "DELETE" -> trade.cancel(p[1], p[3], q, credentials, context)
             else -> error("Unsupported DNSE trading endpoint")
         }
     }

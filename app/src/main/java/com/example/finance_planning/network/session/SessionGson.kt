@@ -168,16 +168,21 @@ object SessionGson {
         }).create()
 
     fun decode(body: ResponseBody): BaseResponse<SessionRegistrationDto> = body.use {
-        try {
+        val bytes = try {
             val source = it.source()
             source.request(4_194_305)
-            if (source.buffer.size > 4_194_304) throw SessionProtocolFailure()
-            val bytes = source.readByteArray()
+            if (source.buffer.size > 4_194_304) throw SessionProtocolFailure("response_limit")
+            source.readByteArray()
+        } catch (error: SessionProtocolFailure) { throw error
+        } catch (error: java.io.IOException) { throw SessionProtocolFailure("body_read", error) }
+        try {
             val text = Charsets.UTF_8.newDecoder().onMalformedInput(java.nio.charset.CodingErrorAction.REPORT)
                 .decode(java.nio.ByteBuffer.wrap(bytes)).toString()
             gson.fromJson<BaseResponse<SessionRegistrationDto>>(text, responseType) ?: throw SessionProtocolFailure()
-        } catch (_: Exception) { throw SessionProtocolFailure() }
+        } catch (error: SessionProtocolFailure) { throw error
+        } catch (error: Exception) { throw SessionProtocolFailure("decode", error) }
     }
+
 }
 
 class SessionConverter : Converter.Factory() {

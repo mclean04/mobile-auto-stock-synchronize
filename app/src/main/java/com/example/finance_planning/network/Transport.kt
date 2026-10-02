@@ -17,7 +17,12 @@ open class Transport(client: OkHttpClient? = null,
     // Explicit client injection is the existing local component-test seam.
     private val testSlot by lazy { client?.let { BackendSlot(BackendConfiguration(), it, logger = {}) } }
     open suspend fun request(url: String, method: String = "GET", headers: Map<String, String> = emptyMap(),
-                             body: JSONObject? = null): String = withContext(Dispatchers.IO) {
+                             body: JSONObject? = null): String = perform(url, method, headers, body, BackendCredentials(headers))
+    suspend fun requestWithContext(url: String, method: String, headers: Map<String, String>,
+                                   body: JSONObject?, credentials: BackendCredentials): String =
+        perform(url, method, headers, body, credentials)
+    private suspend fun perform(url: String, method: String, headers: Map<String, String>,
+                                body: JSONObject?, credentials: BackendCredentials): String = withContext(Dispatchers.IO) {
         QaStartupIsolation.requireBusiness()
         val uri = URI(url)
         if ((com.example.finance_planning.core.LocalBackend.active &&
@@ -30,8 +35,8 @@ open class Transport(client: OkHttpClient? = null,
         try {
             val slot = testSlot ?: slotProvider()
             slot.checkActive()
-            val response = slot.legacy.request(url, method, mapOf("Accept" to "application/json") + headers,
-                bytes?.toRequestBody("application/json".toMediaType()))
+            val response = slot.legacy.request(url, method, mapOf("Accept" to "application/json") + headers.filterKeys { !BackendCredentials.isCredential(it) },
+                bytes?.toRequestBody("application/json".toMediaType()), credentials)
             val responseBody = response.body() ?: response.errorBody()
             responseBody.use {
                 if (!response.isSuccessful) {
@@ -41,12 +46,17 @@ open class Transport(client: OkHttpClient? = null,
                     throw HttpFailure(response.code(), if (ApiDiagnostics.service(uri).startsWith("dnse-"))
                         ApiDiagnostics.dnseCode(raw) else HttpFailure.safeCode(raw))
                 }
-                if (response.code() == 204) "{}" else it?.readLimited(4L * 1024 * 1024).orEmpty()
+                val result = if (response.code() == 204) "{}" else it?.readLimited(4L * 1024 * 1024).orEmpty()
+                // An acknowledged mutation remains owned by its original journal.
+                if (method == "GET") { slot.checkActive(); credentials.check() }
+                result
             }
         } catch (_: HttpResponseTooLarge) {
             throw AppFailure(AppText.get(R.string.response_too_large))
+        } catch (e: SupersededNetworkContext) {
+            throw e
         } catch (e: java.io.IOException) {
-            throw AppFailure(AppText.get(R.string.backend_connection_failed, ApiDiagnostics.failure(e)), true)
+            throw AppFailure(AppText.get(R.string.backend_connection_failed, ApiDiagnostics.failure(e)), true).apply { initCause(e) }
         }
     }
 }

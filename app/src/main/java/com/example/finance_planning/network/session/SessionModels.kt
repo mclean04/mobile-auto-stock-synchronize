@@ -25,6 +25,7 @@ enum class SessionCommittedStep { DEVICE_REGISTRATION }
 data class OperationOutcome(val operation_id: String?, val database: DatabaseOutcome,
                             val projection: ProjectionOutcome, val environment: TradingEnvironment?,
                             val committed_steps: List<SessionCommittedStep>)
-class SessionProtocolFailure : IOException("Invalid session response")
+class SessionProtocolFailure(val stage: String = "decode", cause: Throwable? = null) :
+    IOException("Invalid session response ($stage)", cause)
 class SessionServerFailure(val response: BaseResponse<SessionRegistrationDto>) :
     Exception("Session HTTP ${response.code}")

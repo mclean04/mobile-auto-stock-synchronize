@@ -8,11 +8,6 @@ import okhttp3.MediaType.Companion.toMediaType
 import org.json.JSONObject
 import org.json.JSONTokener
 import java.net.URLEncoder
-import java.time.ZoneOffset
-import java.time.ZonedDateTime
-import java.time.format.DateTimeFormatter
-import java.util.Locale
-import java.util.UUID
 
 /** Shared DNSE instance; its trading-service policy never enables raw debug logging. */
 class DnseTradingApi(private val key: String, private val secret: String, private val production: Boolean,
@@ -42,17 +37,12 @@ class DnseTradingApi(private val key: String, private val secret: String, privat
                              body: JSONObject? = null, token: String? = null): Any = withContext(Dispatchers.IO) {
         if (!qaInMemoryFakeOnly) com.example.finance_planning.core.QaStartupIsolation.requireBusiness()
         checkContext(); slot.checkActive()
-        val date = ZonedDateTime.now(ZoneOffset.UTC).format(DateTimeFormatter.ofPattern("EEE, dd MMM yyyy HH:mm:ss Z", Locale.US))
-        val nonce = UUID.randomUUID().toString().replace("-", "")
         val suffix = if (query.isEmpty()) "" else query.entries.joinToString("&", "?") {
             URLEncoder.encode(it.key, "UTF-8") + "=" + URLEncoder.encode(it.value, "UTF-8")
         }
-        val headers = mutableMapOf("X-Api-Key" to key,
-            "X-Signature" to DnseSigning.signature(key, secret, path, date, nonce, method.lowercase(Locale.US)),
-            "Date" to date, "version" to "2026-07-23", "Accept" to "application/json")
-        token?.let { headers["trading-token"] = it }
+        val credentials = DnseCredentials(key, secret, production, token)
         try {
-            val response = slot.trade(path, method, query, headers,
+            val response = slot.trade(path, method, query, credentials,
                 if (method == "POST") (body?.toString() ?: "").toRequestBody("application/json".toMediaType()) else null,
                 diagnostic != null, checkContext)
             val responseBody = response.body() ?: response.errorBody()
