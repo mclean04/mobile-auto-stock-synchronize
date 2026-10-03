@@ -3,6 +3,13 @@
 Ứng dụng Android Kotlin + Jetpack Compose cho luồng planning đã thống nhất.
 Backend: https://github.com/mclean04/auto-stock-synchronize
 
+## Project status and working rules
+
+Read the [roadmap](docs/roadmap.md), [work tracker](docs/work-tracker.md), and
+[repository instructions](AGENTS.md) for current checkpoints, pending contracts,
+QA/publication status and authorized next actions. The feature notes below retain
+historical integration context; they do not establish acceptance of planned R1–R4 work.
+
 ## Hiện có
 
 - Thanh điều hướng dưới: Lệnh (planning upcoming/history), Cài đặt và Quản trị cho admin. Nút chuông ở góc trên bên phải mở màn hình danh sách thông báo riêng; nút quay lại trở về tab trước đó. Bấm thông báo FCM vẫn mở màn hình thông báo và nội dung tương ứng.
