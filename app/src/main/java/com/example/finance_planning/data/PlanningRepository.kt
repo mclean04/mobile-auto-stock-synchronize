@@ -103,7 +103,7 @@ class PlanningRepository(val identity: MobileIdentity, private val vault: Vault,
             val context = SessionRequestContext { identity.uid() == uid && existingDevice() == deviceId && !logoutPending() }
             context.check()
             val status = if (com.example.finance_planning.BuildConfig.LOCAL_BACKEND) combinedSession(deviceId, context)
-                else SessionStatus.legacy(api.syncStatus())
+                else SessionStatus.from(api.syncStatus())
             context.check()
             if (!com.example.finance_planning.BuildConfig.LOCAL_BACKEND) registerLegacyPush(uid, deviceId, context)
             context.check()
@@ -1032,7 +1032,7 @@ class PlanningRepository(val identity: MobileIdentity, private val vault: Vault,
                 val endpoint = qa?.let { BackendApi.qaNotifications(it, networkClients) } ?: api
                 val result = endpoint.removeDevice(deviceId)
                 // A completed HTTP exchange alone does not confirm the owner slot was revoked.
-                if (result.optString("device_id") != deviceId || result.opt("registered") != false)
+                if (result.device_id != deviceId || result.registered != false)
                     throw AppFailure(AppText.get(R.string.operation_incomplete), true)
                 if (identity.uid() != uid) throw SupersededNetworkContext()
                 stopAccountWork()

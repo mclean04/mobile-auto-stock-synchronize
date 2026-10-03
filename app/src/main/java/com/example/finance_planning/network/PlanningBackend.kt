@@ -4,8 +4,8 @@ import org.json.JSONObject
 
 /** Existing repository/domain seam. JSON is legacy domain representation, never a dynamic URL API. */
 interface PlanningBackend {
-    suspend fun health(): JSONObject
-    suspend fun syncStatus(): JSONObject
+    suspend fun health(): PlanningHealthDto
+    suspend fun syncStatus(): PlanningSyncStatusDto
     suspend fun adminSources(cursor: String? = null): JSONObject
     suspend fun adminRecords(source: String, cursor: String? = null): JSONObject
     suspend fun allPlanning(cursor: String? = null): JSONObject
@@ -25,8 +25,8 @@ interface PlanningBackend {
     suspend fun notifications(cursor: String? = null): JSONObject
     suspend fun notification(id: String): JSONObject
     suspend fun notificationPlan(plan: String): JSONObject
-    suspend fun registerDevice(device: String, token: String): JSONObject
-    suspend fun removeDevice(device: String): JSONObject
+    suspend fun registerDevice(device: String, token: String): PlanningDeviceDto
+    suspend fun removeDevice(device: String): PlanningDeviceDto
     suspend fun receipt(event: String, device: String, state: String): JSONObject
     suspend fun publishInstruction(command: JSONObject): JSONObject
     suspend fun previewNotification(command: JSONObject): JSONObject

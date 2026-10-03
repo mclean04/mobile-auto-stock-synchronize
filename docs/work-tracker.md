@@ -63,3 +63,9 @@ git diff -- README.md
 Untracked documentation needs inclusion in the saved review diff; plain `git diff` alone omits new files. No product test suite is required for this documentation-only review. For a **later explicitly assigned** product validation, the known variant prerequisite is `-Pandroid.onlyEnableUnitTestForTheTestedBuildType=false`, using Studio's JBR and each task's own `--tests` filters; the exact prior commands are in the group-1 handoff. Do not run them, launch local.py, clear data, install an APK or contact a provider merely to validate these docs.
 
 BA documentation review was accepted on 2026-10-03. Scoped publication is pending/next: stage exact docs paths/hunks, inspect staged payload and outgoing ancestry, commit the accepted docs, use a non-force push to the existing branch and verify remote SHA. Report acceptance scope and actual result; stop on divergence/denial. No product phase is triggered by publishing these docs.
+
+## Group-1 component acceptance — 2026-10-03
+
+BA accepted [independent System QA](../../Planning/System-QA-Android-planning-group1-20261003.md): 40 debug / 23 localDebug / 13 release executions PASS, 19/19 source hashes matched; runtime/device/provider NOT RUN. This supersedes earlier group-1 QA-pending statements. This local checkpoint contains the 15 reviewed group-owned files, converter-gson-only Gradle addition and these acceptance notes. Existing Moshi lines, dirty QA test hunk, inactive draft adapters and presentation work remain excluded. No next DTO group is authorized.
+
+Publication remains **BLOCKED**: parent documentation commit `a7349c24ece307098457ceecbdba9f7820d9134b` was rejected for push by tool review. This checkpoint is local only; no retry, alternate ref or hidden ancestor export is authorized. See the [publication receipt](../../Planning/Android-roadmap-doc-review-20261003.json).

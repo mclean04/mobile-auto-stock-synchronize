@@ -140,6 +140,9 @@ object SessionGson {
         return ApiError(code, message, issues, operation)
     }
     val gson = GsonBuilder().setStrictness(Strictness.STRICT).serializeNulls()
+        .registerTypeAdapter(Int::class.javaObjectType, com.example.finance_planning.network.PlanningScalars.integer)
+        .registerTypeAdapter(Boolean::class.javaObjectType, com.example.finance_planning.network.PlanningScalars.boolean)
+        .registerTypeAdapter(String::class.java, com.example.finance_planning.network.PlanningScalars.string)
         .registerTypeAdapter(responseType, object : TypeAdapter<BaseResponse<SessionRegistrationDto>>() {
             override fun read(reader: JsonReader): BaseResponse<SessionRegistrationDto> = with(reader) {
                 var code = 0; var data: SessionRegistrationDto? = null; var error: ApiError? = null; var meta: ResponseMeta? = null

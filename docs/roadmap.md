@@ -41,3 +41,9 @@ At any new/changed shared-contract dependency, stop dependent implementation and
 Remaining legacy Android DTO groups are deferred/prioritized by this roadmap and BA assignments; they do not start automatically after group 1 and do not imply Drive expansion. Backend **Sprint 7 remains GCP**. VPS/workstation hosting and Drive model/import are deferred, unscheduled and unimplemented in this scope.
 
 Immediate action: publish the four documentation files under BA review accepted on 2026-10-03; the scoped commit/push and remote verification are pending. Documentation acceptance/publication is separate from product QA. System QA remains pending for DTO group 1; no additional product checks or deployment occur here. Keep both this roadmap and the tracker current before stopping, including incomplete work.
+
+## Group-1 component acceptance — 2026-10-03
+
+BA accepted [independent System QA](../../Planning/System-QA-Android-planning-group1-20261003.md): 40 debug / 23 localDebug / 13 release executions PASS, 19/19 source hashes matched; runtime/device/provider NOT RUN. This supersedes earlier group-1 QA-pending statements. This local checkpoint contains the 15 reviewed group-owned files, converter-gson-only Gradle addition and these acceptance notes. Existing Moshi lines, dirty QA test hunk, inactive draft adapters and presentation work remain excluded. No next DTO group is authorized.
+
+Publication remains **BLOCKED**: parent documentation commit `a7349c24ece307098457ceecbdba9f7820d9134b` was rejected for push by tool review. This checkpoint is local only; no retry, alternate ref or hidden ancestor export is authorized. See the [publication receipt](../../Planning/Android-roadmap-doc-review-20261003.json).

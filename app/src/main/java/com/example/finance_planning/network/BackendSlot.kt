@@ -48,10 +48,16 @@ class BackendSlot internal constructor(
             val type = request.tag(Invocation::class.java)?.method()?.declaringClass
             when (type) {
                 BackendEndpoint::class.java -> {
-                    if (!configuration.sessionEnabled || request.url.encodedPath != "/mobile/v2/session")
-                        throw IOException("Session Backend contract is inactive")
-                    (request.tag(SessionRequestContext::class.java)
-                        ?: throw IOException("Missing session request context")).check()
+                    if (request.url.encodedPath == "/mobile/v2/session") {
+                        if (!configuration.sessionEnabled) throw IOException("Session Backend contract is inactive")
+                        (request.tag(SessionRequestContext::class.java)
+                            ?: throw IOException("Missing session request context")).check()
+                    } else {
+                        if (configuration.wireVersion != BackendWireVersion.LEGACY)
+                            throw IOException("Planning Backend contract is inactive")
+                        (request.tag(BackendCredentials::class.java)
+                            ?: throw IOException("Missing planning request context")).check()
+                    }
                 }
                 MobileBackendService::class.java -> {
                     if (configuration.wireVersion != BackendWireVersion.MOBILE_V1)
@@ -75,7 +81,8 @@ class BackendSlot internal constructor(
         client = builder.build()
         retrofit = Retrofit.Builder().baseUrl(configuration.origin).client(client)
             .addConverterFactory(com.example.finance_planning.network.session.SessionConverter())
-            .addConverterFactory(MobileContractConverter()).build()
+            .addConverterFactory(MobileContractConverter())
+            .addConverterFactory(retrofit2.converter.gson.GsonConverterFactory.create(com.example.finance_planning.network.session.SessionGson.gson)).build()
         session = retrofit.create(BackendEndpoint::class.java)
         legacy = retrofit.create(HttpApiService::class.java)
         mobile = retrofit.create(MobileBackendService::class.java)

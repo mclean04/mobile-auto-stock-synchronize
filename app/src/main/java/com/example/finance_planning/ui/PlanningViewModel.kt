@@ -165,7 +165,7 @@ class PlanningViewModel(application: Application) : AndroidViewModel(application
         if (production) AppText.get(R.string.dnse_production_saved)
         else AppText.get(R.string.sandbox_environment_saved_with_existing_keys)
     }
-    fun health() = run { AppText.get(R.string.server, repo.api.health().optString("status")) }
+    fun health() = run { AppText.get(R.string.server, requireNotNull(repo.api.health().status)) }
     fun refresh() = run { val status = repo.verifySession(); refreshAll(knownStatus = status) }
     fun resume() = run {
         if (repo.approved()) { queue(); restoreCachedPlanning() }
@@ -195,7 +195,7 @@ class PlanningViewModel(application: Application) : AndroidViewModel(application
             return AppText.get(R.string.qa_notification_isolation_active)
         }
         val status = knownStatus ?: if (com.example.finance_planning.BuildConfig.LOCAL_BACKEND)
-            repo.verifySession() else SessionStatus.legacy(repo.api.syncStatus())
+            repo.verifySession() else SessionStatus.from(repo.api.syncStatus())
         val admin = status.admin
         if (!admin) repo.readSource = null
         val selectedSource = repo.readSource

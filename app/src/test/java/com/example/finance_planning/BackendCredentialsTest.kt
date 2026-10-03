@@ -27,7 +27,7 @@ class BackendCredentialsTest {
         val requests = mutableListOf<Request>()
         var token = "SYNTHETIC-1"
         var captures = 0
-        val api = BackendApi(Transport(client { requests += it; "{}" }), {
+        val api = BackendApi(Transport(client { requests += it; if (it.url.encodedPath == "/health") """{"status":"ok","storage":"firestore"}""" else """{"pending_sheet_batches":0,"count_capped_at":200,"sheet_writes":false,"role":"uploader"}""" }), {
             captures++; mapOf("Authorization" to "Bearer $token", "X-Firebase-AppCheck" to "SYNTHETIC-CHECK")
         }, requestContext = { _, _ -> SessionRequestContext { true } })
         api.syncStatus(); token = "SYNTHETIC-2"; api.syncStatus(); api.health()
@@ -52,7 +52,7 @@ class BackendCredentialsTest {
         for (mutation in listOf(false, true)) {
             var active = true
             var calls = 0
-            val api = BackendApi(Transport(client { calls++; active = false; "{}" }), {
+            val api = BackendApi(Transport(client { calls++; active = false; if (mutation) "{}" else """{"pending_sheet_batches":0,"count_capped_at":200,"sheet_writes":false,"role":"uploader"}""" }), {
                 mapOf("Authorization" to "Bearer SYNTHETIC")
             }, requestContext = { _, _ -> SessionRequestContext { active } })
             val result = runCatching { if (mutation) api.retryProjection() else api.syncStatus() }

@@ -16,6 +16,16 @@ open class Transport(client: OkHttpClient? = null,
                      private val slotProvider: () -> BackendSlot = { NetworkClients.application.backend() }) {
     // Explicit client injection is the existing local component-test seam.
     private val testSlot by lazy { client?.let { BackendSlot(BackendConfiguration(), it, logger = {}) } }
+    private fun accountRemote(): PlanningAccountRemote {
+        QaStartupIsolation.requireBusiness()
+        val slot = testSlot ?: slotProvider()
+        return PlanningAccountRemote(slot.session, slot::checkActive)
+    }
+    open suspend fun planningHealth(): PlanningHealthDto = accountRemote().health()
+    open suspend fun planningStatus(credentials: BackendCredentials): PlanningSyncStatusDto = accountRemote().status(credentials)
+    open suspend fun planningRegister(id: String, request: PlanningDeviceRequest, credentials: BackendCredentials): PlanningDeviceDto =
+        accountRemote().register(id, request, credentials)
+    open suspend fun planningRevoke(id: String, credentials: BackendCredentials): PlanningDeviceDto = accountRemote().revoke(id, credentials)
     open suspend fun request(url: String, method: String = "GET", headers: Map<String, String> = emptyMap(),
                              body: JSONObject? = null): String = perform(url, method, headers, body, BackendCredentials(headers))
     suspend fun requestWithContext(url: String, method: String, headers: Map<String, String>,
@@ -60,7 +70,7 @@ open class Transport(client: OkHttpClient? = null,
         }
     }
 }
-class HttpFailure(val status: Int, val code: String? = null) : Exception("HTTP $status") {
+open class HttpFailure(val status: Int, val code: String? = null) : Exception("HTTP $status") {
     companion object {
         private val allowedCodes = setOf("authentication_required", "invalid_access_token",
             "invalid_firebase_token", "app_check_required", "invalid_app_check_token",

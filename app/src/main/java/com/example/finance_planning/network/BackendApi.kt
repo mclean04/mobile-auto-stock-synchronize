@@ -19,8 +19,12 @@ class BackendApi(private val transport: Transport, private val headers: suspend 
             val credentials = BackendCredentials.capture(headers, context::check)
             JSONObject(transport.requestWithContext(baseUrl + path, method, emptyMap(), body, credentials))
         } ?: JSONObject(transport.request(baseUrl + path, method, headers(), body))
-    override suspend fun health() = JSONObject(transport.request(baseUrl + "/health"))
-    override suspend fun syncStatus() = call("/v1/sync/status")
+    private suspend fun credentials(path: String, method: String): BackendCredentials {
+        val context = requestContext?.invoke(path, method) ?: SessionRequestContext { true }
+        return BackendCredentials.capture(headers, context::check)
+    }
+    override suspend fun health() = transport.planningHealth()
+    override suspend fun syncStatus() = transport.planningStatus(credentials("/v1/sync/status", "GET"))
     override suspend fun allPlanning(cursor: String?): JSONObject {
         val path = "/v2/planning/intents?view=all&limit=100" +
             (cursor?.let { "&cursor=" + URLEncoder.encode(it, "UTF-8") } ?: "")
@@ -47,9 +51,15 @@ class BackendApi(private val transport: Transport, private val headers: suspend 
     override suspend fun notifications(cursor: String?) = call(page("/v1/notifications", cursor))
     override suspend fun notification(id: String) = call("/v1/notifications/" + java.util.UUID.fromString(id))
     override suspend fun notificationPlan(plan: String) = call("/v1/notification-plans/" + Contracts.id(plan))
-    override suspend fun registerDevice(device: String, token: String) =
-        call("/v1/devices/" + java.util.UUID.fromString(device), "PUT", JSONObject().put("fcm_token", token))
-    override suspend fun removeDevice(device: String) = call("/v1/devices/" + java.util.UUID.fromString(device), "DELETE")
+    override suspend fun registerDevice(device: String, token: String): PlanningDeviceDto {
+        val id = java.util.UUID.fromString(device).toString()
+        val request = PlanningDeviceRequest(token)
+        return transport.planningRegister(id, request, credentials("/v1/devices/$id", "PUT"))
+    }
+    override suspend fun removeDevice(device: String): PlanningDeviceDto {
+        val id = java.util.UUID.fromString(device).toString()
+        return transport.planningRevoke(id, credentials("/v1/devices/$id", "DELETE"))
+    }
     override suspend fun receipt(event: String, device: String, state: String): JSONObject {
         require(state in setOf("RECEIVED", "OPENED"))
         return call("/v1/notifications/" + java.util.UUID.fromString(event) + "/receipts", "POST",

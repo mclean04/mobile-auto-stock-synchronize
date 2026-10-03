@@ -4,6 +4,7 @@ import com.example.finance_planning.BuildConfig
 import com.example.finance_planning.core.NotificationDeliveryPolicy
 import com.example.finance_planning.core.QaNotificationConfig
 import com.example.finance_planning.core.QaCampaignOperation
+import com.example.finance_planning.core.QaIsolationDenied
 import com.example.finance_planning.core.QaStartupIsolation
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -19,6 +20,21 @@ class QaNotificationTransport(private val bearer: String, private val config: Qa
     init {
         require(BuildConfig.DEBUG)
         require(bearer.isNotBlank() && bearer.length <= 4096 && '\r' !in bearer && '\n' !in bearer)
+    }
+
+    // QA remains on its isolated bearer/config protocol; it never constructs an ordinary Backend slot.
+    override suspend fun planningHealth(): PlanningHealthDto = throw QaIsolationDenied()
+    override suspend fun planningStatus(credentials: BackendCredentials): PlanningSyncStatusDto = throw QaIsolationDenied()
+    override suspend fun planningRegister(id: String, request: PlanningDeviceRequest, credentials: BackendCredentials): PlanningDeviceDto {
+        credentials.check()
+        val raw = request(NotificationDeliveryPolicy.QA_BASE_URL + "/v1/devices/$id", "PUT", emptyMap(),
+            JSONObject().put("fcm_token", request.fcm_token))
+        return com.example.finance_planning.network.session.SessionGson.gson.fromJson(raw, PlanningDeviceDto::class.java).validated(id, true)
+    }
+    override suspend fun planningRevoke(id: String, credentials: BackendCredentials): PlanningDeviceDto {
+        credentials.check()
+        val raw = request(NotificationDeliveryPolicy.QA_BASE_URL + "/v1/devices/$id", "DELETE", emptyMap(), null)
+        return com.example.finance_planning.network.session.SessionGson.gson.fromJson(raw, PlanningDeviceDto::class.java).validated(id, false)
     }
 
     override suspend fun request(url: String, method: String, headers: Map<String, String>,
