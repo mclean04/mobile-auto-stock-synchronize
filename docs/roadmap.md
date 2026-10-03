@@ -1,5 +1,12 @@
 # Finance Android roadmap
 
+## Production deployment deferred — 2026-10-04
+
+CTO decision via PO/BA: defer production replacement/deployment because managed PostgreSQL cost is not justified by current volume; testing remains local only. [Source proposal](../../Planning/Backend-production-replacement-proposal-20261004.md) is retained as a deferred proposal, not execution approval. Preserve existing production/local state and dirty work. No cloud preparation, build/upload, IAM change, migration, deployment or provider action; no new database, R1 or UI phase.
+
+The accepted local-only pooling increment remains published at `ff09b6c765433fb8f25a1d7279987dc0954979e5`; its QA scope and limits remain valid. No redundant QA or autonomous Telegram send is needed. Android has no cloud action in flight and no next already-authorized local implementation item. This decision note records a deferral, not completion of cloud work or another product phase.
+
+
 ## Accepted local-only idle prevention — 2026-10-04
 
 CTO resolved local-only prevention with production pooling unchanged. BackendSlot installs BackendHttp1ConnectionPolicy only inside LocalBackend.active after the valid-local-origin check. LocalDebug uses8001 and closes every local HTTP/1.1 exchange without retries; remote debug/release retains ordinary pooling. HTTP/2, DNSE, authentication, API contracts, timeouts, source/account fences and one-exchange behavior remain unchanged. The increment also includes the reviewed local endpoint panel, Planning health diagnostics and matching VN/EN notes.
