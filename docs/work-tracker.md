@@ -1,5 +1,16 @@
 # Finance Android work tracker
 
+## Accepted local-only idle prevention — 2026-10-04
+
+CTO resolved local-only prevention with production pooling unchanged. BackendSlot installs BackendHttp1ConnectionPolicy only inside LocalBackend.active after the valid-local-origin check. LocalDebug uses8001 and closes every local HTTP/1.1 exchange without retries; remote debug/release retains ordinary pooling. HTTP/2, DNSE, authentication, API contracts, timeouts, source/account fences and one-exchange behavior remain unchanged. The increment also includes the reviewed local endpoint panel, Planning health diagnostics and matching VN/EN notes.
+
+System QA independently verified all11intended source hashes and the built/installed APK SHA256 `ac04400754af007adb08196848b2e089303eee34dac8e07e09b0fe9bd468769e`. Forced exact-candidate execution passed76tests:39debug,21localDebug,16release;0failed/errors/skipped. Real Samsung refreshes after10/30/60seconds idle passed. User-operated Telegram TEST in the same existing Backend session produced one correlated SENT delivery with no older queue drain; subsequent Android refresh also passed. BA granted final scoped acceptance. [Independent QA report](../../Planning/System-QA-Android-local-only-port8001-20261004.md).
+
+Evidence limits: remote pooling, HTTP/2, DNSE, credentials and cancellation/source/no-replay guards were verified at component level; no production Backend call or real trade. Telegram provider acceptance/persistence was verified, not recipient rendering/read status. Backend unchanged readiness identifies529200cec7ebfa9c7b1cbfdf43ac9861013ee692; live process metadata is consistent with that session, but exact loaded-byte identity is unavailable. Earlier broad-policy QA remains historical and is not substituted for the narrowed candidate evidence. This bounded acceptance supersedes earlier pending integration/policy statements only for this increment, not other roadmap milestones.
+
+Publication of the exact reviewed13paths (11product plus these2scoped documentation notes) is authorized on codex/mobile-api-integration. Exclude3Moshi additions, unrelated UI/drafts/QA edits and accumulated unrelated documentation. No merge, deployment, live send or device/runtime change follows from publication. Source manifest: `Planning/Android-local-only-port8001-candidate-20261004.json`; publication outcome: `Planning/Android-local-only-publication-20261004.json`.
+
+
 ## Mandatory Backend–Client integration policy — 2026-10-03
 
 Read and follow the [authoritative shared integration procedure](../../Planning/Quy-trinh-dieu-phoi-Production-Owner.md). Direct user direction applies to current open work and future increments; it supersedes conflicting older workflow instructions below without rewriting historical evidence.

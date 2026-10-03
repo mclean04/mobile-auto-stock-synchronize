@@ -492,4 +492,11 @@
     <string name="planning_card_collapse">Tap to collapse</string>
     <string name="planning_source_identity">Planning source: %1$s</string>
     <string name="qa_notification_isolation_active">Notification QA mode: DNSE and Production backend connections are blocked.</string>
+    <string name="local_planning_connection_title">Integrated local Backend</string>
+    <string name="local_planning_connection_note">This localDebug build uses one origin on port 8001. It requires the full Backend started by local.py, including Planning. Check the USB route for this device. Use Check server first; it does not sign in or resend a session.</string>
+    <string name="local_planning_session_uncertain">If a session request was sent without a response, its outcome is unknown. Check server cannot confirm whether that session succeeded or failed and does not automatically resend it.</string>
+    <string name="local_planning_health_ok">Received the expected Planning/Firestore health response from %1$s. Sign-in permission and FCM have not been checked.</string>
+    <string name="local_planning_health_http">Server %1$s returned HTTP %2$d for the health check. Verify the Planning service and port; no session was checked or resent.</string>
+    <string name="local_planning_health_incompatible">The response from %1$s does not match the Planning/Firestore health format. Check that local.py started the full integrated Backend, not only the Stock service; no session was resent.</string>
+    <string name="local_planning_health_connection">Could not complete the server check at %1$s. Check the integrated Backend on the computer and the USB route for this device. This does not establish an authentication failure; no session was resent.</string>
 </resources>

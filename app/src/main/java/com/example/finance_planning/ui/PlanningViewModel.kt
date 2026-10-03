@@ -165,7 +165,10 @@ class PlanningViewModel(application: Application) : AndroidViewModel(application
         if (production) AppText.get(R.string.dnse_production_saved)
         else AppText.get(R.string.sandbox_environment_saved_with_existing_keys)
     }
-    fun health() = run { AppText.get(R.string.server, requireNotNull(repo.api.health().status)) }
+    fun health() = run {
+        if (LocalBackend.active) LocalPlanningHealthCheck.check { repo.api.health() }
+        else AppText.get(R.string.server, requireNotNull(repo.api.health().status))
+    }
     fun refresh() = run { val status = repo.verifySession(); refreshAll(knownStatus = status) }
     fun resume() = run {
         if (repo.approved()) { queue(); restoreCachedPlanning() }

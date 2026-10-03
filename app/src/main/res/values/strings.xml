@@ -492,4 +492,11 @@
     <string name="planning_card_collapse">Chạm để thu gọn</string>
     <string name="planning_source_identity">Nguồn kế hoạch: %1$s</string>
     <string name="qa_notification_isolation_active">Chế độ kiểm thử thông báo: kết nối DNSE và máy chủ Production đã bị chặn.</string>
+    <string name="local_planning_connection_title">Backend cục bộ tích hợp</string>
+    <string name="local_planning_connection_note">Bản localDebug này dùng một địa chỉ cổng 8001. Cần chạy toàn bộ Backend bằng local.py, có cả dịch vụ Planning. Kiểm tra đường USB của thiết bị. Bấm Kiểm tra máy chủ trước; kiểm tra này không đăng nhập hay gửi lại phiên.</string>
+    <string name="local_planning_session_uncertain">Nếu yêu cầu phiên đã gửi nhưng chưa nhận phản hồi, kết quả chưa xác định. Kiểm tra máy chủ không xác nhận phiên đó thành công hay thất bại và không tự gửi lại yêu cầu.</string>
+    <string name="local_planning_health_ok">Đã nhận phản hồi sức khỏe đúng định dạng Planning/Firestore từ %1$s. Chưa kiểm tra quyền đăng nhập hoặc FCM.</string>
+    <string name="local_planning_health_http">Máy chủ %1$s trả HTTP %2$d cho kiểm tra sức khỏe. Kiểm tra đúng dịch vụ Planning và cổng; chưa kiểm tra hoặc gửi lại phiên.</string>
+    <string name="local_planning_health_incompatible">Phản hồi từ %1$s không khớp định dạng sức khỏe Planning/Firestore. Kiểm tra local.py đã bật toàn bộ Backend tích hợp, không chỉ dịch vụ Stock. Chưa gửi lại phiên.</string>
+    <string name="local_planning_health_connection">Không hoàn tất được kiểm tra máy chủ %1$s. Kiểm tra Backend tích hợp trên máy tính và đường USB của thiết bị. Đây chưa phải bằng chứng sai thông tin đăng nhập; chưa gửi lại phiên.</string>
 </resources>

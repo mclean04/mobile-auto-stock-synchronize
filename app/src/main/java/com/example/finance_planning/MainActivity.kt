@@ -92,7 +92,7 @@ class MainActivity : ComponentActivity() {
 private fun PlanningScreen(model: PlanningViewModel) {
     val s by model.state.collectAsState()
     if (!s.signedIn) {
-        SignInScreen(s) { model.signIn(it) }
+        SignInScreen(s, model::health) { model.signIn(it) }
         return // Dispose authenticated tabs, dialogs, saved scroll positions and their BackHandler.
     }
     var tab by rememberSaveable { mutableIntStateOf(0) }
@@ -221,7 +221,7 @@ private fun PlanningScreen(model: PlanningViewModel) {
 }
 
 @Composable
-private fun SignInScreen(s: ScreenState, signIn: (android.content.Context) -> Unit) {
+private fun SignInScreen(s: ScreenState, checkServer: () -> Unit, signIn: (android.content.Context) -> Unit) {
     val context = LocalContext.current
     Scaffold { padding ->
         Box(Modifier.fillMaxSize().padding(padding).padding(24.dp),
@@ -232,6 +232,12 @@ private fun SignInScreen(s: ScreenState, signIn: (android.content.Context) -> Un
                     Text(text(R.string.app_heading), style = MaterialTheme.typography.headlineSmall)
                     Text(text(R.string.google_account), style = MaterialTheme.typography.titleMedium)
                     Text(s.message, style = MaterialTheme.typography.bodyMedium)
+                    if (com.example.finance_planning.core.LocalBackend.active) {
+                        LocalPlanningConnectionInfo()
+                        OutlinedButton(onClick = checkServer, enabled = !s.busy, modifier = Modifier.fillMaxWidth()) {
+                            Text(text(R.string.check_server))
+                        }
+                    }
                     if (!s.configured) Text(text(R.string.sign_in_configuration_required))
                     if (s.busy) LinearProgressIndicator(Modifier.fillMaxWidth())
                     Button(onClick = { signIn(context) }, enabled = s.configured && !s.busy,
@@ -308,6 +314,23 @@ private fun ConnectionSummary(s: ScreenState, notificationsAllowed: Boolean) {
 }
 
 @Composable
+private fun LocalPlanningConnectionInfo() {
+    Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp),
+        color = MaterialTheme.colorScheme.secondaryContainer,
+        contentColor = MaterialTheme.colorScheme.onSecondaryContainer) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(text(R.string.local_planning_connection_title), style = MaterialTheme.typography.titleMedium,
+                fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
+            Text(com.example.finance_planning.core.Contracts.BACKEND, style = MaterialTheme.typography.bodyLarge)
+            Text(text(R.string.local_planning_connection_note), style = MaterialTheme.typography.bodySmall,
+                fontStyle = FontStyle.Italic)
+            Text(text(R.string.local_planning_session_uncertain), style = MaterialTheme.typography.bodySmall,
+                fontStyle = FontStyle.Italic)
+        }
+    }
+}
+
+@Composable
 private fun Settings(s: ScreenState, model: PlanningViewModel, confirm: (String) -> Unit) {
     var showSandboxTest by remember { mutableStateOf(false) }
     if (showSandboxTest && s.hasSandboxKeys && s.approved)
@@ -334,6 +357,7 @@ private fun Settings(s: ScreenState, model: PlanningViewModel, confirm: (String)
         }
         val notificationsAllowed = androidx.core.app.NotificationManagerCompat.from(context).areNotificationsEnabled()
         ConnectionSummary(s, notificationsAllowed)
+        if (com.example.finance_planning.core.LocalBackend.active) LocalPlanningConnectionInfo()
         TextButton(onClick = model::copyFcmToken, enabled = s.approved && !s.busy) {
             Text(text(R.string.copy_current_fcm_token))
         }

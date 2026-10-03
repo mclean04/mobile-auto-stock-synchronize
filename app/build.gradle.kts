@@ -48,7 +48,7 @@ android {
             matchingFallbacks += "debug"
             buildConfigField("boolean", "LOCAL_BACKEND", "true")
             buildConfigField("boolean", "QA_STARTUP_ISOLATED", "false")
-            buildConfigField("String", "BACKEND_ORIGIN", "\"http://127.0.0.1:8080\"")
+            buildConfigField("String", "BACKEND_ORIGIN", "\"http://127.0.0.1:8001\"")
         }
         release { optimization { enable = false } }
     }

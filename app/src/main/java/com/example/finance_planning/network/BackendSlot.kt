@@ -36,6 +36,7 @@ class BackendSlot internal constructor(
         val builder = seed.newBuilder().singleExchange()
         if (com.example.finance_planning.core.LocalBackend.active) {
             check(com.example.finance_planning.core.LocalBackend.accepts(configuration.origin))
+            builder.addNetworkInterceptor(BackendHttp1ConnectionPolicy())
             builder.proxy(java.net.Proxy.NO_PROXY)
         }
         builder.interceptors().add(0, okhttp3.Interceptor { chain ->
