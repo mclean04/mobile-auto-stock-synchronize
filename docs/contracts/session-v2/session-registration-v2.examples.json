@@ -1,0 +1,127 @@
+{
+  "synthetic_only": true,
+  "request": {
+    "method": "POST",
+    "path": "/mobile/v2/session",
+    "body": {
+      "device_id": "11111111-1111-4111-8111-111111111111",
+      "fcm_token": "SYNTHETIC_FCM_TOKEN_EXAMPLE_ONLY"
+    }
+  },
+  "responses": [
+    {
+      "http_status": 200,
+      "headers": {
+        "X-Request-ID": "22222222-2222-4222-8222-222222222222"
+      },
+      "body": {
+        "code": 200,
+        "data": {
+          "session": {
+            "pending_sheet_batches": 0,
+            "count_capped_at": 200,
+            "sheet_writes": false,
+            "role": "uploader"
+          },
+          "registration": {
+            "device_id": "11111111-1111-4111-8111-111111111111",
+            "registered": true
+          }
+        },
+        "error": null,
+        "meta": {
+          "contract_version": "mobile-envelope.v2",
+          "request_id": "22222222-2222-4222-8222-222222222222",
+          "http_status": 200,
+          "pagination": null
+        }
+      }
+    },
+    {
+      "http_status": 409,
+      "headers": {
+        "X-Request-ID": "22222222-2222-4222-8222-222222222222"
+      },
+      "body": {
+        "code": 409,
+        "data": null,
+        "error": {
+          "code": "device_owned_by_another_user",
+          "message": "device owned by another user",
+          "validation": [],
+          "operation": {
+            "operation_id": "11111111-1111-4111-8111-111111111111",
+            "database": "NOT_APPLIED",
+            "projection": "NOT_APPLICABLE",
+            "environment": null,
+            "committed_steps": []
+          }
+        },
+        "meta": {
+          "contract_version": "mobile-envelope.v2",
+          "request_id": "22222222-2222-4222-8222-222222222222",
+          "http_status": 409,
+          "pagination": null
+        }
+      }
+    },
+    {
+      "http_status": 409,
+      "headers": {
+        "X-Request-ID": "22222222-2222-4222-8222-222222222222"
+      },
+      "body": {
+        "code": 409,
+        "data": null,
+        "error": {
+          "code": "planning_source_conflict",
+          "message": "planning source conflict",
+          "validation": [],
+          "operation": {
+            "operation_id": "11111111-1111-4111-8111-111111111111",
+            "database": "COMMITTED",
+            "projection": "NOT_APPLICABLE",
+            "environment": null,
+            "committed_steps": [
+              "DEVICE_REGISTRATION"
+            ]
+          }
+        },
+        "meta": {
+          "contract_version": "mobile-envelope.v2",
+          "request_id": "22222222-2222-4222-8222-222222222222",
+          "http_status": 409,
+          "pagination": null
+        }
+      }
+    },
+    {
+      "http_status": 503,
+      "headers": {
+        "X-Request-ID": "22222222-2222-4222-8222-222222222222"
+      },
+      "body": {
+        "code": 503,
+        "data": null,
+        "error": {
+          "code": "service_unavailable",
+          "message": "service unavailable",
+          "validation": [],
+          "operation": {
+            "operation_id": "11111111-1111-4111-8111-111111111111",
+            "database": "UNKNOWN",
+            "projection": "UNKNOWN",
+            "environment": null,
+            "committed_steps": []
+          }
+        },
+        "meta": {
+          "contract_version": "mobile-envelope.v2",
+          "request_id": "22222222-2222-4222-8222-222222222222",
+          "http_status": 503,
+          "pagination": null
+        }
+      }
+    }
+  ]
+}

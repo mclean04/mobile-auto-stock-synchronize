@@ -16,8 +16,13 @@ local.properties
 
 # Machine-specific IDE files and credentials
 /.idea/
+/app/.idea/
 .env
 .env.*
 *.jks
 *.keystore
 keystore.properties
+
+/mobile.properties
+/app/google-services.json
+*.log

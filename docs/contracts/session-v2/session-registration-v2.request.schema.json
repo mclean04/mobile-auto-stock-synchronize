@@ -1,0 +1,22 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "fcm_token": {
+      "maxLength": 4096,
+      "minLength": 20,
+      "title": "Fcm Token",
+      "type": "string"
+    },
+    "device_id": {
+      "format": "uuid",
+      "title": "Device Id",
+      "type": "string"
+    }
+  },
+  "required": [
+    "fcm_token",
+    "device_id"
+  ],
+  "title": "SessionRegistrationRequest",
+  "type": "object"
+}

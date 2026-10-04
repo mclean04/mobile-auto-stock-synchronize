@@ -1,0 +1,7 @@
+# Public Firebase project identifiers only. Copy to mobile.properties (ignored by Git).
+# Never put a DNSE key, DNSE secret, automation bearer token or service-account JSON here.
+firebase.projectId=auto-stock-synchronization
+firebase.appId=
+firebase.apiKey=
+firebase.senderId=1026748304024
+google.webClientId=

@@ -1,0 +1,5908 @@
+{
+  "$schema": "http://json-schema.org/draft-04/schema#",
+  "id": "urn:finance:mobile-endpoints:v1:proposal",
+  "title": "DESIGN ONLY current Android BackendApi request/result bindings, revision 2",
+  "definitions": {
+    "Balance": {
+      "additionalProperties": false,
+      "properties": {
+        "account": {
+          "maxLength": 100,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_.:-]+$",
+          "title": "Account",
+          "type": "string"
+        },
+        "updated_at": {
+          "format": "date-time",
+          "title": "Updated At",
+          "type": "string"
+        },
+        "cash_vnd": {
+          "anyOf": [
+            {
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,16}|(?=[\\d.]{1,25}0*$)\\d{0,16}\\.\\d{0,8}0*$)",
+              "type": "string"
+            }
+          ],
+          "title": "Cash Vnd"
+        },
+        "buying_power_vnd": {
+          "anyOf": [
+            {
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,16}|(?=[\\d.]{1,25}0*$)\\d{0,16}\\.\\d{0,8}0*$)",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Buying Power Vnd"
+        }
+      },
+      "required": [
+        "account",
+        "updated_at",
+        "cash_vnd"
+      ],
+      "title": "Balance",
+      "type": "object"
+    },
+    "Execution": {
+      "additionalProperties": false,
+      "properties": {
+        "account": {
+          "maxLength": 100,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_.:-]+$",
+          "title": "Account",
+          "type": "string"
+        },
+        "execution_id": {
+          "maxLength": 100,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_.:-]+$",
+          "title": "Execution Id",
+          "type": "string"
+        },
+        "order_id": {
+          "maxLength": 100,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_.:-]+$",
+          "title": "Order Id",
+          "type": "string"
+        },
+        "updated_at": {
+          "format": "date-time",
+          "title": "Updated At",
+          "type": "string"
+        },
+        "executed_at": {
+          "format": "date-time",
+          "title": "Executed At",
+          "type": "string"
+        },
+        "quantity": {
+          "anyOf": [
+            {
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,16}|(?=[\\d.]{1,25}0*$)\\d{0,16}\\.\\d{0,8}0*$)",
+              "type": "string"
+            }
+          ],
+          "title": "Quantity"
+        },
+        "price_vnd": {
+          "anyOf": [
+            {
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,16}|(?=[\\d.]{1,25}0*$)\\d{0,16}\\.\\d{0,8}0*$)",
+              "type": "string"
+            }
+          ],
+          "title": "Price Vnd"
+        },
+        "fee_vnd": {
+          "anyOf": [
+            {
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,16}|(?=[\\d.]{1,25}0*$)\\d{0,16}\\.\\d{0,8}0*$)",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Fee Vnd"
+        }
+      },
+      "required": [
+        "account",
+        "execution_id",
+        "order_id",
+        "updated_at",
+        "executed_at",
+        "quantity",
+        "price_vnd"
+      ],
+      "title": "Execution",
+      "type": "object"
+    },
+    "Order": {
+      "additionalProperties": false,
+      "properties": {
+        "account": {
+          "maxLength": 100,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_.:-]+$",
+          "title": "Account",
+          "type": "string"
+        },
+        "order_id": {
+          "maxLength": 100,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_.:-]+$",
+          "title": "Order Id",
+          "type": "string"
+        },
+        "updated_at": {
+          "format": "date-time",
+          "title": "Updated At",
+          "type": "string"
+        },
+        "created_at": {
+          "format": "date-time",
+          "title": "Created At",
+          "type": "string"
+        },
+        "symbol": {
+          "maxLength": 100,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_.:-]+$",
+          "title": "Symbol",
+          "type": "string"
+        },
+        "side": {
+          "enum": [
+            "BUY",
+            "SELL"
+          ],
+          "title": "Side",
+          "type": "string"
+        },
+        "order_type": {
+          "maxLength": 100,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_.:-]+$",
+          "title": "Order Type",
+          "type": "string"
+        },
+        "quantity": {
+          "anyOf": [
+            {
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,16}|(?=[\\d.]{1,25}0*$)\\d{0,16}\\.\\d{0,8}0*$)",
+              "type": "string"
+            }
+          ],
+          "title": "Quantity"
+        },
+        "filled_quantity": {
+          "anyOf": [
+            {
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,16}|(?=[\\d.]{1,25}0*$)\\d{0,16}\\.\\d{0,8}0*$)",
+              "type": "string"
+            }
+          ],
+          "title": "Filled Quantity"
+        },
+        "price_vnd": {
+          "anyOf": [
+            {
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,16}|(?=[\\d.]{1,25}0*$)\\d{0,16}\\.\\d{0,8}0*$)",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Price Vnd"
+        },
+        "average_fill_price_vnd": {
+          "anyOf": [
+            {
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,16}|(?=[\\d.]{1,25}0*$)\\d{0,16}\\.\\d{0,8}0*$)",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Average Fill Price Vnd"
+        },
+        "status": {
+          "maxLength": 100,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_.:-]+$",
+          "title": "Status",
+          "type": "string"
+        },
+        "market_type": {
+          "default": "STOCK",
+          "maxLength": 100,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_.:-]+$",
+          "title": "Market Type",
+          "type": "string"
+        },
+        "category": {
+          "default": "NORMAL",
+          "enum": [
+            "NORMAL",
+            "STOP"
+          ],
+          "title": "Category",
+          "type": "string"
+        }
+      },
+      "required": [
+        "account",
+        "order_id",
+        "updated_at",
+        "created_at",
+        "symbol",
+        "side",
+        "order_type",
+        "quantity",
+        "filled_quantity",
+        "status"
+      ],
+      "title": "Order",
+      "type": "object"
+    },
+    "PlanningSourceContext": {
+      "additionalProperties": false,
+      "properties": {
+        "source_id": {
+          "pattern": "^[A-Za-z0-9_-]{10,200}$",
+          "title": "Source Id",
+          "type": "string"
+        },
+        "source_generation": {
+          "minimum": 1,
+          "title": "Source Generation",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "source_id",
+        "source_generation"
+      ],
+      "title": "PlanningSourceContext",
+      "type": "object"
+    },
+    "Position": {
+      "additionalProperties": false,
+      "properties": {
+        "account": {
+          "maxLength": 100,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_.:-]+$",
+          "title": "Account",
+          "type": "string"
+        },
+        "position_id": {
+          "maxLength": 100,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_.:-]+$",
+          "title": "Position Id",
+          "type": "string"
+        },
+        "updated_at": {
+          "format": "date-time",
+          "title": "Updated At",
+          "type": "string"
+        },
+        "symbol": {
+          "maxLength": 100,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_.:-]+$",
+          "title": "Symbol",
+          "type": "string"
+        },
+        "quantity": {
+          "anyOf": [
+            {
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,16}|(?=[\\d.]{1,25}0*$)\\d{0,16}\\.\\d{0,8}0*$)",
+              "type": "string"
+            }
+          ],
+          "title": "Quantity"
+        },
+        "available_quantity": {
+          "anyOf": [
+            {
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,16}|(?=[\\d.]{1,25}0*$)\\d{0,16}\\.\\d{0,8}0*$)",
+              "type": "string"
+            }
+          ],
+          "title": "Available Quantity"
+        },
+        "average_price_vnd": {
+          "anyOf": [
+            {
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,16}|(?=[\\d.]{1,25}0*$)\\d{0,16}\\.\\d{0,8}0*$)",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Average Price Vnd"
+        }
+      },
+      "required": [
+        "account",
+        "position_id",
+        "updated_at",
+        "symbol",
+        "quantity",
+        "available_quantity"
+      ],
+      "title": "Position",
+      "type": "object"
+    },
+    "SyncBatch": {
+      "additionalProperties": false,
+      "properties": {
+        "source_context": {
+          "anyOf": [
+            {
+              "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/PlanningSourceContext"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "batch_id": {
+          "format": "uuid",
+          "title": "Batch Id",
+          "type": "string"
+        },
+        "device_id": {
+          "format": "uuid",
+          "title": "Device Id",
+          "type": "string"
+        },
+        "environment": {
+          "anyOf": [
+            {
+              "enum": [
+                "sandbox",
+                "production"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Environment"
+        },
+        "orders": {
+          "items": {
+            "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Order"
+          },
+          "maxItems": 1000,
+          "title": "Orders",
+          "type": "array"
+        },
+        "executions": {
+          "items": {
+            "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Execution"
+          },
+          "maxItems": 2000,
+          "title": "Executions",
+          "type": "array"
+        },
+        "positions": {
+          "items": {
+            "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Position"
+          },
+          "maxItems": 1000,
+          "title": "Positions",
+          "type": "array"
+        },
+        "balances": {
+          "items": {
+            "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Balance"
+          },
+          "maxItems": 100,
+          "title": "Balances",
+          "type": "array"
+        }
+      },
+      "required": [
+        "batch_id",
+        "device_id"
+      ],
+      "title": "SyncBatch",
+      "type": "object"
+    },
+    "PlacedOrderUpdate": {
+      "additionalProperties": false,
+      "properties": {
+        "request_id": {
+          "format": "uuid",
+          "title": "Request Id",
+          "type": "string"
+        },
+        "device_id": {
+          "format": "uuid",
+          "title": "Device Id",
+          "type": "string"
+        },
+        "environment": {
+          "enum": [
+            "sandbox",
+            "production"
+          ],
+          "title": "Environment",
+          "type": "string"
+        },
+        "order": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Order"
+        }
+      },
+      "required": [
+        "request_id",
+        "device_id",
+        "environment",
+        "order"
+      ],
+      "title": "PlacedOrderUpdate",
+      "type": "object"
+    },
+    "PreflightRequest": {
+      "additionalProperties": false,
+      "properties": {
+        "source_context": {
+          "anyOf": [
+            {
+              "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/PlanningSourceContext"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "request_id": {
+          "format": "uuid",
+          "title": "Request Id",
+          "type": "string"
+        },
+        "device_id": {
+          "format": "uuid",
+          "title": "Device Id",
+          "type": "string"
+        },
+        "expected_version": {
+          "minimum": 1,
+          "title": "Expected Version",
+          "type": "integer"
+        },
+        "environment": {
+          "enum": [
+            "sandbox",
+            "production"
+          ],
+          "title": "Environment",
+          "type": "string"
+        },
+        "account": {
+          "maxLength": 100,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_.:-]+$",
+          "title": "Account",
+          "type": "string"
+        },
+        "quantity": {
+          "anyOf": [
+            {
+              "minimum": 0.0,
+              "exclusiveMinimum": true,
+              "type": "number"
+            },
+            {
+              "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,10}|(?=[\\d.]{1,13}0*$)\\d{0,10}\\.\\d{0,2}0*$)",
+              "type": "string"
+            }
+          ],
+          "title": "Quantity"
+        },
+        "limit_price_vnd": {
+          "anyOf": [
+            {
+              "minimum": 0.0,
+              "exclusiveMinimum": true,
+              "type": "number"
+            },
+            {
+              "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,14}|(?=[\\d.]{1,17}0*$)\\d{0,14}\\.\\d{0,2}0*$)",
+              "type": "string"
+            }
+          ],
+          "title": "Limit Price Vnd"
+        },
+        "observed_at": {
+          "format": "date-time",
+          "title": "Observed At",
+          "type": "string"
+        }
+      },
+      "required": [
+        "request_id",
+        "device_id",
+        "expected_version",
+        "environment",
+        "account",
+        "quantity",
+        "limit_price_vnd",
+        "observed_at"
+      ],
+      "title": "PreflightRequest",
+      "type": "object"
+    },
+    "PlacedOrderUpdateV2": {
+      "additionalProperties": false,
+      "properties": {
+        "source_context": {
+          "anyOf": [
+            {
+              "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/PlanningSourceContext"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "contract_version": {
+          "enum": [
+            "2.0"
+          ],
+          "title": "Contract Version",
+          "type": "string"
+        },
+        "request_id": {
+          "format": "uuid",
+          "title": "Request Id",
+          "type": "string"
+        },
+        "device_id": {
+          "format": "uuid",
+          "title": "Device Id",
+          "type": "string"
+        },
+        "intent_id": {
+          "format": "uuid",
+          "title": "Intent Id",
+          "type": "string"
+        },
+        "expected_version": {
+          "minimum": 1,
+          "title": "Expected Version",
+          "type": "integer"
+        },
+        "environment": {
+          "enum": [
+            "sandbox",
+            "production"
+          ],
+          "title": "Environment",
+          "type": "string"
+        },
+        "account": {
+          "maxLength": 100,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_.:-]+$",
+          "title": "Account",
+          "type": "string"
+        },
+        "preflight_id": {
+          "format": "uuid",
+          "title": "Preflight Id",
+          "type": "string"
+        },
+        "order": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Order"
+        }
+      },
+      "required": [
+        "contract_version",
+        "request_id",
+        "device_id",
+        "intent_id",
+        "expected_version",
+        "environment",
+        "account",
+        "preflight_id",
+        "order"
+      ],
+      "title": "PlacedOrderUpdateV2",
+      "type": "object"
+    },
+    "NotificationCommand": {
+      "additionalProperties": false,
+      "properties": {
+        "event_id": {
+          "format": "uuid",
+          "title": "Event Id",
+          "type": "string"
+        },
+        "recipient_uid": {
+          "anyOf": [
+            {
+              "maxLength": 128,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Recipient Uid"
+        },
+        "plan_id": {
+          "maxLength": 100,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_.:-]+$",
+          "title": "Plan Id",
+          "type": "string"
+        },
+        "planning_revision_id": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Planning Revision Id",
+          "type": "string"
+        },
+        "planning_item_id": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Planning Item Id"
+        },
+        "expected_plan_version": {
+          "minimum": 0,
+          "title": "Expected Plan Version",
+          "type": "integer"
+        },
+        "action": {
+          "enum": [
+            "PLACE_ORDER",
+            "CANCEL_ORDER",
+            "WITHDRAW_PLAN"
+          ],
+          "title": "Action",
+          "type": "string"
+        },
+        "reason": {
+          "maxLength": 1000,
+          "minLength": 1,
+          "title": "Reason",
+          "type": "string"
+        },
+        "account": {
+          "maxLength": 100,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_.:-]+$",
+          "title": "Account",
+          "type": "string"
+        },
+        "symbol": {
+          "maxLength": 100,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_.:-]+$",
+          "title": "Symbol",
+          "type": "string"
+        },
+        "order_id": {
+          "anyOf": [
+            {
+              "maxLength": 100,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9_.:-]+$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Order Id"
+        },
+        "due_at": {
+          "format": "date-time",
+          "title": "Due At",
+          "type": "string"
+        },
+        "expires_at": {
+          "format": "date-time",
+          "title": "Expires At",
+          "type": "string"
+        }
+      },
+      "required": [
+        "event_id",
+        "plan_id",
+        "planning_revision_id",
+        "expected_plan_version",
+        "action",
+        "reason",
+        "account",
+        "symbol",
+        "due_at",
+        "expires_at"
+      ],
+      "title": "NotificationCommand",
+      "type": "object"
+    },
+    "DeviceRegistration": {
+      "additionalProperties": false,
+      "properties": {
+        "fcm_token": {
+          "maxLength": 4096,
+          "minLength": 20,
+          "title": "Fcm Token",
+          "type": "string"
+        }
+      },
+      "required": [
+        "fcm_token"
+      ],
+      "title": "DeviceRegistration",
+      "type": "object"
+    },
+    "NotificationReceipt": {
+      "additionalProperties": false,
+      "properties": {
+        "device_id": {
+          "format": "uuid",
+          "title": "Device Id",
+          "type": "string"
+        },
+        "state": {
+          "enum": [
+            "RECEIVED",
+            "OPENED"
+          ],
+          "title": "State",
+          "type": "string"
+        }
+      },
+      "required": [
+        "device_id",
+        "state"
+      ],
+      "title": "NotificationReceipt",
+      "type": "object"
+    },
+    "CalendarTest": {
+      "additionalProperties": false,
+      "properties": {
+        "source_task": {
+          "enum": [
+            "vcb-daily-test",
+            "dnse-monthly-test"
+          ],
+          "title": "Source Task",
+          "type": "string"
+        },
+        "plan_id": {
+          "pattern": "^test-[A-Za-z0-9_-]{1,80}$",
+          "title": "Plan Id",
+          "type": "string"
+        },
+        "calendar_id": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Calendar Id",
+          "type": "string"
+        },
+        "calendar_event_id": {
+          "pattern": "^[A-Za-z0-9_-]{5,200}$",
+          "title": "Calendar Event Id",
+          "type": "string"
+        },
+        "plan_version": {
+          "maximum": 100000,
+          "minimum": 1,
+          "title": "Plan Version",
+          "type": "integer"
+        },
+        "calendar_confirmed": {
+          "enum": [
+            true
+          ],
+          "title": "Calendar Confirmed",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "source_task",
+        "plan_id",
+        "calendar_id",
+        "calendar_event_id",
+        "plan_version",
+        "calendar_confirmed"
+      ],
+      "title": "CalendarTest",
+      "type": "object"
+    },
+    "DemoPlanning": {
+      "additionalProperties": false,
+      "properties": {
+        "account": {
+          "default": "DEMO-ACCOUNT",
+          "maxLength": 100,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_.:-]+$",
+          "title": "Account",
+          "type": "string"
+        },
+        "symbol": {
+          "default": "DEMO",
+          "maxLength": 100,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_.:-]+$",
+          "title": "Symbol",
+          "type": "string"
+        },
+        "quantity": {
+          "anyOf": [
+            {
+              "minimum": 0.0,
+              "exclusiveMinimum": true,
+              "type": "number"
+            },
+            {
+              "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,10}|(?=[\\d.]{1,13}0*$)\\d{0,10}\\.\\d{0,2}0*$)",
+              "type": "string"
+            }
+          ],
+          "title": "Quantity"
+        },
+        "price_vnd": {
+          "anyOf": [
+            {
+              "minimum": 0.0,
+              "exclusiveMinimum": true,
+              "type": "number"
+            },
+            {
+              "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,14}|(?=[\\d.]{1,17}0*$)\\d{0,14}\\.\\d{0,2}0*$)",
+              "type": "string"
+            }
+          ],
+          "title": "Price Vnd"
+        }
+      },
+      "required": [
+        "quantity",
+        "price_vnd"
+      ],
+      "title": "DemoPlanning",
+      "type": "object"
+    },
+    "PreviewRequest": {
+      "additionalProperties": false,
+      "properties": {
+        "planning": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/DemoPlanning"
+        },
+        "notification": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/NotificationCommand"
+        },
+        "calendar_test": {
+          "anyOf": [
+            {
+              "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/CalendarTest"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "planning",
+        "notification"
+      ],
+      "title": "PreviewRequest",
+      "type": "object"
+    },
+    "OrderDto": {
+      "additionalProperties": false,
+      "properties": {
+        "account": {
+          "maxLength": 100,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_.:-]+$",
+          "title": "Account",
+          "type": "string"
+        },
+        "order_id": {
+          "maxLength": 100,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_.:-]+$",
+          "title": "Order Id",
+          "type": "string"
+        },
+        "updated_at": {
+          "format": "date-time",
+          "title": "Updated At",
+          "type": "string"
+        },
+        "created_at": {
+          "format": "date-time",
+          "title": "Created At",
+          "type": "string"
+        },
+        "symbol": {
+          "maxLength": 100,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_.:-]+$",
+          "title": "Symbol",
+          "type": "string"
+        },
+        "side": {
+          "enum": [
+            "BUY",
+            "SELL"
+          ],
+          "title": "Side",
+          "type": "string"
+        },
+        "order_type": {
+          "maxLength": 100,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_.:-]+$",
+          "title": "Order Type",
+          "type": "string"
+        },
+        "quantity": {
+          "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,16}|(?=[\\d.]{1,25}0*$)\\d{0,16}\\.\\d{0,8}0*$)",
+          "title": "Quantity",
+          "type": "string"
+        },
+        "filled_quantity": {
+          "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,16}|(?=[\\d.]{1,25}0*$)\\d{0,16}\\.\\d{0,8}0*$)",
+          "title": "Filled Quantity",
+          "type": "string"
+        },
+        "price_vnd": {
+          "anyOf": [
+            {
+              "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,16}|(?=[\\d.]{1,25}0*$)\\d{0,16}\\.\\d{0,8}0*$)",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Price Vnd"
+        },
+        "average_fill_price_vnd": {
+          "anyOf": [
+            {
+              "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,16}|(?=[\\d.]{1,25}0*$)\\d{0,16}\\.\\d{0,8}0*$)",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Average Fill Price Vnd"
+        },
+        "status": {
+          "maxLength": 100,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_.:-]+$",
+          "title": "Status",
+          "type": "string"
+        },
+        "market_type": {
+          "default": "STOCK",
+          "maxLength": 100,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_.:-]+$",
+          "title": "Market Type",
+          "type": "string"
+        },
+        "category": {
+          "default": "NORMAL",
+          "enum": [
+            "NORMAL",
+            "STOP"
+          ],
+          "title": "Category",
+          "type": "string"
+        }
+      },
+      "required": [
+        "account",
+        "order_id",
+        "updated_at",
+        "created_at",
+        "symbol",
+        "side",
+        "order_type",
+        "quantity",
+        "filled_quantity",
+        "status"
+      ],
+      "title": "Order",
+      "type": "object"
+    },
+    "ExecutionDto": {
+      "additionalProperties": false,
+      "properties": {
+        "account": {
+          "maxLength": 100,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_.:-]+$",
+          "title": "Account",
+          "type": "string"
+        },
+        "execution_id": {
+          "maxLength": 100,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_.:-]+$",
+          "title": "Execution Id",
+          "type": "string"
+        },
+        "order_id": {
+          "maxLength": 100,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_.:-]+$",
+          "title": "Order Id",
+          "type": "string"
+        },
+        "updated_at": {
+          "format": "date-time",
+          "title": "Updated At",
+          "type": "string"
+        },
+        "executed_at": {
+          "format": "date-time",
+          "title": "Executed At",
+          "type": "string"
+        },
+        "quantity": {
+          "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,16}|(?=[\\d.]{1,25}0*$)\\d{0,16}\\.\\d{0,8}0*$)",
+          "title": "Quantity",
+          "type": "string"
+        },
+        "price_vnd": {
+          "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,16}|(?=[\\d.]{1,25}0*$)\\d{0,16}\\.\\d{0,8}0*$)",
+          "title": "Price Vnd",
+          "type": "string"
+        },
+        "fee_vnd": {
+          "anyOf": [
+            {
+              "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,16}|(?=[\\d.]{1,25}0*$)\\d{0,16}\\.\\d{0,8}0*$)",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Fee Vnd"
+        }
+      },
+      "required": [
+        "account",
+        "execution_id",
+        "order_id",
+        "updated_at",
+        "executed_at",
+        "quantity",
+        "price_vnd"
+      ],
+      "title": "Execution",
+      "type": "object"
+    },
+    "PositionDto": {
+      "additionalProperties": false,
+      "properties": {
+        "account": {
+          "maxLength": 100,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_.:-]+$",
+          "title": "Account",
+          "type": "string"
+        },
+        "position_id": {
+          "maxLength": 100,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_.:-]+$",
+          "title": "Position Id",
+          "type": "string"
+        },
+        "updated_at": {
+          "format": "date-time",
+          "title": "Updated At",
+          "type": "string"
+        },
+        "symbol": {
+          "maxLength": 100,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_.:-]+$",
+          "title": "Symbol",
+          "type": "string"
+        },
+        "quantity": {
+          "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,16}|(?=[\\d.]{1,25}0*$)\\d{0,16}\\.\\d{0,8}0*$)",
+          "title": "Quantity",
+          "type": "string"
+        },
+        "available_quantity": {
+          "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,16}|(?=[\\d.]{1,25}0*$)\\d{0,16}\\.\\d{0,8}0*$)",
+          "title": "Available Quantity",
+          "type": "string"
+        },
+        "average_price_vnd": {
+          "anyOf": [
+            {
+              "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,16}|(?=[\\d.]{1,25}0*$)\\d{0,16}\\.\\d{0,8}0*$)",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Average Price Vnd"
+        }
+      },
+      "required": [
+        "account",
+        "position_id",
+        "updated_at",
+        "symbol",
+        "quantity",
+        "available_quantity"
+      ],
+      "title": "Position",
+      "type": "object"
+    },
+    "BalanceDto": {
+      "additionalProperties": false,
+      "properties": {
+        "account": {
+          "maxLength": 100,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_.:-]+$",
+          "title": "Account",
+          "type": "string"
+        },
+        "updated_at": {
+          "format": "date-time",
+          "title": "Updated At",
+          "type": "string"
+        },
+        "cash_vnd": {
+          "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,16}|(?=[\\d.]{1,25}0*$)\\d{0,16}\\.\\d{0,8}0*$)",
+          "title": "Cash Vnd",
+          "type": "string"
+        },
+        "buying_power_vnd": {
+          "anyOf": [
+            {
+              "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,16}|(?=[\\d.]{1,25}0*$)\\d{0,16}\\.\\d{0,8}0*$)",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Buying Power Vnd"
+        }
+      },
+      "required": [
+        "account",
+        "updated_at",
+        "cash_vnd"
+      ],
+      "title": "Balance",
+      "type": "object"
+    },
+    "SheetInstructionDto": {
+      "additionalProperties": false,
+      "properties": {
+        "plan_id": {
+          "maxLength": 100,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_.:-]+$",
+          "title": "Plan Id",
+          "type": "string"
+        },
+        "recipient_uid": {
+          "anyOf": [
+            {
+              "maxLength": 128,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Recipient Uid"
+        },
+        "version": {
+          "maximum": 100000,
+          "minimum": 1,
+          "title": "Version",
+          "type": "integer"
+        },
+        "mode": {
+          "enum": [
+            "TEST",
+            "LIVE"
+          ],
+          "title": "Mode",
+          "type": "string"
+        },
+        "action": {
+          "enum": [
+            "PLACE_ORDER",
+            "CANCEL_ORDER",
+            "WITHDRAW_PLAN"
+          ],
+          "title": "Action",
+          "type": "string"
+        },
+        "account": {
+          "maxLength": 100,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_.:-]+$",
+          "title": "Account",
+          "type": "string"
+        },
+        "symbol": {
+          "maxLength": 100,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_.:-]+$",
+          "title": "Symbol",
+          "type": "string"
+        },
+        "order_id": {
+          "anyOf": [
+            {
+              "maxLength": 100,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9_.:-]+$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Order Id"
+        },
+        "quantity": {
+          "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,10}|(?=[\\d.]{1,13}0*$)\\d{0,10}\\.\\d{0,2}0*$)",
+          "title": "Quantity",
+          "type": "string"
+        },
+        "price_vnd": {
+          "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,14}|(?=[\\d.]{1,17}0*$)\\d{0,14}\\.\\d{0,2}0*$)",
+          "title": "Price Vnd",
+          "type": "string"
+        },
+        "reason": {
+          "maxLength": 1000,
+          "minLength": 1,
+          "title": "Reason",
+          "type": "string"
+        },
+        "due_at": {
+          "format": "date-time",
+          "title": "Due At",
+          "type": "string"
+        },
+        "expires_at": {
+          "format": "date-time",
+          "title": "Expires At",
+          "type": "string"
+        },
+        "calendar_id": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Calendar Id",
+          "type": "string"
+        },
+        "calendar_event_id": {
+          "pattern": "^[A-Za-z0-9_-]{5,200}$",
+          "title": "Calendar Event Id",
+          "type": "string"
+        },
+        "calendar_confirmed": {
+          "enum": [
+            true
+          ],
+          "title": "Calendar Confirmed",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "plan_id",
+        "version",
+        "mode",
+        "action",
+        "account",
+        "symbol",
+        "quantity",
+        "price_vnd",
+        "reason",
+        "due_at",
+        "expires_at",
+        "calendar_id",
+        "calendar_event_id",
+        "calendar_confirmed"
+      ],
+      "title": "SheetInstruction",
+      "type": "object"
+    },
+    "Empty": {
+      "type": "object",
+      "properties": {},
+      "additionalProperties": false
+    },
+    "AuthHeaders": {
+      "type": "object",
+      "properties": {
+        "Authorization": {
+          "type": "string",
+          "pattern": "^Bearer [^\\r\\n]{1,8192}$"
+        },
+        "X-Firebase-AppCheck": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 8192
+        }
+      },
+      "required": [
+        "Authorization",
+        "X-Firebase-AppCheck"
+      ],
+      "additionalProperties": false
+    },
+    "ProjectionResultDto": {
+      "type": "object",
+      "properties": {
+        "state": {
+          "enum": [
+            "disabled",
+            "pending",
+            "up_to_date",
+            "quarantined_source_changed"
+          ]
+        },
+        "reason": {
+          "enum": [
+            "reconciliation_running"
+          ]
+        },
+        "error": {
+          "enum": [
+            "sheet_reconcile_failed"
+          ]
+        }
+      },
+      "required": [
+        "state"
+      ],
+      "additionalProperties": false
+    },
+    "ReportDestination": {
+      "type": "object",
+      "properties": {
+        "source_context": {
+          "anyOf": [
+            {
+              "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/PlanningSourceContext"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "state": {
+          "enum": [
+            "CURRENT_PRIMARY",
+            "QUARANTINED_SOURCE_CHANGED"
+          ]
+        }
+      },
+      "required": [
+        "source_context",
+        "state"
+      ],
+      "additionalProperties": false
+    },
+    "PlanningSyncResult": {
+      "type": "object",
+      "properties": {
+        "updated": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "reason": {
+          "enum": [
+            "recipient_uid_required"
+          ]
+        }
+      },
+      "required": [
+        "updated"
+      ],
+      "additionalProperties": false
+    },
+    "UploadResultDto": {
+      "type": "object",
+      "properties": {
+        "batch_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "database": {
+          "enum": [
+            "committed"
+          ]
+        },
+        "duplicate": {
+          "type": "boolean"
+        },
+        "sheets": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/ProjectionResultDto"
+        },
+        "source_context": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/PlanningSourceContext"
+        },
+        "planning": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/PlanningSyncResult"
+        },
+        "report_destination": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/ReportDestination"
+        }
+      },
+      "required": [
+        "batch_id",
+        "database",
+        "duplicate",
+        "sheets"
+      ],
+      "additionalProperties": false
+    },
+    "SyncStatusDto": {
+      "type": "object",
+      "properties": {
+        "pending_sheet_batches": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 200
+        },
+        "count_capped_at": {
+          "enum": [
+            200
+          ]
+        },
+        "sheet_writes": {
+          "type": "boolean"
+        },
+        "role": {
+          "enum": [
+            "admin",
+            "uploader"
+          ]
+        }
+      },
+      "required": [
+        "pending_sheet_batches",
+        "count_capped_at",
+        "sheet_writes",
+        "role"
+      ],
+      "additionalProperties": false
+    },
+    "BatchSummaryDto": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "device_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "environment": {
+          "enum": [
+            "sandbox",
+            "production"
+          ]
+        },
+        "received_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "record_count": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "digest": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        }
+      },
+      "required": [
+        "id",
+        "device_id",
+        "received_at",
+        "record_count",
+        "digest"
+      ],
+      "additionalProperties": false
+    },
+    "BrokerRecordDto": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            "kind": {
+              "enum": [
+                "order"
+              ]
+            },
+            "environment": {
+              "enum": [
+                "sandbox",
+                "production"
+              ]
+            },
+            "account": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100,
+              "pattern": "^[A-Za-z0-9_.:-]+$"
+            },
+            "source_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100,
+              "pattern": "^[A-Za-z0-9_.:-]+$"
+            },
+            "source_updated_at": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "payload": {
+              "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/OrderDto"
+            },
+            "batch_id": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "required": [
+            "id",
+            "kind",
+            "account",
+            "source_id",
+            "source_updated_at",
+            "payload",
+            "batch_id"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            "kind": {
+              "enum": [
+                "execution"
+              ]
+            },
+            "environment": {
+              "enum": [
+                "sandbox",
+                "production"
+              ]
+            },
+            "account": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100,
+              "pattern": "^[A-Za-z0-9_.:-]+$"
+            },
+            "source_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100,
+              "pattern": "^[A-Za-z0-9_.:-]+$"
+            },
+            "source_updated_at": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "payload": {
+              "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/ExecutionDto"
+            },
+            "batch_id": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "required": [
+            "id",
+            "kind",
+            "account",
+            "source_id",
+            "source_updated_at",
+            "payload",
+            "batch_id"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            "kind": {
+              "enum": [
+                "position"
+              ]
+            },
+            "environment": {
+              "enum": [
+                "sandbox",
+                "production"
+              ]
+            },
+            "account": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100,
+              "pattern": "^[A-Za-z0-9_.:-]+$"
+            },
+            "source_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100,
+              "pattern": "^[A-Za-z0-9_.:-]+$"
+            },
+            "source_updated_at": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "payload": {
+              "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/PositionDto"
+            },
+            "batch_id": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "required": [
+            "id",
+            "kind",
+            "account",
+            "source_id",
+            "source_updated_at",
+            "payload",
+            "batch_id"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            "kind": {
+              "enum": [
+                "balance"
+              ]
+            },
+            "environment": {
+              "enum": [
+                "sandbox",
+                "production"
+              ]
+            },
+            "account": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100,
+              "pattern": "^[A-Za-z0-9_.:-]+$"
+            },
+            "source_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100,
+              "pattern": "^[A-Za-z0-9_.:-]+$"
+            },
+            "source_updated_at": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "payload": {
+              "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/BalanceDto"
+            },
+            "batch_id": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "required": [
+            "id",
+            "kind",
+            "account",
+            "source_id",
+            "source_updated_at",
+            "payload",
+            "batch_id"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "RecordVersionDto": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "enum": [
+                "order"
+              ]
+            },
+            "environment": {
+              "enum": [
+                "sandbox",
+                "production"
+              ]
+            },
+            "account": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100,
+              "pattern": "^[A-Za-z0-9_.:-]+$"
+            },
+            "source_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100,
+              "pattern": "^[A-Za-z0-9_.:-]+$"
+            },
+            "source_updated_at": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "payload": {
+              "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/OrderDto"
+            },
+            "batch_id": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "required": [
+            "kind",
+            "account",
+            "source_id",
+            "source_updated_at",
+            "payload",
+            "batch_id"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "enum": [
+                "execution"
+              ]
+            },
+            "environment": {
+              "enum": [
+                "sandbox",
+                "production"
+              ]
+            },
+            "account": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100,
+              "pattern": "^[A-Za-z0-9_.:-]+$"
+            },
+            "source_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100,
+              "pattern": "^[A-Za-z0-9_.:-]+$"
+            },
+            "source_updated_at": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "payload": {
+              "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/ExecutionDto"
+            },
+            "batch_id": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "required": [
+            "kind",
+            "account",
+            "source_id",
+            "source_updated_at",
+            "payload",
+            "batch_id"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "enum": [
+                "position"
+              ]
+            },
+            "environment": {
+              "enum": [
+                "sandbox",
+                "production"
+              ]
+            },
+            "account": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100,
+              "pattern": "^[A-Za-z0-9_.:-]+$"
+            },
+            "source_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100,
+              "pattern": "^[A-Za-z0-9_.:-]+$"
+            },
+            "source_updated_at": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "payload": {
+              "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/PositionDto"
+            },
+            "batch_id": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "required": [
+            "kind",
+            "account",
+            "source_id",
+            "source_updated_at",
+            "payload",
+            "batch_id"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "enum": [
+                "balance"
+              ]
+            },
+            "environment": {
+              "enum": [
+                "sandbox",
+                "production"
+              ]
+            },
+            "account": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100,
+              "pattern": "^[A-Za-z0-9_.:-]+$"
+            },
+            "source_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100,
+              "pattern": "^[A-Za-z0-9_.:-]+$"
+            },
+            "source_updated_at": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "payload": {
+              "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/BalanceDto"
+            },
+            "batch_id": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "required": [
+            "kind",
+            "account",
+            "source_id",
+            "source_updated_at",
+            "payload",
+            "batch_id"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "BrokerOrderDto": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "kind": {
+          "enum": [
+            "order"
+          ]
+        },
+        "environment": {
+          "enum": [
+            "sandbox",
+            "production"
+          ]
+        },
+        "account": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100,
+          "pattern": "^[A-Za-z0-9_.:-]+$"
+        },
+        "source_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100,
+          "pattern": "^[A-Za-z0-9_.:-]+$"
+        },
+        "source_updated_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "payload": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/OrderDto"
+        },
+        "batch_id": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "account",
+        "source_id",
+        "source_updated_at",
+        "payload",
+        "batch_id"
+      ],
+      "additionalProperties": false
+    },
+    "BatchDetailDto": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "device_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "environment": {
+          "enum": [
+            "sandbox",
+            "production"
+          ]
+        },
+        "received_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "record_count": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "digest": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "records": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/RecordVersionDto"
+          },
+          "maxItems": 100
+        }
+      },
+      "required": [
+        "id",
+        "device_id",
+        "received_at",
+        "record_count",
+        "digest",
+        "records"
+      ],
+      "additionalProperties": false
+    },
+    "AdminSourceDto": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^(legacy|[a-f0-9]{64})$"
+        },
+        "uid": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "uid"
+      ],
+      "additionalProperties": false
+    },
+    "LegacyImportResultDto": {
+      "type": "object",
+      "properties": {
+        "revision_id": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "duplicate": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "revision_id",
+        "duplicate"
+      ],
+      "additionalProperties": false
+    },
+    "LegacyPlacedResultDto": {
+      "type": "object",
+      "properties": {
+        "request_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "environment": {
+          "enum": [
+            "sandbox",
+            "production"
+          ]
+        },
+        "database": {
+          "enum": [
+            "committed"
+          ]
+        },
+        "duplicate": {
+          "type": "boolean"
+        },
+        "sheets": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/ProjectionResultDto"
+        }
+      },
+      "required": [
+        "request_id",
+        "environment",
+        "database",
+        "duplicate",
+        "sheets"
+      ],
+      "additionalProperties": false
+    },
+    "PlanningSourceDto": {
+      "type": "object",
+      "properties": {
+        "contract_version": {
+          "enum": [
+            "2.0"
+          ]
+        },
+        "source_context": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/PlanningSourceContext"
+        },
+        "state": {
+          "enum": [
+            "ACTIVE"
+          ]
+        },
+        "registry_id": {
+          "type": "string",
+          "minLength": 10,
+          "maxLength": 200
+        },
+        "features": {
+          "type": "object",
+          "properties": {
+            "ingest_enabled": {
+              "type": "boolean"
+            },
+            "execution_enabled": {
+              "type": "boolean"
+            },
+            "sheet_writes_enabled": {
+              "type": "boolean"
+            },
+            "live_notifications_enabled": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "ingest_enabled",
+            "execution_enabled",
+            "sheet_writes_enabled",
+            "live_notifications_enabled"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "contract_version",
+        "source_context",
+        "state",
+        "registry_id",
+        "features"
+      ],
+      "additionalProperties": false
+    },
+    "Eligibility": {
+      "type": "object",
+      "properties": {
+        "eligible": {
+          "type": "boolean"
+        },
+        "reasons": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[A-Z][A-Z0-9_]{0,79}$"
+          },
+          "maxItems": 50
+        },
+        "server_time": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "eligible",
+        "reasons",
+        "server_time"
+      ],
+      "additionalProperties": false
+    },
+    "CashRequirements": {
+      "type": "object",
+      "properties": {
+        "currency": {
+          "enum": [
+            "VND"
+          ]
+        },
+        "principal_vnd": {
+          "type": "string",
+          "pattern": "^(?:0|[1-9][0-9]{0,23})(?:\\.[0-9]{1,8})?$"
+        },
+        "fee_reserve_vnd": {
+          "type": "string",
+          "pattern": "^(?:0|[1-9][0-9]{0,23})(?:\\.[0-9]{1,8})?$"
+        },
+        "required_cash_vnd": {
+          "type": "string",
+          "pattern": "^(?:0|[1-9][0-9]{0,23})(?:\\.[0-9]{1,8})?$"
+        },
+        "fee_reserve_rate": {
+          "type": "string",
+          "pattern": "^(?:0|[1-9][0-9]{0,23})(?:\\.[0-9]{1,8})?$"
+        },
+        "policy_version": {
+          "enum": [
+            "cash-v1"
+          ]
+        },
+        "cash_only": {
+          "enum": [
+            true
+          ]
+        }
+      },
+      "required": [
+        "currency",
+        "principal_vnd",
+        "fee_reserve_vnd",
+        "required_cash_vnd",
+        "fee_reserve_rate",
+        "policy_version",
+        "cash_only"
+      ],
+      "additionalProperties": false
+    },
+    "PlanningIntentDto": {
+      "type": "object",
+      "properties": {
+        "contract_version": {
+          "enum": [
+            "2.0"
+          ]
+        },
+        "source_context": {
+          "anyOf": [
+            {
+              "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/PlanningSourceContext"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "cash_requirements": {
+          "anyOf": [
+            {
+              "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/CashRequirements"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "plan_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "intent_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "version": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "authoring_state": {
+          "enum": [
+            "DRAFT",
+            "TENTATIVE",
+            "READY_FOR_REVIEW",
+            "APPROVED",
+            "REJECTED",
+            "WITHDRAWN",
+            "SUPERSEDED"
+          ]
+        },
+        "execution_state": {
+          "enum": [
+            "NOT_STARTED",
+            "PLACEMENT_UNKNOWN",
+            "PLACED",
+            "PARTIALLY_FILLED",
+            "FILLED",
+            "CANCEL_REQUESTED",
+            "CANCEL_UNKNOWN",
+            "CANCELLED",
+            "BROKER_REJECTED",
+            "EXPIRED"
+          ]
+        },
+        "execution_version": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "placement_claim_request_id": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "uuid"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "placement_claim_device_id": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "uuid"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "placement_claimed_at": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "date-time"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "placement_claim_expires_at": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "date-time"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "environment": {
+          "enum": [
+            "sandbox",
+            "production"
+          ]
+        },
+        "recipient_uid": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "account": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100,
+              "pattern": "^[A-Za-z0-9_.:-]+$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "symbol": {
+          "type": "string",
+          "pattern": "^[A-Z0-9]{3,10}$"
+        },
+        "side": {
+          "enum": [
+            "BUY",
+            "SELL"
+          ]
+        },
+        "quantity": {
+          "type": "string",
+          "pattern": "^(?:0|[1-9][0-9]{0,23})(?:\\.[0-9]{1,8})?$"
+        },
+        "limit_price_vnd": {
+          "type": "string",
+          "pattern": "^(?:0|[1-9][0-9]{0,23})(?:\\.[0-9]{1,8})?$"
+        },
+        "scheduled_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "window_starts_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "window_ends_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "thesis": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 4000
+        },
+        "conditions": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 4000
+        },
+        "source_task": {
+          "enum": [
+            "DNSE_MONTHLY",
+            "DNSE_DAILY",
+            "MIGRATION"
+          ]
+        },
+        "source_run_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "proposal_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "eligibility": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Eligibility"
+        },
+        "broker_order_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100,
+          "pattern": "^[A-Za-z0-9_.:-]+$"
+        },
+        "broker_reported_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "stale_after_broker_accept": {
+          "type": "boolean"
+        },
+        "broker_status": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100,
+          "pattern": "^[A-Za-z0-9_.:-]+$"
+        },
+        "filled_quantity": {
+          "type": "string",
+          "pattern": "^(?:0|[1-9][0-9]{0,23})(?:\\.[0-9]{1,8})?$"
+        },
+        "average_fill_price_vnd": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^(?:0|[1-9][0-9]{0,23})(?:\\.[0-9]{1,8})?$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "last_broker_update_at": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "contract_version",
+        "source_context",
+        "cash_requirements",
+        "plan_id",
+        "intent_id",
+        "version",
+        "authoring_state",
+        "execution_state",
+        "execution_version",
+        "placement_claim_request_id",
+        "placement_claim_device_id",
+        "placement_claimed_at",
+        "placement_claim_expires_at",
+        "environment",
+        "recipient_uid",
+        "account",
+        "symbol",
+        "side",
+        "quantity",
+        "limit_price_vnd",
+        "scheduled_at",
+        "window_starts_at",
+        "window_ends_at",
+        "thesis",
+        "conditions",
+        "source_task",
+        "source_run_id",
+        "proposal_id",
+        "eligibility"
+      ],
+      "additionalProperties": false
+    },
+    "CanonicalAllItem": {
+      "type": "object",
+      "properties": {
+        "contract_version": {
+          "enum": [
+            "2.0"
+          ]
+        },
+        "source_context": {
+          "anyOf": [
+            {
+              "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/PlanningSourceContext"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "cash_requirements": {
+          "anyOf": [
+            {
+              "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/CashRequirements"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "plan_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "intent_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "version": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "authoring_state": {
+          "enum": [
+            "DRAFT",
+            "TENTATIVE",
+            "READY_FOR_REVIEW",
+            "APPROVED",
+            "REJECTED",
+            "WITHDRAWN",
+            "SUPERSEDED"
+          ]
+        },
+        "execution_state": {
+          "enum": [
+            "NOT_STARTED",
+            "PLACEMENT_UNKNOWN",
+            "PLACED",
+            "PARTIALLY_FILLED",
+            "FILLED",
+            "CANCEL_REQUESTED",
+            "CANCEL_UNKNOWN",
+            "CANCELLED",
+            "BROKER_REJECTED",
+            "EXPIRED"
+          ]
+        },
+        "execution_version": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "placement_claim_request_id": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "uuid"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "placement_claim_device_id": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "uuid"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "placement_claimed_at": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "date-time"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "placement_claim_expires_at": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "date-time"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "environment": {
+          "enum": [
+            "sandbox",
+            "production"
+          ]
+        },
+        "recipient_uid": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "account": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100,
+              "pattern": "^[A-Za-z0-9_.:-]+$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "symbol": {
+          "type": "string",
+          "pattern": "^[A-Z0-9]{3,10}$"
+        },
+        "side": {
+          "enum": [
+            "BUY",
+            "SELL"
+          ]
+        },
+        "quantity": {
+          "type": "string",
+          "pattern": "^(?:0|[1-9][0-9]{0,23})(?:\\.[0-9]{1,8})?$"
+        },
+        "limit_price_vnd": {
+          "type": "string",
+          "pattern": "^(?:0|[1-9][0-9]{0,23})(?:\\.[0-9]{1,8})?$"
+        },
+        "scheduled_at": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "date-time"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "window_starts_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "window_ends_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "thesis": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 4000
+        },
+        "conditions": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 4000
+        },
+        "source_task": {
+          "enum": [
+            "DNSE_MONTHLY",
+            "DNSE_DAILY",
+            "MIGRATION"
+          ]
+        },
+        "source_run_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "proposal_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "eligibility": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Eligibility"
+        },
+        "broker_order_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100,
+          "pattern": "^[A-Za-z0-9_.:-]+$"
+        },
+        "broker_reported_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "stale_after_broker_accept": {
+          "type": "boolean"
+        },
+        "broker_status": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100,
+          "pattern": "^[A-Za-z0-9_.:-]+$"
+        },
+        "filled_quantity": {
+          "type": "string",
+          "pattern": "^(?:0|[1-9][0-9]{0,23})(?:\\.[0-9]{1,8})?$"
+        },
+        "average_fill_price_vnd": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^(?:0|[1-9][0-9]{0,23})(?:\\.[0-9]{1,8})?$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "last_broker_update_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "record_kind": {
+          "enum": [
+            "CANONICAL"
+          ]
+        },
+        "scheduled_date": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "date"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "time_status": {
+          "enum": [
+            "EXACT",
+            "DATE_ONLY",
+            "INVALID",
+            "MISSING"
+          ]
+        },
+        "raw_scheduled_at": {
+          "type": [
+            "string",
+            "number",
+            "boolean",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "contract_version",
+        "source_context",
+        "cash_requirements",
+        "plan_id",
+        "intent_id",
+        "version",
+        "authoring_state",
+        "execution_state",
+        "execution_version",
+        "placement_claim_request_id",
+        "placement_claim_device_id",
+        "placement_claimed_at",
+        "placement_claim_expires_at",
+        "environment",
+        "recipient_uid",
+        "account",
+        "symbol",
+        "side",
+        "quantity",
+        "limit_price_vnd",
+        "scheduled_at",
+        "window_starts_at",
+        "window_ends_at",
+        "thesis",
+        "conditions",
+        "source_task",
+        "source_run_id",
+        "proposal_id",
+        "eligibility",
+        "record_kind",
+        "scheduled_date",
+        "time_status",
+        "raw_scheduled_at"
+      ],
+      "additionalProperties": false
+    },
+    "LegacyFields": {
+      "type": "object",
+      "maxProperties": 100,
+      "additionalProperties": {
+        "type": [
+          "string",
+          "number",
+          "boolean",
+          "null"
+        ]
+      },
+      "description": "Named worksheet cells retained verbatim for legacy display/provenance; scalar values only, no arbitrary recursive JSON. Total response byte cap applies."
+    },
+    "LegacyAllItem": {
+      "type": "object",
+      "properties": {
+        "contract_version": {
+          "enum": [
+            "2.0"
+          ]
+        },
+        "source_context": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/PlanningSourceContext"
+        },
+        "plan_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "intent_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "version": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "environment": {
+          "enum": [
+            "sandbox",
+            "production"
+          ]
+        },
+        "symbol": {
+          "type": "string",
+          "pattern": "^[A-Z][A-Z0-9]{1,9}$"
+        },
+        "side": {
+          "enum": [
+            "BUY",
+            "SELL"
+          ]
+        },
+        "thesis": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 4000
+        },
+        "conditions": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 4000
+        },
+        "eligibility": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Eligibility"
+        },
+        "record_kind": {
+          "enum": [
+            "LEGACY"
+          ]
+        },
+        "authoring_state": {
+          "enum": [
+            "LEGACY"
+          ]
+        },
+        "execution_state": {
+          "enum": [
+            "LEGACY_UNVERIFIED"
+          ]
+        },
+        "recipient_uid": {
+          "type": "null"
+        },
+        "account": {
+          "type": "null"
+        },
+        "quantity": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 4000
+        },
+        "limit_price_vnd": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 4000
+        },
+        "scheduled_at": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "date-time"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "window_starts_at": {
+          "type": "null"
+        },
+        "window_ends_at": {
+          "type": "null"
+        },
+        "cash_requirements": {
+          "type": "null"
+        },
+        "source_row": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "legacy_fields": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/LegacyFields"
+        },
+        "legacy_status": {
+          "type": [
+            "string",
+            "number",
+            "boolean",
+            "null"
+          ]
+        },
+        "scheduled_date": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "date"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "time_status": {
+          "enum": [
+            "EXACT",
+            "DATE_ONLY",
+            "INVALID",
+            "MISSING"
+          ]
+        },
+        "raw_scheduled_at": {
+          "type": [
+            "string",
+            "number",
+            "boolean",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "contract_version",
+        "source_context",
+        "plan_id",
+        "intent_id",
+        "version",
+        "environment",
+        "symbol",
+        "side",
+        "thesis",
+        "conditions",
+        "eligibility",
+        "record_kind",
+        "authoring_state",
+        "execution_state",
+        "recipient_uid",
+        "account",
+        "quantity",
+        "limit_price_vnd",
+        "scheduled_at",
+        "window_starts_at",
+        "window_ends_at",
+        "cash_requirements",
+        "source_row",
+        "legacy_fields",
+        "legacy_status",
+        "scheduled_date",
+        "time_status",
+        "raw_scheduled_at"
+      ],
+      "additionalProperties": false
+    },
+    "PlanningAllItem": {
+      "oneOf": [
+        {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/CanonicalAllItem"
+        },
+        {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/LegacyAllItem"
+        }
+      ]
+    },
+    "PlanningAllPageDto": {
+      "type": "object",
+      "properties": {
+        "contract_version": {
+          "enum": [
+            "2.0"
+          ]
+        },
+        "source_context": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/PlanningSourceContext"
+        },
+        "snapshot_id": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/PlanningAllItem"
+          },
+          "maxItems": 100
+        }
+      },
+      "required": [
+        "contract_version",
+        "source_context",
+        "snapshot_id",
+        "items"
+      ],
+      "additionalProperties": false
+    },
+    "PlanningPageDto": {
+      "oneOf": [
+        {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/PlanningAllPageDto"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "contract_version": {
+              "enum": [
+                "2.0"
+              ]
+            },
+            "source_context": {
+              "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/PlanningSourceContext"
+            },
+            "items": {
+              "type": "array",
+              "items": {
+                "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/PlanningIntentDto"
+              },
+              "maxItems": 100
+            }
+          },
+          "required": [
+            "contract_version",
+            "items"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "PreflightResultDto": {
+      "type": "object",
+      "properties": {
+        "eligible": {
+          "type": "boolean"
+        },
+        "reasons": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[A-Z][A-Z0-9_]{0,79}$"
+          },
+          "maxItems": 50
+        },
+        "server_time": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "source_context": {
+          "anyOf": [
+            {
+              "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/PlanningSourceContext"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "cash_requirements": {
+          "anyOf": [
+            {
+              "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/CashRequirements"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "preflight_id": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "uuid"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "preflight_expires_at": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "date-time"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "duplicate": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "eligible",
+        "reasons",
+        "server_time",
+        "source_context",
+        "cash_requirements",
+        "preflight_id",
+        "preflight_expires_at",
+        "duplicate"
+      ],
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "oneOf": [
+            {
+              "properties": {
+                "eligible": {
+                  "enum": [
+                    true
+                  ]
+                },
+                "reasons": {
+                  "maxItems": 0
+                },
+                "preflight_id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "preflight_expires_at": {
+                  "type": "string",
+                  "format": "date-time"
+                }
+              }
+            },
+            {
+              "properties": {
+                "eligible": {
+                  "enum": [
+                    false
+                  ]
+                },
+                "reasons": {
+                  "minItems": 1
+                },
+                "preflight_id": {
+                  "type": "null"
+                },
+                "preflight_expires_at": {
+                  "type": "null"
+                },
+                "duplicate": {
+                  "enum": [
+                    false
+                  ]
+                }
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "PlacedIntentResultDto": {
+      "type": "object",
+      "properties": {
+        "intent_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "plan_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "device_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "preflight_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "source_context": {
+          "anyOf": [
+            {
+              "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/PlanningSourceContext"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "reported_version": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "canonical_version_at_report": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "stale_after_broker_accept": {
+          "type": "boolean"
+        },
+        "preflight_valid_for_order": {
+          "type": "boolean"
+        },
+        "order_matches_preflight": {
+          "type": "boolean"
+        },
+        "authorization_anomalies": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "maxItems": 10
+        },
+        "environment": {
+          "enum": [
+            "sandbox",
+            "production"
+          ]
+        },
+        "account": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100,
+          "pattern": "^[A-Za-z0-9_.:-]+$"
+        },
+        "order_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100,
+          "pattern": "^[A-Za-z0-9_.:-]+$"
+        },
+        "request_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "report_digest": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "reported_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "duplicate": {
+          "type": "boolean"
+        },
+        "database": {
+          "enum": [
+            "committed"
+          ]
+        },
+        "broker_record_duplicate": {
+          "type": "boolean"
+        },
+        "report_destination": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/ReportDestination"
+        },
+        "sheets": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/ProjectionResultDto"
+        }
+      },
+      "required": [
+        "intent_id",
+        "plan_id",
+        "device_id",
+        "preflight_id",
+        "source_context",
+        "reported_version",
+        "canonical_version_at_report",
+        "stale_after_broker_accept",
+        "preflight_valid_for_order",
+        "order_matches_preflight",
+        "authorization_anomalies",
+        "environment",
+        "account",
+        "order_id",
+        "request_id",
+        "report_digest",
+        "reported_at",
+        "duplicate",
+        "database",
+        "broker_record_duplicate",
+        "report_destination",
+        "sheets"
+      ],
+      "additionalProperties": false
+    },
+    "DeviceRegistrationResultDto": {
+      "type": "object",
+      "properties": {
+        "device_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "registered": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "device_id",
+        "registered"
+      ],
+      "additionalProperties": false
+    },
+    "ReceiptResultDto": {
+      "type": "object",
+      "properties": {
+        "event_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "recorded": {
+          "enum": [
+            "RECEIVED",
+            "OPENED"
+          ]
+        },
+        "broker_action_executed": {
+          "enum": [
+            false
+          ]
+        }
+      },
+      "required": [
+        "event_id",
+        "recorded",
+        "broker_action_executed"
+      ],
+      "additionalProperties": false
+    },
+    "NotificationPublishResultDto": {
+      "type": "object",
+      "properties": {
+        "event_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "version": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "duplicate": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "event_id",
+        "version",
+        "duplicate"
+      ],
+      "additionalProperties": false
+    },
+    "NotificationPlanDto": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "plan_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100,
+              "pattern": "^[A-Za-z0-9_.:-]+$"
+            },
+            "version": {
+              "enum": [
+                0
+              ]
+            },
+            "event_id": {
+              "type": "null"
+            }
+          },
+          "required": [
+            "plan_id",
+            "version",
+            "event_id"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "plan_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100,
+              "pattern": "^[A-Za-z0-9_.:-]+$"
+            },
+            "version": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "event_id": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "account": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100,
+              "pattern": "^[A-Za-z0-9_.:-]+$"
+            },
+            "symbol": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100,
+              "pattern": "^[A-Za-z0-9_.:-]+$"
+            },
+            "recipient_uid": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "plan_id",
+            "version",
+            "event_id",
+            "account",
+            "symbol"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "FcmPreview": {
+      "type": "object",
+      "properties": {
+        "token": {
+          "enum": [
+            "DEMO-DEVICE-NOT-A-REAL-FCM-TOKEN"
+          ]
+        },
+        "data": {
+          "type": "object",
+          "properties": {
+            "schema_version": {
+              "enum": [
+                "1"
+              ]
+            },
+            "event_id": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "target_uid": {
+              "type": "string",
+              "minLength": 0,
+              "maxLength": 128
+            },
+            "plan_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100,
+              "pattern": "^[A-Za-z0-9_.:-]+$"
+            },
+            "version": {
+              "type": "string",
+              "pattern": "^[0-9]+$"
+            },
+            "type": {
+              "enum": [
+                "PLANNING_REVIEW_REQUIRED"
+              ]
+            },
+            "test_marker": {
+              "enum": [
+                "DEMO_ONLY"
+              ]
+            },
+            "notification_namespace": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 240
+            }
+          },
+          "required": [
+            "schema_version",
+            "event_id",
+            "target_uid",
+            "plan_id",
+            "version",
+            "type"
+          ],
+          "additionalProperties": false
+        },
+        "android": {
+          "type": "object",
+          "properties": {
+            "priority": {
+              "enum": [
+                "high"
+              ]
+            },
+            "ttl": {
+              "type": "string",
+              "pattern": "^[0-9]+s$"
+            }
+          },
+          "required": [
+            "priority",
+            "ttl"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "token",
+        "data",
+        "android"
+      ],
+      "additionalProperties": false
+    },
+    "Observation": {
+      "type": "object",
+      "properties": {
+        "schema_version": {
+          "enum": [
+            "production-observation.v1"
+          ]
+        },
+        "timestamp": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "component": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "action": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "stage": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "result": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "correlation": {
+          "type": "object",
+          "properties": {
+            "run_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            },
+            "event_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            },
+            "plan_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            },
+            "action_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            },
+            "version": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "source_identity": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            },
+            "source_generation": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          "additionalProperties": false
+        },
+        "correlation_state": {
+          "enum": [
+            "KNOWN",
+            "PARTIAL",
+            "UNKNOWN"
+          ]
+        },
+        "unknown_correlation": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "run_id",
+              "event_id",
+              "plan_id",
+              "action_id",
+              "version",
+              "source_identity",
+              "source_generation"
+            ]
+          },
+          "maxItems": 7
+        },
+        "duration_ms": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "error_code": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        }
+      },
+      "required": [
+        "schema_version",
+        "timestamp",
+        "component",
+        "action",
+        "stage",
+        "result",
+        "correlation",
+        "correlation_state",
+        "unknown_correlation"
+      ],
+      "additionalProperties": false
+    },
+    "NotificationDto": {
+      "type": "object",
+      "properties": {
+        "event_id": {
+          "format": "uuid",
+          "title": "Event Id",
+          "type": "string"
+        },
+        "recipient_uid": {
+          "anyOf": [
+            {
+              "maxLength": 128,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Recipient Uid"
+        },
+        "plan_id": {
+          "maxLength": 100,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_.:-]+$",
+          "title": "Plan Id",
+          "type": "string"
+        },
+        "planning_revision_id": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Planning Revision Id",
+          "type": "string"
+        },
+        "planning_item_id": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Planning Item Id"
+        },
+        "expected_plan_version": {
+          "minimum": 0,
+          "title": "Expected Plan Version",
+          "type": "integer"
+        },
+        "action": {
+          "enum": [
+            "PLACE_ORDER",
+            "CANCEL_ORDER",
+            "WITHDRAW_PLAN"
+          ],
+          "title": "Action",
+          "type": "string"
+        },
+        "reason": {
+          "maxLength": 1000,
+          "minLength": 1,
+          "title": "Reason",
+          "type": "string"
+        },
+        "account": {
+          "maxLength": 100,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_.:-]+$",
+          "title": "Account",
+          "type": "string"
+        },
+        "symbol": {
+          "maxLength": 100,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_.:-]+$",
+          "title": "Symbol",
+          "type": "string"
+        },
+        "order_id": {
+          "anyOf": [
+            {
+              "maxLength": 100,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9_.:-]+$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Order Id"
+        },
+        "due_at": {
+          "format": "date-time",
+          "title": "Due At",
+          "type": "string"
+        },
+        "expires_at": {
+          "format": "date-time",
+          "title": "Expires At",
+          "type": "string"
+        },
+        "version": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "created_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "superseded_by": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "uuid"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "delivery_state": {
+          "enum": [
+            "PREVIEWED",
+            "PENDING",
+            "ACCEPTED",
+            "FAILED",
+            "EXPIRED",
+            "SUPERSEDED",
+            "RETRY",
+            "UNREGISTERED"
+          ]
+        },
+        "source_context": {
+          "anyOf": [
+            {
+              "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/PlanningSourceContext"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "is_current": {
+          "type": "boolean"
+        },
+        "revision_is_current": {
+          "type": "boolean"
+        },
+        "requires_review": {
+          "type": "boolean"
+        },
+        "test_notification_visible": {
+          "type": "boolean"
+        },
+        "broker_action_executed": {
+          "enum": [
+            false
+          ]
+        },
+        "source": {
+          "enum": [
+            "sheet"
+          ]
+        },
+        "sheet": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/SheetInstructionDto"
+        },
+        "delivery_updated_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "test_push_until": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "test_marker": {
+          "enum": [
+            "DEMO_ONLY"
+          ]
+        },
+        "notification_namespace": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 240
+        },
+        "target_device_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "fcm_preview": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/FcmPreview"
+        },
+        "observation_server_accepted": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Observation"
+        },
+        "observation_delivery_result": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Observation"
+        }
+      },
+      "required": [
+        "event_id",
+        "plan_id",
+        "planning_revision_id",
+        "expected_plan_version",
+        "action",
+        "reason",
+        "account",
+        "symbol",
+        "due_at",
+        "expires_at",
+        "version",
+        "created_at",
+        "superseded_by",
+        "delivery_state",
+        "is_current",
+        "revision_is_current",
+        "requires_review",
+        "test_notification_visible",
+        "broker_action_executed"
+      ],
+      "additionalProperties": false
+    },
+    "PreviewResultDto": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "mode": {
+              "enum": [
+                "CLOUD_PREVIEW"
+              ]
+            },
+            "persisted": {
+              "enum": [
+                false
+              ]
+            },
+            "fcm_sent": {
+              "enum": [
+                false
+              ]
+            },
+            "broker_action_executed": {
+              "enum": [
+                false
+              ]
+            },
+            "planning": {
+              "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/DemoPlanningDto"
+            },
+            "notification": {
+              "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/NotificationCommand"
+            },
+            "fcm_preview": {
+              "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/FcmPreview"
+            }
+          },
+          "required": [
+            "mode",
+            "persisted",
+            "fcm_sent",
+            "broker_action_executed",
+            "planning",
+            "notification",
+            "fcm_preview"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "mode": {
+              "enum": [
+                "CLOUD_PREVIEW"
+              ]
+            },
+            "event_id": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "calendar_test": {
+              "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/CalendarTest"
+            },
+            "test_receipt_persisted": {
+              "enum": [
+                true
+              ]
+            },
+            "notification_persisted": {
+              "enum": [
+                false
+              ]
+            },
+            "fcm_sent": {
+              "enum": [
+                false
+              ]
+            },
+            "broker_action_executed": {
+              "enum": [
+                false
+              ]
+            },
+            "duplicate": {
+              "type": "boolean"
+            },
+            "fcm_preview": {
+              "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/FcmPreview"
+            }
+          },
+          "required": [
+            "mode",
+            "event_id",
+            "calendar_test",
+            "test_receipt_persisted",
+            "notification_persisted",
+            "fcm_sent",
+            "broker_action_executed",
+            "duplicate",
+            "fcm_preview"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "HealthDto": {
+      "type": "object",
+      "properties": {
+        "status": {
+          "enum": [
+            "ok"
+          ]
+        },
+        "storage": {
+          "enum": [
+            "firestore"
+          ]
+        }
+      },
+      "required": [
+        "status",
+        "storage"
+      ],
+      "additionalProperties": false
+    },
+    "BatchPageDto": {
+      "type": "object",
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/BatchSummaryDto"
+          },
+          "maxItems": 100
+        }
+      },
+      "required": [
+        "items"
+      ],
+      "additionalProperties": false
+    },
+    "OrderPageDto": {
+      "type": "object",
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/BrokerOrderDto"
+          },
+          "maxItems": 100
+        }
+      },
+      "required": [
+        "items"
+      ],
+      "additionalProperties": false
+    },
+    "AdminSourcePageDto": {
+      "type": "object",
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/AdminSourceDto"
+          },
+          "maxItems": 101
+        }
+      },
+      "required": [
+        "items"
+      ],
+      "additionalProperties": false
+    },
+    "AdminRecordPageDto": {
+      "type": "object",
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/BrokerRecordDto"
+          },
+          "maxItems": 100
+        }
+      },
+      "required": [
+        "items"
+      ],
+      "additionalProperties": false
+    },
+    "NotificationPageDto": {
+      "type": "object",
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/NotificationDto"
+          },
+          "maxItems": 100
+        }
+      },
+      "required": [
+        "items"
+      ],
+      "additionalProperties": false
+    },
+    "syncStatusRequest": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "object",
+          "properties": {},
+          "additionalProperties": false
+        },
+        "query": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Empty"
+        },
+        "body": {
+          "type": "null"
+        }
+      },
+      "required": [
+        "path",
+        "query",
+        "body"
+      ],
+      "additionalProperties": false
+    },
+    "syncStatusResponse": {
+      "allOf": [
+        {
+          "$ref": "urn:finance:mobile-envelope:v1:proposal#/definitions/Success"
+        },
+        {
+          "properties": {
+            "data": {
+              "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/SyncStatusDto"
+            },
+            "meta": {
+              "properties": {
+                "http_status": {
+                  "enum": [
+                    200
+                  ]
+                },
+                "pagination": {
+                  "type": "null"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "Error401": {
+      "allOf": [
+        {
+          "$ref": "urn:finance:mobile-envelope:v1:proposal#/definitions/Failure"
+        },
+        {
+          "properties": {
+            "meta": {
+              "properties": {
+                "http_status": {
+                  "enum": [
+                    401
+                  ]
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "Error403": {
+      "allOf": [
+        {
+          "$ref": "urn:finance:mobile-envelope:v1:proposal#/definitions/Failure"
+        },
+        {
+          "properties": {
+            "meta": {
+              "properties": {
+                "http_status": {
+                  "enum": [
+                    403
+                  ]
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "Error409": {
+      "allOf": [
+        {
+          "$ref": "urn:finance:mobile-envelope:v1:proposal#/definitions/Failure"
+        },
+        {
+          "properties": {
+            "meta": {
+              "properties": {
+                "http_status": {
+                  "enum": [
+                    409
+                  ]
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "Error422": {
+      "allOf": [
+        {
+          "$ref": "urn:finance:mobile-envelope:v1:proposal#/definitions/Failure"
+        },
+        {
+          "properties": {
+            "meta": {
+              "properties": {
+                "http_status": {
+                  "enum": [
+                    422
+                  ]
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "Error503": {
+      "allOf": [
+        {
+          "$ref": "urn:finance:mobile-envelope:v1:proposal#/definitions/Failure"
+        },
+        {
+          "properties": {
+            "meta": {
+              "properties": {
+                "http_status": {
+                  "enum": [
+                    503
+                  ]
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "adminSourcesRequest": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "object",
+          "properties": {},
+          "additionalProperties": false
+        },
+        "query": {
+          "type": "object",
+          "properties": {
+            "limit": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20
+            },
+            "cursor": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            }
+          },
+          "additionalProperties": false
+        },
+        "body": {
+          "type": "null"
+        }
+      },
+      "required": [
+        "path",
+        "query",
+        "body"
+      ],
+      "additionalProperties": false
+    },
+    "adminSourcesResponse": {
+      "allOf": [
+        {
+          "$ref": "urn:finance:mobile-envelope:v1:proposal#/definitions/Success"
+        },
+        {
+          "properties": {
+            "data": {
+              "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/AdminSourcePageDto"
+            },
+            "meta": {
+              "properties": {
+                "http_status": {
+                  "enum": [
+                    200
+                  ]
+                },
+                "pagination": {
+                  "allOf": [
+                    {
+                      "$ref": "urn:finance:mobile-envelope:v1:proposal#/definitions/Pagination"
+                    },
+                    {
+                      "properties": {
+                        "limit": {
+                          "maximum": 100
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "adminRecordsRequest": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "object",
+          "properties": {
+            "source": {
+              "type": "string",
+              "pattern": "^(legacy|[a-f0-9]{64})$"
+            }
+          },
+          "required": [
+            "source"
+          ],
+          "additionalProperties": false
+        },
+        "query": {
+          "type": "object",
+          "properties": {
+            "limit": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20
+            },
+            "cursor": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            }
+          },
+          "additionalProperties": false
+        },
+        "body": {
+          "type": "null"
+        }
+      },
+      "required": [
+        "path",
+        "query",
+        "body"
+      ],
+      "additionalProperties": false
+    },
+    "adminRecordsResponse": {
+      "allOf": [
+        {
+          "$ref": "urn:finance:mobile-envelope:v1:proposal#/definitions/Success"
+        },
+        {
+          "properties": {
+            "data": {
+              "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/AdminRecordPageDto"
+            },
+            "meta": {
+              "properties": {
+                "http_status": {
+                  "enum": [
+                    200
+                  ]
+                },
+                "pagination": {
+                  "allOf": [
+                    {
+                      "$ref": "urn:finance:mobile-envelope:v1:proposal#/definitions/Pagination"
+                    },
+                    {
+                      "properties": {
+                        "limit": {
+                          "maximum": 100
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "Error404": {
+      "allOf": [
+        {
+          "$ref": "urn:finance:mobile-envelope:v1:proposal#/definitions/Failure"
+        },
+        {
+          "properties": {
+            "meta": {
+              "properties": {
+                "http_status": {
+                  "enum": [
+                    404
+                  ]
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "allPlanningRequest": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "object",
+          "properties": {},
+          "additionalProperties": false
+        },
+        "query": {
+          "type": "object",
+          "properties": {
+            "view": {
+              "enum": [
+                "all",
+                "upcoming",
+                "history"
+              ],
+              "default": "upcoming"
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20
+            },
+            "cursor": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 2048
+            }
+          },
+          "additionalProperties": false
+        },
+        "body": {
+          "type": "null"
+        }
+      },
+      "required": [
+        "path",
+        "query",
+        "body"
+      ],
+      "additionalProperties": false
+    },
+    "allPlanningResponse": {
+      "allOf": [
+        {
+          "$ref": "urn:finance:mobile-envelope:v1:proposal#/definitions/Success"
+        },
+        {
+          "properties": {
+            "data": {
+              "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/PlanningPageDto"
+            },
+            "meta": {
+              "properties": {
+                "http_status": {
+                  "enum": [
+                    200
+                  ]
+                },
+                "pagination": {
+                  "allOf": [
+                    {
+                      "$ref": "urn:finance:mobile-envelope:v1:proposal#/definitions/Pagination"
+                    },
+                    {
+                      "properties": {
+                        "limit": {
+                          "maximum": 100
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "planningIntentRequest": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "object",
+          "properties": {
+            "intent_id": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "required": [
+            "intent_id"
+          ],
+          "additionalProperties": false
+        },
+        "query": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Empty"
+        },
+        "body": {
+          "type": "null"
+        }
+      },
+      "required": [
+        "path",
+        "query",
+        "body"
+      ],
+      "additionalProperties": false
+    },
+    "planningIntentResponse": {
+      "allOf": [
+        {
+          "$ref": "urn:finance:mobile-envelope:v1:proposal#/definitions/Success"
+        },
+        {
+          "properties": {
+            "data": {
+              "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/PlanningIntentDto"
+            },
+            "meta": {
+              "properties": {
+                "http_status": {
+                  "enum": [
+                    200
+                  ]
+                },
+                "pagination": {
+                  "type": "null"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "planningSourceRequest": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "object",
+          "properties": {},
+          "additionalProperties": false
+        },
+        "query": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Empty"
+        },
+        "body": {
+          "type": "null"
+        }
+      },
+      "required": [
+        "path",
+        "query",
+        "body"
+      ],
+      "additionalProperties": false
+    },
+    "planningSourceResponse": {
+      "allOf": [
+        {
+          "$ref": "urn:finance:mobile-envelope:v1:proposal#/definitions/Success"
+        },
+        {
+          "properties": {
+            "data": {
+              "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/PlanningSourceDto"
+            },
+            "meta": {
+              "properties": {
+                "http_status": {
+                  "enum": [
+                    200
+                  ]
+                },
+                "pagination": {
+                  "type": "null"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "planningPreflightRequest": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "object",
+          "properties": {
+            "intent_id": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "required": [
+            "intent_id"
+          ],
+          "additionalProperties": false
+        },
+        "query": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Empty"
+        },
+        "body": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/PreflightRequest"
+        }
+      },
+      "required": [
+        "path",
+        "query",
+        "body"
+      ],
+      "additionalProperties": false
+    },
+    "planningPreflightResponse": {
+      "allOf": [
+        {
+          "$ref": "urn:finance:mobile-envelope:v1:proposal#/definitions/Success"
+        },
+        {
+          "properties": {
+            "data": {
+              "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/PreflightResultDto"
+            },
+            "meta": {
+              "properties": {
+                "http_status": {
+                  "enum": [
+                    200
+                  ]
+                },
+                "pagination": {
+                  "type": "null"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "Error413": {
+      "allOf": [
+        {
+          "$ref": "urn:finance:mobile-envelope:v1:proposal#/definitions/Failure"
+        },
+        {
+          "properties": {
+            "meta": {
+              "properties": {
+                "http_status": {
+                  "enum": [
+                    413
+                  ]
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "importPlanningRequest": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "object",
+          "properties": {},
+          "additionalProperties": false
+        },
+        "query": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Empty"
+        },
+        "body": {
+          "type": "null"
+        }
+      },
+      "required": [
+        "path",
+        "query",
+        "body"
+      ],
+      "additionalProperties": false
+    },
+    "importPlanningResponse": {
+      "allOf": [
+        {
+          "$ref": "urn:finance:mobile-envelope:v1:proposal#/definitions/Success"
+        },
+        {
+          "properties": {
+            "data": {
+              "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/LegacyImportResultDto"
+            },
+            "meta": {
+              "properties": {
+                "http_status": {
+                  "enum": [
+                    200
+                  ]
+                },
+                "pagination": {
+                  "type": "null"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "retryProjectionRequest": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "object",
+          "properties": {},
+          "additionalProperties": false
+        },
+        "query": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Empty"
+        },
+        "body": {
+          "type": "null"
+        }
+      },
+      "required": [
+        "path",
+        "query",
+        "body"
+      ],
+      "additionalProperties": false
+    },
+    "retryProjectionResponse": {
+      "allOf": [
+        {
+          "$ref": "urn:finance:mobile-envelope:v1:proposal#/definitions/Success"
+        },
+        {
+          "properties": {
+            "data": {
+              "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/ProjectionResultDto"
+            },
+            "meta": {
+              "properties": {
+                "http_status": {
+                  "enum": [
+                    200
+                  ]
+                },
+                "pagination": {
+                  "type": "null"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "reconcileRequest": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "object",
+          "properties": {},
+          "additionalProperties": false
+        },
+        "query": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Empty"
+        },
+        "body": {
+          "type": "null"
+        }
+      },
+      "required": [
+        "path",
+        "query",
+        "body"
+      ],
+      "additionalProperties": false
+    },
+    "reconcileResponse": {
+      "allOf": [
+        {
+          "$ref": "urn:finance:mobile-envelope:v1:proposal#/definitions/Success"
+        },
+        {
+          "properties": {
+            "data": {
+              "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/ProjectionResultDto"
+            },
+            "meta": {
+              "properties": {
+                "http_status": {
+                  "enum": [
+                    200
+                  ]
+                },
+                "pagination": {
+                  "type": "null"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "uploadRequest": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "object",
+          "properties": {},
+          "additionalProperties": false
+        },
+        "query": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Empty"
+        },
+        "body": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/SyncBatch"
+        }
+      },
+      "required": [
+        "path",
+        "query",
+        "body"
+      ],
+      "additionalProperties": false
+    },
+    "uploadResponse": {
+      "allOf": [
+        {
+          "$ref": "urn:finance:mobile-envelope:v1:proposal#/definitions/Success"
+        },
+        {
+          "properties": {
+            "data": {
+              "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/UploadResultDto"
+            },
+            "meta": {
+              "properties": {
+                "http_status": {
+                  "enum": [
+                    200
+                  ]
+                },
+                "pagination": {
+                  "type": "null"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "placedOrderRequest": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "object",
+          "properties": {},
+          "additionalProperties": false
+        },
+        "query": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Empty"
+        },
+        "body": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/PlacedOrderUpdate"
+        }
+      },
+      "required": [
+        "path",
+        "query",
+        "body"
+      ],
+      "additionalProperties": false
+    },
+    "placedOrderResponse": {
+      "allOf": [
+        {
+          "$ref": "urn:finance:mobile-envelope:v1:proposal#/definitions/Success"
+        },
+        {
+          "properties": {
+            "data": {
+              "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/LegacyPlacedResultDto"
+            },
+            "meta": {
+              "properties": {
+                "http_status": {
+                  "enum": [
+                    200
+                  ]
+                },
+                "pagination": {
+                  "type": "null"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "placedOrderV2Request": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "object",
+          "properties": {},
+          "additionalProperties": false
+        },
+        "query": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Empty"
+        },
+        "body": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/PlacedOrderUpdateV2"
+        }
+      },
+      "required": [
+        "path",
+        "query",
+        "body"
+      ],
+      "additionalProperties": false
+    },
+    "placedOrderV2Response": {
+      "allOf": [
+        {
+          "$ref": "urn:finance:mobile-envelope:v1:proposal#/definitions/Success"
+        },
+        {
+          "properties": {
+            "data": {
+              "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/PlacedIntentResultDto"
+            },
+            "meta": {
+              "properties": {
+                "http_status": {
+                  "enum": [
+                    200
+                  ]
+                },
+                "pagination": {
+                  "type": "null"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "batchesRequest": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "object",
+          "properties": {},
+          "additionalProperties": false
+        },
+        "query": {
+          "type": "object",
+          "properties": {
+            "limit": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20
+            },
+            "cursor": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9-]{1,64}$"
+            },
+            "source": {
+              "type": "string",
+              "pattern": "^(legacy|[a-f0-9]{64})$"
+            }
+          },
+          "additionalProperties": false
+        },
+        "body": {
+          "type": "null"
+        }
+      },
+      "required": [
+        "path",
+        "query",
+        "body"
+      ],
+      "additionalProperties": false
+    },
+    "batchesResponse": {
+      "allOf": [
+        {
+          "$ref": "urn:finance:mobile-envelope:v1:proposal#/definitions/Success"
+        },
+        {
+          "properties": {
+            "data": {
+              "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/BatchPageDto"
+            },
+            "meta": {
+              "properties": {
+                "http_status": {
+                  "enum": [
+                    200
+                  ]
+                },
+                "pagination": {
+                  "allOf": [
+                    {
+                      "$ref": "urn:finance:mobile-envelope:v1:proposal#/definitions/Pagination"
+                    },
+                    {
+                      "properties": {
+                        "limit": {
+                          "maximum": 100
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "batchRequest": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "object",
+          "properties": {
+            "batch_id": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "required": [
+            "batch_id"
+          ],
+          "additionalProperties": false
+        },
+        "query": {
+          "type": "object",
+          "properties": {
+            "source": {
+              "type": "string",
+              "pattern": "^(legacy|[a-f0-9]{64})$"
+            }
+          },
+          "additionalProperties": false
+        },
+        "body": {
+          "type": "null"
+        }
+      },
+      "required": [
+        "path",
+        "query",
+        "body"
+      ],
+      "additionalProperties": false
+    },
+    "batchResponse": {
+      "allOf": [
+        {
+          "$ref": "urn:finance:mobile-envelope:v1:proposal#/definitions/Success"
+        },
+        {
+          "properties": {
+            "data": {
+              "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/BatchDetailDto"
+            },
+            "meta": {
+              "properties": {
+                "http_status": {
+                  "enum": [
+                    200
+                  ]
+                },
+                "pagination": {
+                  "type": "null"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "ordersRequest": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "object",
+          "properties": {},
+          "additionalProperties": false
+        },
+        "query": {
+          "type": "object",
+          "properties": {
+            "limit": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20
+            },
+            "cursor": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            "source": {
+              "type": "string",
+              "pattern": "^(legacy|[a-f0-9]{64})$"
+            }
+          },
+          "additionalProperties": false
+        },
+        "body": {
+          "type": "null"
+        }
+      },
+      "required": [
+        "path",
+        "query",
+        "body"
+      ],
+      "additionalProperties": false
+    },
+    "ordersResponse": {
+      "allOf": [
+        {
+          "$ref": "urn:finance:mobile-envelope:v1:proposal#/definitions/Success"
+        },
+        {
+          "properties": {
+            "data": {
+              "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/OrderPageDto"
+            },
+            "meta": {
+              "properties": {
+                "http_status": {
+                  "enum": [
+                    200
+                  ]
+                },
+                "pagination": {
+                  "allOf": [
+                    {
+                      "$ref": "urn:finance:mobile-envelope:v1:proposal#/definitions/Pagination"
+                    },
+                    {
+                      "properties": {
+                        "limit": {
+                          "maximum": 100
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "orderRequest": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "object",
+          "properties": {
+            "account": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100,
+              "pattern": "^[A-Za-z0-9_.:-]+$"
+            },
+            "order_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100,
+              "pattern": "^[A-Za-z0-9_.:-]+$"
+            }
+          },
+          "required": [
+            "account",
+            "order_id"
+          ],
+          "additionalProperties": false
+        },
+        "query": {
+          "type": "object",
+          "properties": {
+            "source": {
+              "type": "string",
+              "pattern": "^(legacy|[a-f0-9]{64})$"
+            },
+            "environment": {
+              "enum": [
+                "sandbox",
+                "production"
+              ],
+              "default": "production"
+            }
+          },
+          "additionalProperties": false
+        },
+        "body": {
+          "type": "null"
+        }
+      },
+      "required": [
+        "path",
+        "query",
+        "body"
+      ],
+      "additionalProperties": false
+    },
+    "orderResponse": {
+      "allOf": [
+        {
+          "$ref": "urn:finance:mobile-envelope:v1:proposal#/definitions/Success"
+        },
+        {
+          "properties": {
+            "data": {
+              "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/BrokerOrderDto"
+            },
+            "meta": {
+              "properties": {
+                "http_status": {
+                  "enum": [
+                    200
+                  ]
+                },
+                "pagination": {
+                  "type": "null"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "notificationsRequest": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "object",
+          "properties": {},
+          "additionalProperties": false
+        },
+        "query": {
+          "type": "object",
+          "properties": {
+            "limit": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20
+            },
+            "cursor": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "additionalProperties": false
+        },
+        "body": {
+          "type": "null"
+        }
+      },
+      "required": [
+        "path",
+        "query",
+        "body"
+      ],
+      "additionalProperties": false
+    },
+    "notificationsResponse": {
+      "allOf": [
+        {
+          "$ref": "urn:finance:mobile-envelope:v1:proposal#/definitions/Success"
+        },
+        {
+          "properties": {
+            "data": {
+              "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/NotificationPageDto"
+            },
+            "meta": {
+              "properties": {
+                "http_status": {
+                  "enum": [
+                    200
+                  ]
+                },
+                "pagination": {
+                  "allOf": [
+                    {
+                      "$ref": "urn:finance:mobile-envelope:v1:proposal#/definitions/Pagination"
+                    },
+                    {
+                      "properties": {
+                        "limit": {
+                          "maximum": 100
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "notificationRequest": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "object",
+          "properties": {
+            "event_id": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "required": [
+            "event_id"
+          ],
+          "additionalProperties": false
+        },
+        "query": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Empty"
+        },
+        "body": {
+          "type": "null"
+        }
+      },
+      "required": [
+        "path",
+        "query",
+        "body"
+      ],
+      "additionalProperties": false
+    },
+    "notificationResponse": {
+      "allOf": [
+        {
+          "$ref": "urn:finance:mobile-envelope:v1:proposal#/definitions/Success"
+        },
+        {
+          "properties": {
+            "data": {
+              "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/NotificationDto"
+            },
+            "meta": {
+              "properties": {
+                "http_status": {
+                  "enum": [
+                    200
+                  ]
+                },
+                "pagination": {
+                  "type": "null"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "notificationPlanRequest": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "object",
+          "properties": {
+            "plan_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100,
+              "pattern": "^[A-Za-z0-9_.:-]+$"
+            }
+          },
+          "required": [
+            "plan_id"
+          ],
+          "additionalProperties": false
+        },
+        "query": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Empty"
+        },
+        "body": {
+          "type": "null"
+        }
+      },
+      "required": [
+        "path",
+        "query",
+        "body"
+      ],
+      "additionalProperties": false
+    },
+    "notificationPlanResponse": {
+      "allOf": [
+        {
+          "$ref": "urn:finance:mobile-envelope:v1:proposal#/definitions/Success"
+        },
+        {
+          "properties": {
+            "data": {
+              "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/NotificationPlanDto"
+            },
+            "meta": {
+              "properties": {
+                "http_status": {
+                  "enum": [
+                    200
+                  ]
+                },
+                "pagination": {
+                  "type": "null"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "registerDeviceRequest": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "object",
+          "properties": {
+            "device_id": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "required": [
+            "device_id"
+          ],
+          "additionalProperties": false
+        },
+        "query": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Empty"
+        },
+        "body": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/DeviceRegistration"
+        }
+      },
+      "required": [
+        "path",
+        "query",
+        "body"
+      ],
+      "additionalProperties": false
+    },
+    "registerDeviceResponse": {
+      "allOf": [
+        {
+          "$ref": "urn:finance:mobile-envelope:v1:proposal#/definitions/Success"
+        },
+        {
+          "properties": {
+            "data": {
+              "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/DeviceRegistrationResultDto"
+            },
+            "meta": {
+              "properties": {
+                "http_status": {
+                  "enum": [
+                    200
+                  ]
+                },
+                "pagination": {
+                  "type": "null"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "removeDeviceRequest": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "object",
+          "properties": {
+            "device_id": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "required": [
+            "device_id"
+          ],
+          "additionalProperties": false
+        },
+        "query": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Empty"
+        },
+        "body": {
+          "type": "null"
+        }
+      },
+      "required": [
+        "path",
+        "query",
+        "body"
+      ],
+      "additionalProperties": false
+    },
+    "removeDeviceResponse": {
+      "allOf": [
+        {
+          "$ref": "urn:finance:mobile-envelope:v1:proposal#/definitions/Success"
+        },
+        {
+          "properties": {
+            "data": {
+              "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/DeviceRegistrationResultDto"
+            },
+            "meta": {
+              "properties": {
+                "http_status": {
+                  "enum": [
+                    200
+                  ]
+                },
+                "pagination": {
+                  "type": "null"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "receiptRequest": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "object",
+          "properties": {
+            "event_id": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "required": [
+            "event_id"
+          ],
+          "additionalProperties": false
+        },
+        "query": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Empty"
+        },
+        "body": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/NotificationReceipt"
+        }
+      },
+      "required": [
+        "path",
+        "query",
+        "body"
+      ],
+      "additionalProperties": false
+    },
+    "receiptResponse": {
+      "allOf": [
+        {
+          "$ref": "urn:finance:mobile-envelope:v1:proposal#/definitions/Success"
+        },
+        {
+          "properties": {
+            "data": {
+              "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/ReceiptResultDto"
+            },
+            "meta": {
+              "properties": {
+                "http_status": {
+                  "enum": [
+                    200
+                  ]
+                },
+                "pagination": {
+                  "type": "null"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "publishInstructionRequest": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "object",
+          "properties": {},
+          "additionalProperties": false
+        },
+        "query": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Empty"
+        },
+        "body": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/NotificationCommand"
+        }
+      },
+      "required": [
+        "path",
+        "query",
+        "body"
+      ],
+      "additionalProperties": false
+    },
+    "publishInstructionResponse": {
+      "allOf": [
+        {
+          "$ref": "urn:finance:mobile-envelope:v1:proposal#/definitions/Success"
+        },
+        {
+          "properties": {
+            "data": {
+              "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/NotificationPublishResultDto"
+            },
+            "meta": {
+              "properties": {
+                "http_status": {
+                  "enum": [
+                    200
+                  ]
+                },
+                "pagination": {
+                  "type": "null"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "previewNotificationRequest": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "object",
+          "properties": {},
+          "additionalProperties": false
+        },
+        "query": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Empty"
+        },
+        "body": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/PreviewRequest"
+        }
+      },
+      "required": [
+        "path",
+        "query",
+        "body"
+      ],
+      "additionalProperties": false
+    },
+    "previewNotificationResponse": {
+      "allOf": [
+        {
+          "$ref": "urn:finance:mobile-envelope:v1:proposal#/definitions/Success"
+        },
+        {
+          "properties": {
+            "data": {
+              "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/PreviewResultDto"
+            },
+            "meta": {
+              "properties": {
+                "http_status": {
+                  "enum": [
+                    200
+                  ]
+                },
+                "pagination": {
+                  "type": "null"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "healthRequest": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "object",
+          "properties": {},
+          "additionalProperties": false
+        },
+        "query": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Empty"
+        },
+        "body": {
+          "type": "null"
+        }
+      },
+      "required": [
+        "path",
+        "query",
+        "body"
+      ],
+      "additionalProperties": false
+    },
+    "DemoPlanningDto": {
+      "type": "object",
+      "properties": {
+        "account": {
+          "enum": [
+            "DEMO-ACCOUNT"
+          ]
+        },
+        "symbol": {
+          "enum": [
+            "DEMO"
+          ]
+        },
+        "quantity": {
+          "type": "string",
+          "pattern": "^(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$"
+        },
+        "price_vnd": {
+          "type": "string",
+          "pattern": "^(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$"
+        }
+      },
+      "required": [
+        "account",
+        "symbol",
+        "quantity",
+        "price_vnd"
+      ],
+      "additionalProperties": false
+    }
+  }
+}

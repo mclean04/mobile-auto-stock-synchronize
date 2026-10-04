@@ -1,0 +1,111 @@
+{
+  "schema_version": "finance-local-producer-policy.v1",
+  "evidence_schema_sha256": "3c8d376020ffc65aae4613fb7afa7157bb8ef96b0930d2b39aab29e608f6f60a",
+  "package_manifest_sha256": "e5655405c859dfae57e94fa90fa5de73ed9eb87e9516300fa6930c0b869e24d9",
+  "project_id": "0bc81dc2-c04b-4fe1-b01e-22ab22e14b39",
+  "project_path": "/Users/tuanh/finance root",
+  "automations": {
+    "monthly": "k-ho-ch-c-phi-u-dnse-th-ng-test",
+    "daily": "ki-m-tra-c-phi-u-h-ng-ng-y-test"
+  },
+  "cases": {
+    "P1": {
+      "template_sha256": "01433a4ac523efab466a3a02c0f6c85823057f6cabbd47d3501a2fb6e4678918",
+      "allowed_substitutions": [
+        "<BUY_OR_SELL>",
+        "<CAMPAIGN_ID>",
+        "<FRESH_SOURCE_GENERATION>",
+        "<P1_ACCEPT_BY_RFC3339_ASIA_HO_CHI_MINH>",
+        "<P1_FINAL_BOUND_PAYLOAD_SHA256>",
+        "<P1_FIXED_FAKE_BROKER_CONDITIONS_WITH_CAMPAIGN_SESSION_CASE_MARKERS>",
+        "<P1_FIXED_SYNTHETIC_THESIS>",
+        "<P1_PROPOSAL_UUID>",
+        "<P1_SCHEDULED_AT_RFC3339>",
+        "<P1_SOURCE_RUN_ID>",
+        "<P1_SUBMITTED_AT_RFC3339>",
+        "<P1_TRIGGER_RFC3339_ASIA_HO_CHI_MINH>",
+        "<P1_WINDOW_END_RFC3339>",
+        "<P1_WINDOW_START_RFC3339>",
+        "<PLANNING_RECIPIENT_UID>",
+        "<PLANNING_SESSION_END_RFC3339>",
+        "<PLANNING_SESSION_ID>",
+        "<QA_ACCOUNT>",
+        "<QA_LIMIT_PRICE_VND>",
+        "<QA_QUANTITY>",
+        "<QA_SYMBOL>"
+      ],
+      "trigger_offset_seconds": 300,
+      "artifact_accept_before_seconds": 1200
+    },
+    "P4": {
+      "template_sha256": "fbb7c4e404c4bad7b7cee9e225f614479aafb8ebbedad88166357514e428b244",
+      "allowed_substitutions": [
+        "<CAMPAIGN_ID>",
+        "<FRESH_SOURCE_GENERATION>",
+        "<P2_VERIFIED_ACCOUNT>",
+        "<P2_VERIFIED_SIDE>",
+        "<P2_VERIFIED_SYMBOL>",
+        "<P4_ACCEPT_BY_RFC3339_ASIA_HO_CHI_MINH>",
+        "<P4_FINAL_BOUND_PAYLOAD_SHA256>",
+        "<P4_FIXED_FAKE_BROKER_CONDITIONS_WITH_CAMPAIGN_SESSION_CASE_AND_P2_MARKERS>",
+        "<P4_NEW_PROPOSAL_UUID>",
+        "<P4_REVIEWED_LIMIT_PRICE_VND>",
+        "<P4_REVIEWED_QUANTITY>",
+        "<P4_REVIEWED_SCHEDULED_AT_RFC3339>",
+        "<P4_REVIEWED_SYNTHETIC_CHANGE_THESIS>",
+        "<P4_REVIEWED_WINDOW_END_RFC3339>",
+        "<P4_REVIEWED_WINDOW_START_RFC3339>",
+        "<P4_SOURCE_RUN_ID>",
+        "<P4_SUBMITTED_AT_RFC3339>",
+        "<P4_TRIGGER_RFC3339_ASIA_HO_CHI_MINH>",
+        "<PLANNING_MINUTE_35_ABSOLUTE_RFC3339>",
+        "<PLANNING_MINUTE_90_ABSOLUTE_RFC3339>",
+        "<PLANNING_RECIPIENT_UID>",
+        "<PLANNING_SESSION_END_RFC3339>",
+        "<PLANNING_SESSION_ID>",
+        "<VERIFIED_P1_PROPOSAL_ID>",
+        "<VERIFIED_P2_CURRENT_CANONICAL_VERSION>",
+        "<VERIFIED_P2_INTENT_ID>"
+      ],
+      "trigger_offset_seconds": 2400,
+      "artifact_accept_before_seconds": 3300
+    },
+    "N1": {
+      "template_sha256": "86e2e40ee56f3643e86f20cda17b6d23e0ca90a5a7f110efba1dc52db563ecc2",
+      "allowed_substitutions": [
+        "<ABSOLUTE_TIME_STRICTLY_BEFORE_SESSION_START_PLUS_20M>",
+        "<CAMPAIGN_ID>",
+        "<FRESH_SOURCE_GENERATION>",
+        "<N1_PAYLOAD_SHA256>",
+        "<N1_PLAN_ID_WITH_CAMPAIGN_SESSION_CASE_MARKERS>",
+        "<NOTIFICATION_SESSION_END_RFC3339>",
+        "<NOTIFICATION_SESSION_ID>",
+        "<SESSION_START_PLUS_25M_RFC3339>",
+        "<SESSION_START_PLUS_35M_RFC3339>",
+        "<SESSION_START_PLUS_40M_RFC3339>",
+        "<SESSION_START_PLUS_5M_RFC3339>"
+      ],
+      "trigger_offset_seconds": 300,
+      "artifact_accept_before_seconds": 1200
+    },
+    "N2": {
+      "template_sha256": "aa954f9949121c111a121cd133d11a6a840f2f07156a68f42045d932336630ba",
+      "allowed_substitutions": [
+        "<ABSOLUTE_TIME_STRICTLY_BEFORE_SESSION_START_PLUS_65M>",
+        "<CAMPAIGN_ID>",
+        "<FRESH_SOURCE_GENERATION>",
+        "<N2_PAYLOAD_SHA256>",
+        "<N2_PLAN_ID_WITH_CAMPAIGN_SESSION_CASE_MARKERS>",
+        "<NOTIFICATION_SESSION_END_RFC3339>",
+        "<NOTIFICATION_SESSION_ID>",
+        "<SESSION_START_PLUS_50M_RFC3339>",
+        "<SESSION_START_PLUS_70M_RFC3339>",
+        "<SESSION_START_PLUS_80M_RFC3339>",
+        "<SESSION_START_PLUS_85M_RFC3339>",
+        "<SESSION_START_PLUS_90M_RFC3339>"
+      ],
+      "trigger_offset_seconds": 3000,
+      "artifact_accept_before_seconds": 3900
+    }
+  }
+}

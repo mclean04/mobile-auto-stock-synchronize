@@ -1,0 +1,5128 @@
+{
+  "design_only": true,
+  "proposal_revision": 2,
+  "note": "Synthetic schema examples, not observed accounts, transactions or runtime authorization. No outbound operations. Each response request ID is illustrative.",
+  "cases": [
+    {
+      "name": "syncStatus_request",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/syncStatusRequest",
+      "valid": true,
+      "instance": {
+        "path": {},
+        "query": {},
+        "body": null
+      }
+    },
+    {
+      "name": "syncStatus_success",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/syncStatusResponse",
+      "valid": true,
+      "instance": {
+        "data": {
+          "pending_sheet_batches": 0,
+          "count_capped_at": 200,
+          "sheet_writes": false,
+          "role": "uploader"
+        },
+        "error": null,
+        "meta": {
+          "contract_version": "mobile-envelope.v1",
+          "request_id": "11111111-1111-4111-8111-111111111111",
+          "http_status": 200,
+          "pagination": null
+        }
+      }
+    },
+    {
+      "name": "syncStatus_error_401",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error401",
+      "valid": true,
+      "instance": {
+        "data": null,
+        "error": {
+          "code": "app_check_required",
+          "message": "Safe fixture message.",
+          "validation": [],
+          "operation": null
+        },
+        "meta": {
+          "contract_version": "mobile-envelope.v1",
+          "request_id": "11111111-1111-4111-8111-111111111111",
+          "http_status": 401,
+          "pagination": null
+        }
+      }
+    },
+    {
+      "name": "syncStatus_error_403",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error403",
+      "valid": true,
+      "instance": {
+        "data": null,
+        "error": {
+          "code": "invalid_mobile_app",
+          "message": "Safe fixture message.",
+          "validation": [],
+          "operation": null
+        },
+        "meta": {
+          "contract_version": "mobile-envelope.v1",
+          "request_id": "11111111-1111-4111-8111-111111111111",
+          "http_status": 403,
+          "pagination": null
+        }
+      }
+    },
+    {
+      "name": "syncStatus_error_409",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error409",
+      "valid": true,
+      "instance": {
+        "data": null,
+        "error": {
+          "code": "planning_source_conflict",
+          "message": "Safe fixture message.",
+          "validation": [],
+          "operation": null
+        },
+        "meta": {
+          "contract_version": "mobile-envelope.v1",
+          "request_id": "11111111-1111-4111-8111-111111111111",
+          "http_status": 409,
+          "pagination": null
+        }
+      }
+    },
+    {
+      "name": "syncStatus_error_422",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error422",
+      "valid": true,
+      "instance": {
+        "data": null,
+        "error": {
+          "code": "invalid_payload",
+          "message": "Safe fixture message.",
+          "validation": [],
+          "operation": null
+        },
+        "meta": {
+          "contract_version": "mobile-envelope.v1",
+          "request_id": "11111111-1111-4111-8111-111111111111",
+          "http_status": 422,
+          "pagination": null
+        }
+      }
+    },
+    {
+      "name": "syncStatus_error_503",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error503",
+      "valid": true,
+      "instance": {
+        "data": null,
+        "error": {
+          "code": "authentication_unavailable",
+          "message": "Safe fixture message.",
+          "validation": [],
+          "operation": null
+        },
+        "meta": {
+          "contract_version": "mobile-envelope.v1",
+          "request_id": "11111111-1111-4111-8111-111111111111",
+          "http_status": 503,
+          "pagination": null
+        }
+      }
+    },
+    {
+      "name": "adminSources_request",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/adminSourcesRequest",
+      "valid": true,
+      "instance": {
+        "path": {},
+        "query": {
+          "limit": 20
+        },
+        "body": null
+      }
+    },
+    {
+      "name": "adminSources_success",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/adminSourcesResponse",
+      "valid": true,
+      "instance": {
+        "data": {
+          "items": [
+            {
+              "id": "legacy",
+              "uid": null
+            }
+          ]
+        },
+        "error": null,
+        "meta": {
+          "contract_version": "mobile-envelope.v1",
+          "request_id": "11111111-1111-4111-8111-111111111111",
+          "http_status": 200,
+          "pagination": {
+            "limit": 20,
+            "next_cursor": null,
+            "total_count": null
+          }
+        }
+      }
+    },
+    {
+      "name": "adminSources_error_401",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error401",
+      "valid": true,
+      "instance": {
+        "data": null,
+        "error": {
+          "code": "app_check_required",
+          "message": "Safe fixture message.",
+          "validation": [],
+          "operation": null
+        },
+        "meta": {
+          "contract_version": "mobile-envelope.v1",
+          "request_id": "11111111-1111-4111-8111-111111111111",
+          "http_status": 401,
+          "pagination": null
+        }
+      }
+    },
+    {
+      "name": "adminSources_error_403",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error403",
+      "valid": true,
+      "instance": {
+        "data": null,
+        "error": {
+          "code": "admin_required",
+          "message": "Safe fixture message.",
+          "validation": [],
+          "operation": null
+        },
+        "meta": {
+          "contract_version": "mobile-envelope.v1",
+          "request_id": "11111111-1111-4111-8111-111111111111",
+          "http_status": 403,
+          "pagination": null
+        }
+      }
+    },
+    {
+      "name": "adminSources_error_409",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error409",
+      "valid": true,
+      "instance": {
+        "data": null,
+        "error": {
+          "code": "planning_source_conflict",
+          "message": "Safe fixture message.",
+          "validation": [],
+          "operation": null
+        },
+        "meta": {
+          "contract_version": "mobile-envelope.v1",
+          "request_id": "11111111-1111-4111-8111-111111111111",
+          "http_status": 409,
+          "pagination": null
+        }
+      }
+    },
+    {
+      "name": "adminSources_error_422",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error422",
+      "valid": true,
+      "instance": {
+        "data": null,
+        "error": {
+          "code": "invalid_payload",
+          "message": "Safe fixture message.",
+          "validation": [],
+          "operation": null
+        },
+        "meta": {
+          "contract_version": "mobile-envelope.v1",
+          "request_id": "11111111-1111-4111-8111-111111111111",
+          "http_status": 422,
+          "pagination": null
+        }
+      }
+    },
+    {
+      "name": "adminSources_error_503",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error503",
+      "valid": true,
+      "instance": {
+        "data": null,
+        "error": {
+          "code": "authentication_unavailable",
+          "message": "Safe fixture message.",
+          "validation": [],
+          "operation": null
+        },
+        "meta": {
+          "contract_version": "mobile-envelope.v1",
+          "request_id": "11111111-1111-4111-8111-111111111111",
+          "http_status": 503,
+          "pagination": null
+        }
+      }
+    },
+    {
+      "name": "adminRecords_request",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/adminRecordsRequest",
+      "valid": true,
+      "instance": {
+        "path": {
+          "source": "legacy"
+        },
+        "query": {
+          "limit": 20
+        },
+        "body": null
+      }
+    },
+    {
+      "name": "adminRecords_success",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/adminRecordsResponse",
+      "valid": true,
+      "instance": {
+        "data": {
+          "items": [
+            {
+              "id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "kind": "order",
+              "environment": "sandbox",
+              "account": "fixture-account",
+              "source_id": "fixture-order",
+              "source_updated_at": "2026-10-01T03:00:00Z",
+              "payload": {
+                "account": "fixture-account",
+                "order_id": "fixture-order",
+                "updated_at": "2026-10-01T03:00:00Z",
+                "created_at": "2026-10-01T03:00:00Z",
+                "symbol": "TEST",
+                "side": "BUY",
+                "order_type": "LO",
+                "quantity": "100",
+                "filled_quantity": "0",
+                "price_vnd": "10000",
+                "average_fill_price_vnd": null,
+                "status": "NEW",
+                "market_type": "STOCK",
+                "category": "NORMAL"
+              },
+              "batch_id": "11111111-1111-4111-8111-111111111111"
+            }
+          ]
+        },
+        "error": null,
+        "meta": {
+          "contract_version": "mobile-envelope.v1",
+          "request_id": "11111111-1111-4111-8111-111111111111",
+          "http_status": 200,
+          "pagination": {
+            "limit": 20,
+            "next_cursor": null,
+            "total_count": null
+          }
+        }
+      }
+    },
+    {
+      "name": "adminRecords_error_401",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error401",
+      "valid": true,
+      "instance": {
+        "data": null,
+        "error": {
+          "code": "app_check_required",
+          "message": "Safe fixture message.",
+          "validation": [],
+          "operation": null
+        },
+        "meta": {
+          "contract_version": "mobile-envelope.v1",
+          "request_id": "11111111-1111-4111-8111-111111111111",
+          "http_status": 401,
+          "pagination": null
+        }
+      }
+    },
+    {
+      "name": "adminRecords_error_403",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error403",
+      "valid": true,
+      "instance": {
+        "data": null,
+        "error": {
+          "code": "admin_required",
+          "message": "Safe fixture message.",
+          "validation": [],
+          "operation": null
+        },
+        "meta": {
+          "contract_version": "mobile-envelope.v1",
+          "request_id": "11111111-1111-4111-8111-111111111111",
+          "http_status": 403,
+          "pagination": null
+        }
+      }
+    },
+    {
+      "name": "adminRecords_error_409",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error409",
+      "valid": true,
+      "instance": {
+        "data": null,
+        "error": {
+          "code": "planning_source_conflict",
+          "message": "Safe fixture message.",
+          "validation": [],
+          "operation": null
+        },
+        "meta": {
+          "contract_version": "mobile-envelope.v1",
+          "request_id": "11111111-1111-4111-8111-111111111111",
+          "http_status": 409,
+          "pagination": null
+        }
+      }
+    },
+    {
+      "name": "adminRecords_error_422",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error422",
+      "valid": true,
+      "instance": {
+        "data": null,
+        "error": {
+          "code": "invalid_payload",
+          "message": "Safe fixture message.",
+          "validation": [],
+          "operation": null
+        },
+        "meta": {
+          "contract_version": "mobile-envelope.v1",
+          "request_id": "11111111-1111-4111-8111-111111111111",
+          "http_status": 422,
+          "pagination": null
+        }
+      }
+    },
+    {
+      "name": "adminRecords_error_503",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error503",
+      "valid": true,
+      "instance": {
+        "data": null,
+        "error": {
+          "code": "authentication_unavailable",
+          "message": "Safe fixture message.",
+          "validation": [],
+          "operation": null
+        },
+        "meta": {
+          "contract_version": "mobile-envelope.v1",
+          "request_id": "11111111-1111-4111-8111-111111111111",
+          "http_status": 503,
+          "pagination": null
+        }
+      }
+    },
+    {
+      "name": "adminRecords_error_404",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error404",
+      "valid": true,
+      "instance": {
+        "data": null,
+        "error": {
+          "code": "source_not_found",
+          "message": "Safe fixture message.",
+          "validation": [],
+          "operation": null
+        },
+        "meta": {
+          "contract_version": "mobile-envelope.v1",
+          "request_id": "11111111-1111-4111-8111-111111111111",
+          "http_status": 404,
+          "pagination": null
+        }
+      }
+    },
+    {
+      "name": "allPlanning_request",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/allPlanningRequest",
+      "valid": true,
+      "instance": {
+        "path": {},
+        "query": {
+          "view": "all",
+          "limit": 20
+        },
+        "body": null
+      }
+    },
+    {
+      "name": "allPlanning_success",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/allPlanningResponse",
+      "valid": true,
+      "instance": {
+        "data": {
+          "contract_version": "2.0",
+          "source_context": {
+            "source_id": "fixture-source-0001",
+            "source_generation": 1
+          },
+          "snapshot_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "items": [
+            {
+              "contract_version": "2.0",
+              "source_context": {
+                "source_id": "fixture-source-0001",
+                "source_generation": 1
+              },
+              "cash_requirements": {
+                "currency": "VND",
+                "principal_vnd": "1000000",
+                "fee_reserve_vnd": "2000",
+                "required_cash_vnd": "1002000",
+                "fee_reserve_rate": "0.002",
+                "policy_version": "cash-v1",
+                "cash_only": true
+              },
+              "plan_id": "11111111-1111-4111-8111-111111111111",
+              "intent_id": "22222222-2222-4222-8222-222222222222",
+              "version": 1,
+              "authoring_state": "APPROVED",
+              "execution_state": "NOT_STARTED",
+              "execution_version": 0,
+              "placement_claim_request_id": null,
+              "placement_claim_device_id": null,
+              "placement_claimed_at": null,
+              "placement_claim_expires_at": null,
+              "environment": "sandbox",
+              "recipient_uid": "fixture-user",
+              "account": "fixture-account",
+              "symbol": "TEST",
+              "side": "BUY",
+              "quantity": "100",
+              "limit_price_vnd": "10000",
+              "scheduled_at": "2026-10-01T03:00:00Z",
+              "window_starts_at": "2026-10-01T03:00:00Z",
+              "window_ends_at": "2026-10-01T03:05:00Z",
+              "thesis": "fixture only",
+              "conditions": "fixture only",
+              "source_task": "DNSE_MONTHLY",
+              "source_run_id": "fixture-run",
+              "proposal_id": "33333333-3333-4333-8333-333333333333",
+              "eligibility": {
+                "eligible": true,
+                "reasons": [],
+                "server_time": "2026-10-01T03:00:00Z"
+              },
+              "record_kind": "CANONICAL",
+              "scheduled_date": "2026-10-01",
+              "time_status": "EXACT",
+              "raw_scheduled_at": "2026-10-01T03:00:00Z"
+            }
+          ]
+        },
+        "error": null,
+        "meta": {
+          "contract_version": "mobile-envelope.v1",
+          "request_id": "11111111-1111-4111-8111-111111111111",
+          "http_status": 200,
+          "pagination": {
+            "limit": 20,
+            "next_cursor": null,
+            "total_count": 1
+          }
+        }
+      }
+    },
+    {
+      "name": "allPlanning_error_401",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error401",
+      "valid": true,
+      "instance": {
+        "data": null,
+        "error": {
+          "code": "app_check_required",
+          "message": "Safe fixture message.",
+          "validation": [],
+          "operation": null
+        },
+        "meta": {
+          "contract_version": "mobile-envelope.v1",
+          "request_id": "11111111-1111-4111-8111-111111111111",
+          "http_status": 401,
+          "pagination": null
+        }
+      }
+    },
+    {
+      "name": "allPlanning_error_403",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error403",
+      "valid": true,
+      "instance": {
+        "data": null,
+        "error": {
+          "code": "invalid_mobile_app",
+          "message": "Safe fixture message.",
+          "validation": [],
+          "operation": null
+        },
+        "meta": {
+          "contract_version": "mobile-envelope.v1",
+          "request_id": "11111111-1111-4111-8111-111111111111",
+          "http_status": 403,
+          "pagination": null
+        }
+      }
+    },
+    {
+      "name": "allPlanning_error_409",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error409",
+      "valid": true,
+      "instance": {
+        "data": null,
+        "error": {
+          "code": "planning_snapshot_conflict",
+          "message": "Safe fixture message.",
+          "validation": [],
+          "operation": null
+        },
+        "meta": {
+          "contract_version": "mobile-envelope.v1",
+          "request_id": "11111111-1111-4111-8111-111111111111",
+          "http_status": 409,
+          "pagination": null
+        }
+      }
+    },
+    {
+      "name": "allPlanning_error_422",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error422",
+      "valid": true,
+      "instance": {
+        "data": null,
+        "error": {
+          "code": "invalid_payload",
+          "message": "Safe fixture message.",
+          "validation": [],
+          "operation": null
+        },
+        "meta": {
+          "contract_version": "mobile-envelope.v1",
+          "request_id": "11111111-1111-4111-8111-111111111111",
+          "http_status": 422,
+          "pagination": null
+        }
+      }
+    },
+    {
+      "name": "allPlanning_error_503",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error503",
+      "valid": true,
+      "instance": {
+        "data": null,
+        "error": {
+          "code": "authentication_unavailable",
+          "message": "Safe fixture message.",
+          "validation": [],
+          "operation": null
+        },
+        "meta": {
+          "contract_version": "mobile-envelope.v1",
+          "request_id": "11111111-1111-4111-8111-111111111111",
+          "http_status": 503,
+          "pagination": null
+        }
+      }
+    },
+    {
+      "name": "planningIntent_request",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/planningIntentRequest",
+      "valid": true,
+      "instance": {
+        "path": {
+          "intent_id": "22222222-2222-4222-8222-222222222222"
+        },
+        "query": {},
+        "body": null
+      }
+    },
+    {
+      "name": "planningIntent_success",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/planningIntentResponse",
+      "valid": true,
+      "instance": {
+        "data": {
+          "contract_version": "2.0",
+          "source_context": {
+            "source_id": "fixture-source-0001",
+            "source_generation": 1
+          },
+          "cash_requirements": {
+            "currency": "VND",
+            "principal_vnd": "1000000",
+            "fee_reserve_vnd": "2000",
+            "required_cash_vnd": "1002000",
+            "fee_reserve_rate": "0.002",
+            "policy_version": "cash-v1",
+            "cash_only": true
+          },
+          "plan_id": "11111111-1111-4111-8111-111111111111",
+          "intent_id": "22222222-2222-4222-8222-222222222222",
+          "version": 1,
+          "authoring_state": "APPROVED",
+          "execution_state": "NOT_STARTED",
+          "execution_version": 0,
+          "placement_claim_request_id": null,
+          "placement_claim_device_id": null,
+          "placement_claimed_at": null,
+          "placement_claim_expires_at": null,
+          "environment": "sandbox",
+          "recipient_uid": "fixture-user",
+          "account": "fixture-account",
+          "symbol": "TEST",
+          "side": "BUY",
+          "quantity": "100",
+          "limit_price_vnd": "10000",
+          "scheduled_at": "2026-10-01T03:00:00Z",
+          "window_starts_at": "2026-10-01T03:00:00Z",
+          "window_ends_at": "2026-10-01T03:05:00Z",
+          "thesis": "fixture only",
+          "conditions": "fixture only",
+          "source_task": "DNSE_MONTHLY",
+          "source_run_id": "fixture-run",
+          "proposal_id": "33333333-3333-4333-8333-333333333333",
+          "eligibility": {
+            "eligible": true,
+            "reasons": [],
+            "server_time": "2026-10-01T03:00:00Z"
+          }
+        },
+        "error": null,
+        "meta": {
+          "contract_version": "mobile-envelope.v1",
+          "request_id": "11111111-1111-4111-8111-111111111111",
+          "http_status": 200,
+          "pagination": null
+        }
+      }
+    },
+    {
+      "name": "planningIntent_error_401",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error401",
+      "valid": true,
+      "instance": {
+        "data": null,
+        "error": {
+          "code": "app_check_required",
+          "message": "Safe fixture message.",
+          "validation": [],
+          "operation": null
+        },
+        "meta": {
+          "contract_version": "mobile-envelope.v1",
+          "request_id": "11111111-1111-4111-8111-111111111111",
+          "http_status": 401,
+          "pagination": null
+        }
+      }
+    },
+    {
+      "name": "planningIntent_error_403",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error403",
+      "valid": true,
+      "instance": {
+        "data": null,
+        "error": {
+          "code": "invalid_mobile_app",
+          "message": "Safe fixture message.",
+          "validation": [],
+          "operation": null
+        },
+        "meta": {
+          "contract_version": "mobile-envelope.v1",
+          "request_id": "11111111-1111-4111-8111-111111111111",
+          "http_status": 403,
+          "pagination": null
+        }
+      }
+    },
+    {
+      "name": "planningIntent_error_409",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error409",
+      "valid": true,
+      "instance": {
+        "data": null,
+        "error": {
+          "code": "planning_source_conflict",
+          "message": "Safe fixture message.",
+          "validation": [],
+          "operation": null
+        },
+        "meta": {
+          "contract_version": "mobile-envelope.v1",
+          "request_id": "11111111-1111-4111-8111-111111111111",
+          "http_status": 409,
+          "pagination": null
+        }
+      }
+    },
+    {
+      "name": "planningIntent_error_422",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error422",
+      "valid": true,
+      "instance": {
+        "data": null,
+        "error": {
+          "code": "invalid_payload",
+          "message": "Safe fixture message.",
+          "validation": [],
+          "operation": null
+        },
+        "meta": {
+          "contract_version": "mobile-envelope.v1",
+          "request_id": "11111111-1111-4111-8111-111111111111",
+          "http_status": 422,
+          "pagination": null
+        }
+      }
+    },
+    {
+      "name": "planningIntent_error_503",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error503",
+      "valid": true,
+      "instance": {
+        "data": null,
+        "error": {
+          "code": "authentication_unavailable",
+          "message": "Safe fixture message.",
+          "validation": [],
+          "operation": null
+        },
+        "meta": {
+          "contract_version": "mobile-envelope.v1",
+          "request_id": "11111111-1111-4111-8111-111111111111",
+          "http_status": 503,
+          "pagination": null
+        }
+      }
+    },
+    {
+      "name": "planningIntent_error_404",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error404",
+      "valid": true,
+      "instance": {
+        "data": null,
+        "error": {
+          "code": "planning_intent_not_found",
+          "message": "Safe fixture message.",
+          "validation": [],
+          "operation": null
+        },
+        "meta": {
+          "contract_version": "mobile-envelope.v1",
+          "request_id": "11111111-1111-4111-8111-111111111111",
+          "http_status": 404,
+          "pagination": null
+        }
+      }
+    },
+    {
+      "name": "planningSource_request",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/planningSourceRequest",
+      "valid": true,
+      "instance": {
+        "path": {},
+        "query": {},
+        "body": null
+      }
+    },
+    {
+      "name": "planningSource_success",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/planningSourceResponse",
+      "valid": true,
+      "instance": {
+        "data": {
+          "contract_version": "2.0",
+          "source_context": {
+            "source_id": "fixture-source-0001",
+            "source_generation": 1
+          },
+          "state": "ACTIVE",
+          "registry_id": "fixture-registry-0001",
+          "features": {
+            "ingest_enabled": false,
+            "execution_enabled": false,
+            "sheet_writes_enabled": false,
+            "live_notifications_enabled": false
+          }
+        },
+        "error": null,
+        "meta": {
+          "contract_version": "mobile-envelope.v1",
+          "request_id": "11111111-1111-4111-8111-111111111111",
+          "http_status": 200,
+          "pagination": null
+        }
+      }
+    },
+    {
+      "name": "planningSource_error_401",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error401",
+      "valid": true,
+      "instance": {
+        "data": null,
+        "error": {
+          "code": "app_check_required",
+          "message": "Safe fixture message.",
+          "validation": [],
+          "operation": null
+        },
+        "meta": {
+          "contract_version": "mobile-envelope.v1",
+          "request_id": "11111111-1111-4111-8111-111111111111",
+          "http_status": 401,
+          "pagination": null
+        }
+      }
+    },
+    {
+      "name": "planningSource_error_403",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error403",
+      "valid": true,
+      "instance": {
+        "data": null,
+        "error": {
+          "code": "invalid_mobile_app",
+          "message": "Safe fixture message.",
+          "validation": [],
+          "operation": null
+        },
+        "meta": {
+          "contract_version": "mobile-envelope.v1",
+          "request_id": "11111111-1111-4111-8111-111111111111",
+          "http_status": 403,
+          "pagination": null
+        }
+      }
+    },
+    {
+      "name": "planningSource_error_409",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error409",
+      "valid": true,
+      "instance": {
+        "data": null,
+        "error": {
+          "code": "planning_source_conflict",
+          "message": "Safe fixture message.",
+          "validation": [],
+          "operation": null
+        },
+        "meta": {
+          "contract_version": "mobile-envelope.v1",
+          "request_id": "11111111-1111-4111-8111-111111111111",
+          "http_status": 409,
+          "pagination": null
+        }
+      }
+    },
+    {
+      "name": "planningSource_error_422",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error422",
+      "valid": true,
+      "instance": {
+        "data": null,
+        "error": {
+          "code": "invalid_payload",
+          "message": "Safe fixture message.",
+          "validation": [],
+          "operation": null
+        },
+        "meta": {
+          "contract_version": "mobile-envelope.v1",
+          "request_id": "11111111-1111-4111-8111-111111111111",
+          "http_status": 422,
+          "pagination": null
+        }
+      }
+    },
+    {
+      "name": "planningSource_error_503",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error503",
+      "valid": true,
+      "instance": {
+        "data": null,
+        "error": {
+          "code": "authentication_unavailable",
+          "message": "Safe fixture message.",
+          "validation": [],
+          "operation": null
+        },
+        "meta": {
+          "contract_version": "mobile-envelope.v1",
+          "request_id": "11111111-1111-4111-8111-111111111111",
+          "http_status": 503,
+          "pagination": null
+        }
+      }
+    },
+    {
+      "name": "planningPreflight_request",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/planningPreflightRequest",
+      "valid": true,
+      "instance": {
+        "path": {
+          "intent_id": "22222222-2222-4222-8222-222222222222"
+        },
+        "query": {},
+        "body": {
+          "source_context": {
+            "source_id": "fixture-source-0001",
+            "source_generation": 1
+          },
+          "request_id": "11111111-1111-4111-8111-111111111111",
+          "device_id": "22222222-2222-4222-8222-222222222222",
+          "expected_version": 1,
+          "environment": "sandbox",
+          "account": "fixture-account",
+          "quantity": "100",
+          "limit_price_vnd": "10000",
+          "observed_at": "2026-10-01T03:00:00Z"
+        }
+      }
+    },
+    {
+      "name": "planningPreflight_success",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/planningPreflightResponse",
+      "valid": true,
+      "instance": {
+        "data": {
+          "eligible": true,
+          "reasons": [],
+          "server_time": "2026-10-01T03:00:00Z",
+          "source_context": {
+            "source_id": "fixture-source-0001",
+            "source_generation": 1
+          },
+          "cash_requirements": {
+            "currency": "VND",
+            "principal_vnd": "1000000",
+            "fee_reserve_vnd": "2000",
+            "required_cash_vnd": "1002000",
+            "fee_reserve_rate": "0.002",
+            "policy_version": "cash-v1",
+            "cash_only": true
+          },
+          "preflight_id": "11111111-1111-4111-8111-111111111111",
+          "preflight_expires_at": "2026-10-01T03:05:00Z",
+          "duplicate": false
+        },
+        "error": null,
+        "meta": {
+          "contract_version": "mobile-envelope.v1",
+          "request_id": "11111111-1111-4111-8111-111111111111",
+          "http_status": 200,
+          "pagination": null
+        }
+      }
+    },
+    {
+      "name": "planningPreflight_error_401",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error401",
+      "valid": true,
+      "instance": {
+        "data": null,
+        "error": {
+          "code": "app_check_required",
+          "message": "Safe fixture message.",
+          "validation": [],
+          "operation": null
+        },
+        "meta": {
+          "contract_version": "mobile-envelope.v1",
+          "request_id": "11111111-1111-4111-8111-111111111111",
+          "http_status": 401,
+          "pagination": null
+        }
+      }
+    },
+    {
+      "name": "planningPreflight_error_403",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error403",
+      "valid": true,
+      "instance": {
+        "data": null,
+        "error": {
+          "code": "invalid_mobile_app",
+          "message": "Safe fixture message.",
+          "validation": [],
+          "operation": null
+        },
+        "meta": {
+          "contract_version": "mobile-envelope.v1",
+          "request_id": "11111111-1111-4111-8111-111111111111",
+          "http_status": 403,
+          "pagination": null
+        }
+      }
+    },
+    {
+      "name": "planningPreflight_error_409",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error409",
+      "valid": true,
+      "instance": {
+        "data": null,
+        "error": {
+          "code": "intent_execution_claimed",
+          "message": "Safe fixture message.",
+          "validation": [],
+          "operation": {
+            "operation_id": null,
+            "database": "UNKNOWN",
+            "projection": "UNKNOWN",
+            "environment": null,
+            "committed_steps": []
+          }
+        },
+        "meta": {
+          "contract_version": "mobile-envelope.v1",
+          "request_id": "11111111-1111-4111-8111-111111111111",
+          "http_status": 409,
+          "pagination": null
+        }
+      }
+    },
+    {
+      "name": "planningPreflight_error_422",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error422",
+      "valid": true,
+      "instance": {
+        "data": null,
+        "error": {
+          "code": "invalid_payload",
+          "message": "Safe fixture message.",
+          "validation": [],
+          "operation": null
+        },
+        "meta": {
+          "contract_version": "mobile-envelope.v1",
+          "request_id": "11111111-1111-4111-8111-111111111111",
+          "http_status": 422,
+          "pagination": null
+        }
+      }
+    },
+    {
+      "name": "planningPreflight_error_503",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error503",
+      "valid": true,
+      "instance": {
+        "data": null,
+        "error": {
+          "code": "authentication_unavailable",
+          "message": "Safe fixture message.",
+          "validation": [],
+          "operation": null
+        },
+        "meta": {
+          "contract_version": "mobile-envelope.v1",
+          "request_id": "11111111-1111-4111-8111-111111111111",
+          "http_status": 503,
+          "pagination": null
+        }
+      }
+    },
+    {
+      "name": "planningPreflight_error_404",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error404",
+      "valid": true,
+      "instance": {
+        "data": null,
+        "error": {
+          "code": "planning_intent_not_found",
+          "message": "Safe fixture message.",
+          "validation": [],
+          "operation": null
+        },
+        "meta": {
+          "contract_version": "mobile-envelope.v1",
+          "request_id": "11111111-1111-4111-8111-111111111111",
+          "http_status": 404,
+          "pagination": null
+        }
+      }
+    },
+    {
+      "name": "planningPreflight_error_413",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error413",
+      "valid": true,
+      "instance": {
+        "data": null,
+        "error": {
+          "code": "payload_too_large",
+          "message": "Safe fixture message.",
+          "validation": [],
+          "operation": null
+        },
+        "meta": {
+          "contract_version": "mobile-envelope.v1",
+          "request_id": "11111111-1111-4111-8111-111111111111",
+          "http_status": 413,
+          "pagination": null
+        }
+      }
+    },
+    {
+      "name": "importPlanning_request",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/importPlanningRequest",
+      "valid": true,
+      "instance": {
+        "path": {},
+        "query": {},
+        "body": null
+      }
+    },
+    {
+      "name": "importPlanning_success",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/importPlanningResponse",
+      "valid": true,
+      "instance": {
+        "data": {
+          "revision_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "duplicate": false
+        },
+        "error": null,
+        "meta": {
+          "contract_version": "mobile-envelope.v1",
+          "request_id": "11111111-1111-4111-8111-111111111111",
+          "http_status": 200,
+          "pagination": null
+        }
+      }
+    },
+    {
+      "name": "importPlanning_error_401",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error401",
+      "valid": true,
+      "instance": {
+        "data": null,
+        "error": {
+          "code": "app_check_required",
+          "message": "Safe fixture message.",
+          "validation": [],
+          "operation": null
+        },
+        "meta": {
+          "contract_version": "mobile-envelope.v1",
+          "request_id": "11111111-1111-4111-8111-111111111111",
+          "http_status": 401,
+          "pagination": null
+        }
+      }
+    },
+    {
+      "name": "importPlanning_error_403",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error403",
+      "valid": true,
+      "instance": {
+        "data": null,
+        "error": {
+          "code": "admin_required",
+          "message": "Safe fixture message.",
+          "validation": [],
+          "operation": null
+        },
+        "meta": {
+          "contract_version": "mobile-envelope.v1",
+          "request_id": "11111111-1111-4111-8111-111111111111",
+          "http_status": 403,
+          "pagination": null
+        }
+      }
+    },
+    {
+      "name": "importPlanning_error_409",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error409",
+      "valid": true,
+      "instance": {
+        "data": null,
+        "error": {
+          "code": "planning_source_conflict",
+          "message": "Safe fixture message.",
+          "validation": [],
+          "operation": {
+            "operation_id": null,
+            "database": "UNKNOWN",
+            "projection": "UNKNOWN",
+            "environment": null,
+            "committed_steps": []
+          }
+        },
+        "meta": {
+          "contract_version": "mobile-envelope.v1",
+          "request_id": "11111111-1111-4111-8111-111111111111",
+          "http_status": 409,
+          "pagination": null
+        }
+      }
+    },
+    {
+      "name": "importPlanning_error_422",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error422",
+      "valid": true,
+      "instance": {
+        "data": null,
+        "error": {
+          "code": "invalid_payload",
+          "message": "Safe fixture message.",
+          "validation": [],
+          "operation": null
+        },
+        "meta": {
+          "contract_version": "mobile-envelope.v1",
+          "request_id": "11111111-1111-4111-8111-111111111111",
+          "http_status": 422,
+          "pagination": null
+        }
+      }
+    },
+    {
+      "name": "importPlanning_error_503",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error503",
+      "valid": true,
+      "instance": {
+        "data": null,
+        "error": {
+          "code": "authentication_unavailable",
+          "message": "Safe fixture message.",
+          "validation": [],
+          "operation": null
+        },
+        "meta": {
+          "contract_version": "mobile-envelope.v1",
+          "request_id": "11111111-1111-4111-8111-111111111111",
+          "http_status": 503,
+          "pagination": null
+        }
+      }
+    },
+    {
+      "name": "importPlanning_error_413",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error413",
+      "valid": true,
+      "instance": {
+        "data": null,
+        "error": {
+          "code": "payload_too_large",
+          "message": "Safe fixture message.",
+          "validation": [],
+          "operation": null
+        },
+        "meta": {
+          "contract_version": "mobile-envelope.v1",
+          "request_id": "11111111-1111-4111-8111-111111111111",
+          "http_status": 413,
+          "pagination": null
+        }
+      }
+    },
+    {
+      "name": "retryProjection_request",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/retryProjectionRequest",
+      "valid": true,
+      "instance": {
+        "path": {},
+        "query": {},
+        "body": null
+      }
+    },
+    {
+      "name": "retryProjection_success",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/retryProjectionResponse",
+      "valid": true,
+      "instance": {
+        "data": {
+          "state": "pending",
+          "reason": "reconciliation_running"
+        },
+        "error": null,
+        "meta": {
+          "contract_version": "mobile-envelope.v1",
+          "request_id": "11111111-1111-4111-8111-111111111111",
+          "http_status": 200,
+          "pagination": null
+        }
+      }
+    },
+    {
+      "name": "retryProjection_error_401",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error401",
+      "valid": true,
+      "instance": {
+        "data": null,
+        "error": {
+          "code": "app_check_required",
+          "message": "Safe fixture message.",
+          "validation": [],
+          "operation": null
+        },
+        "meta": {
+          "contract_version": "mobile-envelope.v1",
+          "request_id": "11111111-1111-4111-8111-111111111111",
+          "http_status": 401,
+          "pagination": null
+        }
+      }
+    },
+    {
+      "name": "retryProjection_error_403",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error403",
+      "valid": true,
+      "instance": {
+        "data": null,
+        "error": {
+          "code": "invalid_mobile_app",
+          "message": "Safe fixture message.",
+          "validation": [],
+          "operation": null
+        },
+        "meta": {
+          "contract_version": "mobile-envelope.v1",
+          "request_id": "11111111-1111-4111-8111-111111111111",
+          "http_status": 403,
+          "pagination": null
+        }
+      }
+    },
+    {
+      "name": "retryProjection_error_409",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error409",
+      "valid": true,
+      "instance": {
+        "data": null,
+        "error": {
+          "code": "planning_source_conflict",
+          "message": "Safe fixture message.",
+          "validation": [],
+          "operation": {
+            "operation_id": null,
+            "database": "UNKNOWN",
+            "projection": "UNKNOWN",
+            "environment": null,
+            "committed_steps": []
+          }
+        },
+        "meta": {
+          "contract_version": "mobile-envelope.v1",
+          "request_id": "11111111-1111-4111-8111-111111111111",
+          "http_status": 409,
+          "pagination": null
+        }
+      }
+    },
+    {
+      "name": "retryProjection_error_422",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error422",
+      "valid": true,
+      "instance": {
+        "data": null,
+        "error": {
+          "code": "invalid_payload",
+          "message": "Safe fixture message.",
+          "validation": [],
+          "operation": null
+        },
+        "meta": {
+          "contract_version": "mobile-envelope.v1",
+          "request_id": "11111111-1111-4111-8111-111111111111",
+          "http_status": 422,
+          "pagination": null
+        }
+      }
+    },
+    {
+      "name": "retryProjection_error_503",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error503",
+      "valid": true,
+      "instance": {
+        "data": null,
+        "error": {
+          "code": "authentication_unavailable",
+          "message": "Safe fixture message.",
+          "validation": [],
+          "operation": null
+        },
+        "meta": {
+          "contract_version": "mobile-envelope.v1",
+          "request_id": "11111111-1111-4111-8111-111111111111",
+          "http_status": 503,
+          "pagination": null
+        }
+      }
+    },
+    {
+      "name": "retryProjection_error_413",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error413",
+      "valid": true,
+      "instance": {
+        "data": null,
+        "error": {
+          "code": "payload_too_large",
+          "message": "Safe fixture message.",
+          "validation": [],
+          "operation": null
+        },
+        "meta": {
+          "contract_version": "mobile-envelope.v1",
+          "request_id": "11111111-1111-4111-8111-111111111111",
+          "http_status": 413,
+          "pagination": null
+        }
+      }
+    },
+    {
+      "name": "reconcile_request",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/reconcileRequest",
+      "valid": true,
+      "instance": {
+        "path": {},
+        "query": {},
+        "body": null
+      }
+    },
+    {
+      "name": "reconcile_success",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/reconcileResponse",
+      "valid": true,
+      "instance": {
+        "data": {
+          "state": "disabled"
+        },
+        "error": null,
+        "meta": {
+          "contract_version": "mobile-envelope.v1",
+          "request_id": "11111111-1111-4111-8111-111111111111",
+          "http_status": 200,
+          "pagination": null
+        }
+      }
+    },
+    {
+      "name": "reconcile_error_401",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error401",
+      "valid": true,
+      "instance": {
+        "data": null,
+        "error": {
+          "code": "app_check_required",
+          "message": "Safe fixture message.",
+          "validation": [],
+          "operation": null
+        },
+        "meta": {
+          "contract_version": "mobile-envelope.v1",
+          "request_id": "11111111-1111-4111-8111-111111111111",
+          "http_status": 401,
+          "pagination": null
+        }
+      }
+    },
+    {
+      "name": "reconcile_error_403",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error403",
+      "valid": true,
+      "instance": {
+        "data": null,
+        "error": {
+          "code": "admin_required",
+          "message": "Safe fixture message.",
+          "validation": [],
+          "operation": null
+        },
+        "meta": {
+          "contract_version": "mobile-envelope.v1",
+          "request_id": "11111111-1111-4111-8111-111111111111",
+          "http_status": 403,
+          "pagination": null
+        }
+      }
+    },
+    {
+      "name": "reconcile_error_409",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error409",
+      "valid": true,
+      "instance": {
+        "data": null,
+        "error": {
+          "code": "planning_source_conflict",
+          "message": "Safe fixture message.",
+          "validation": [],
+          "operation": {
+            "operation_id": null,
+            "database": "UNKNOWN",
+            "projection": "UNKNOWN",
+            "environment": null,
+            "committed_steps": []
+          }
+        },
+        "meta": {
+          "contract_version": "mobile-envelope.v1",
+          "request_id": "11111111-1111-4111-8111-111111111111",
+          "http_status": 409,
+          "pagination": null
+        }
+      }
+    },
+    {
+      "name": "reconcile_error_422",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error422",
+      "valid": true,
+      "instance": {
+        "data": null,
+        "error": {
+          "code": "invalid_payload",
+          "message": "Safe fixture message.",
+          "validation": [],
+          "operation": null
+        },
+        "meta": {
+          "contract_version": "mobile-envelope.v1",
+          "request_id": "11111111-1111-4111-8111-111111111111",
+          "http_status": 422,
+          "pagination": null
+        }
+      }
+    },
+    {
+      "name": "reconcile_error_503",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error503",
+      "valid": true,
+      "instance": {
+        "data": null,
+        "error": {
+          "code": "authentication_unavailable",
+          "message": "Safe fixture message.",
+          "validation": [],
+          "operation": null
+        },
+        "meta": {
+          "contract_version": "mobile-envelope.v1",
+          "request_id": "11111111-1111-4111-8111-111111111111",
+          "http_status": 503,
+          "pagination": null
+        }
+      }
+    },
+    {
+      "name": "reconcile_error_413",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error413",
+      "valid": true,
+      "instance": {
+        "data": null,
+        "error": {
+          "code": "payload_too_large",
+          "message": "Safe fixture message.",
+          "validation": [],
+          "operation": null
+        },
+        "meta": {
+          "contract_version": "mobile-envelope.v1",
+          "request_id": "11111111-1111-4111-8111-111111111111",
+          "http_status": 413,
+          "pagination": null
+        }
+      }
+    },
+    {
+      "name": "upload_request",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/uploadRequest",
+      "valid": true,
+      "instance": {
+        "path": {},
+        "query": {},
+        "body": {
+          "source_context": {
+            "source_id": "fixture-source-0001",
+            "source_generation": 1
+          },
+          "batch_id": "11111111-1111-4111-8111-111111111111",
+          "device_id": "22222222-2222-4222-8222-222222222222",
+          "environment": "sandbox",
+          "orders": [
+            {
+              "account": "fixture-account",
+              "order_id": "fixture-order",
+              "updated_at": "2026-10-01T03:00:00Z",
+              "created_at": "2026-10-01T03:00:00Z",
+              "symbol": "TEST",
+              "side": "BUY",
+              "order_type": "LO",
+              "quantity": "100",
+              "filled_quantity": "0",
+              "price_vnd": "10000",
+              "average_fill_price_vnd": null,
+              "status": "NEW",
+              "market_type": "STOCK",
+              "category": "NORMAL"
+            }
+          ],
+          "executions": [],
+          "positions": [],
+          "balances": []
+        }
+      }
+    },
+    {
+      "name": "upload_success",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/uploadResponse",
+      "valid": true,
+      "instance": {
+        "data": {
+          "batch_id": "11111111-1111-4111-8111-111111111111",
+          "database": "committed",
+          "duplicate": false,
+          "sheets": {
+            "state": "pending"
+          },
+          "planning": {
+            "updated": 0
+          },
+          "source_context": {
+            "source_id": "fixture-source-0001",
+            "source_generation": 1
+          }
+        },
+        "error": null,
+        "meta": {
+          "contract_version": "mobile-envelope.v1",
+          "request_id": "11111111-1111-4111-8111-111111111111",
+          "http_status": 200,
+          "pagination": null
+        }
+      }
+    },
+    {
+      "name": "upload_error_401",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error401",
+      "valid": true,
+      "instance": {
+        "data": null,
+        "error": {
+          "code": "app_check_required",
+          "message": "Safe fixture message.",
+          "validation": [],
+          "operation": null
+        },
+        "meta": {
+          "contract_version": "mobile-envelope.v1",
+          "request_id": "11111111-1111-4111-8111-111111111111",
+          "http_status": 401,
+          "pagination": null
+        }
+      }
+    },
+    {
+      "name": "upload_error_403",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error403",
+      "valid": true,
+      "instance": {
+        "data": null,
+        "error": {
+          "code": "invalid_mobile_app",
+          "message": "Safe fixture message.",
+          "validation": [],
+          "operation": null
+        },
+        "meta": {
+          "contract_version": "mobile-envelope.v1",
+          "request_id": "11111111-1111-4111-8111-111111111111",
+          "http_status": 403,
+          "pagination": null
+        }
+      }
+    },
+    {
+      "name": "upload_error_409",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error409",
+      "valid": true,
+      "instance": {
+        "data": null,
+        "error": {
+          "code": "batch_id_payload_conflict",
+          "message": "Safe fixture message.",
+          "validation": [],
+          "operation": {
+            "operation_id": null,
+            "database": "UNKNOWN",
+            "projection": "UNKNOWN",
+            "environment": null,
+            "committed_steps": []
+          }
+        },
+        "meta": {
+          "contract_version": "mobile-envelope.v1",
+          "request_id": "11111111-1111-4111-8111-111111111111",
+          "http_status": 409,
+          "pagination": null
+        }
+      }
+    },
+    {
+      "name": "upload_error_422",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error422",
+      "valid": true,
+      "instance": {
+        "data": null,
+        "error": {
+          "code": "duplicate_record_in_batch",
+          "message": "Safe fixture message.",
+          "validation": [],
+          "operation": null
+        },
+        "meta": {
+          "contract_version": "mobile-envelope.v1",
+          "request_id": "11111111-1111-4111-8111-111111111111",
+          "http_status": 422,
+          "pagination": null
+        }
+      }
+    },
+    {
+      "name": "upload_error_503",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error503",
+      "valid": true,
+      "instance": {
+        "data": null,
+        "error": {
+          "code": "authentication_unavailable",
+          "message": "Safe fixture message.",
+          "validation": [],
+          "operation": null
+        },
+        "meta": {
+          "contract_version": "mobile-envelope.v1",
+          "request_id": "11111111-1111-4111-8111-111111111111",
+          "http_status": 503,
+          "pagination": null
+        }
+      }
+    },
+    {
+      "name": "upload_error_413",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error413",
+      "valid": true,
+      "instance": {
+        "data": null,
+        "error": {
+          "code": "payload_too_large",
+          "message": "Safe fixture message.",
+          "validation": [],
+          "operation": null
+        },
+        "meta": {
+          "contract_version": "mobile-envelope.v1",
+          "request_id": "11111111-1111-4111-8111-111111111111",
+          "http_status": 413,
+          "pagination": null
+        }
+      }
+    },
+    {
+      "name": "placedOrder_request",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/placedOrderRequest",
+      "valid": true,
+      "instance": {
+        "path": {},
+        "query": {},
+        "body": {
+          "request_id": "33333333-3333-4333-8333-333333333333",
+          "device_id": "22222222-2222-4222-8222-222222222222",
+          "environment": "sandbox",
+          "order": {
+            "account": "fixture-account",
+            "order_id": "fixture-order",
+            "updated_at": "2026-10-01T03:00:00Z",
+            "created_at": "2026-10-01T03:00:00Z",
+            "symbol": "TEST",
+            "side": "BUY",
+            "order_type": "LO",
+            "quantity": "100",
+            "filled_quantity": "0",
+            "price_vnd": "10000",
+            "average_fill_price_vnd": null,
+            "status": "NEW",
+            "market_type": "STOCK",
+            "category": "NORMAL"
+          }
+        }
+      }
+    },
+    {
+      "name": "placedOrder_success",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/placedOrderResponse",
+      "valid": true,
+      "instance": {
+        "data": {
+          "request_id": "33333333-3333-4333-8333-333333333333",
+          "environment": "sandbox",
+          "database": "committed",
+          "duplicate": false,
+          "sheets": {
+            "state": "up_to_date"
+          }
+        },
+        "error": null,
+        "meta": {
+          "contract_version": "mobile-envelope.v1",
+          "request_id": "11111111-1111-4111-8111-111111111111",
+          "http_status": 200,
+          "pagination": null
+        }
+      }
+    },
+    {
+      "name": "placedOrder_error_401",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error401",
+      "valid": true,
+      "instance": {
+        "data": null,
+        "error": {
+          "code": "app_check_required",
+          "message": "Safe fixture message.",
+          "validation": [],
+          "operation": null
+        },
+        "meta": {
+          "contract_version": "mobile-envelope.v1",
+          "request_id": "11111111-1111-4111-8111-111111111111",
+          "http_status": 401,
+          "pagination": null
+        }
+      }
+    },
+    {
+      "name": "placedOrder_error_403",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error403",
+      "valid": true,
+      "instance": {
+        "data": null,
+        "error": {
+          "code": "invalid_mobile_app",
+          "message": "Safe fixture message.",
+          "validation": [],
+          "operation": null
+        },
+        "meta": {
+          "contract_version": "mobile-envelope.v1",
+          "request_id": "11111111-1111-4111-8111-111111111111",
+          "http_status": 403,
+          "pagination": null
+        }
+      }
+    },
+    {
+      "name": "placedOrder_error_409",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error409",
+      "valid": true,
+      "instance": {
+        "data": null,
+        "error": {
+          "code": "batch_id_payload_conflict",
+          "message": "Safe fixture message.",
+          "validation": [],
+          "operation": {
+            "operation_id": null,
+            "database": "UNKNOWN",
+            "projection": "UNKNOWN",
+            "environment": null,
+            "committed_steps": []
+          }
+        },
+        "meta": {
+          "contract_version": "mobile-envelope.v1",
+          "request_id": "11111111-1111-4111-8111-111111111111",
+          "http_status": 409,
+          "pagination": null
+        }
+      }
+    },
+    {
+      "name": "placedOrder_error_422",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error422",
+      "valid": true,
+      "instance": {
+        "data": null,
+        "error": {
+          "code": "invalid_payload",
+          "message": "Safe fixture message.",
+          "validation": [],
+          "operation": null
+        },
+        "meta": {
+          "contract_version": "mobile-envelope.v1",
+          "request_id": "11111111-1111-4111-8111-111111111111",
+          "http_status": 422,
+          "pagination": null
+        }
+      }
+    },
+    {
+      "name": "placedOrder_error_503",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error503",
+      "valid": true,
+      "instance": {
+        "data": null,
+        "error": {
+          "code": "authentication_unavailable",
+          "message": "Safe fixture message.",
+          "validation": [],
+          "operation": null
+        },
+        "meta": {
+          "contract_version": "mobile-envelope.v1",
+          "request_id": "11111111-1111-4111-8111-111111111111",
+          "http_status": 503,
+          "pagination": null
+        }
+      }
+    },
+    {
+      "name": "placedOrder_error_413",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error413",
+      "valid": true,
+      "instance": {
+        "data": null,
+        "error": {
+          "code": "payload_too_large",
+          "message": "Safe fixture message.",
+          "validation": [],
+          "operation": null
+        },
+        "meta": {
+          "contract_version": "mobile-envelope.v1",
+          "request_id": "11111111-1111-4111-8111-111111111111",
+          "http_status": 413,
+          "pagination": null
+        }
+      }
+    },
+    {
+      "name": "placedOrderV2_request",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/placedOrderV2Request",
+      "valid": true,
+      "instance": {
+        "path": {},
+        "query": {},
+        "body": {
+          "source_context": {
+            "source_id": "fixture-source-0001",
+            "source_generation": 1
+          },
+          "contract_version": "2.0",
+          "request_id": "33333333-3333-4333-8333-333333333333",
+          "device_id": "22222222-2222-4222-8222-222222222222",
+          "intent_id": "22222222-2222-4222-8222-222222222222",
+          "expected_version": 1,
+          "environment": "sandbox",
+          "account": "fixture-account",
+          "preflight_id": "11111111-1111-4111-8111-111111111111",
+          "order": {
+            "account": "fixture-account",
+            "order_id": "fixture-order",
+            "updated_at": "2026-10-01T03:00:00Z",
+            "created_at": "2026-10-01T03:00:00Z",
+            "symbol": "TEST",
+            "side": "BUY",
+            "order_type": "LO",
+            "quantity": "100",
+            "filled_quantity": "0",
+            "price_vnd": "10000",
+            "average_fill_price_vnd": null,
+            "status": "NEW",
+            "market_type": "STOCK",
+            "category": "NORMAL"
+          }
+        }
+      }
+    },
+    {
+      "name": "placedOrderV2_success",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/placedOrderV2Response",
+      "valid": true,
+      "instance": {
+        "data": {
+          "intent_id": "22222222-2222-4222-8222-222222222222",
+          "plan_id": "11111111-1111-4111-8111-111111111111",
+          "device_id": "22222222-2222-4222-8222-222222222222",
+          "preflight_id": "11111111-1111-4111-8111-111111111111",
+          "source_context": {
+            "source_id": "fixture-source-0001",
+            "source_generation": 1
+          },
+          "reported_version": 1,
+          "canonical_version_at_report": 1,
+          "stale_after_broker_accept": false,
+          "preflight_valid_for_order": true,
+          "order_matches_preflight": true,
+          "authorization_anomalies": [],
+          "environment": "sandbox",
+          "account": "fixture-account",
+          "order_id": "fixture-order",
+          "request_id": "33333333-3333-4333-8333-333333333333",
+          "report_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "reported_at": "2026-10-01T03:00:00Z",
+          "duplicate": false,
+          "database": "committed",
+          "broker_record_duplicate": false,
+          "report_destination": {
+            "source_context": {
+              "source_id": "fixture-source-0001",
+              "source_generation": 1
+            },
+            "state": "CURRENT_PRIMARY"
+          },
+          "sheets": {
+            "state": "up_to_date"
+          }
+        },
+        "error": null,
+        "meta": {
+          "contract_version": "mobile-envelope.v1",
+          "request_id": "11111111-1111-4111-8111-111111111111",
+          "http_status": 200,
+          "pagination": null
+        }
+      }
+    },
+    {
+      "name": "placedOrderV2_error_401",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error401",
+      "valid": true,
+      "instance": {
+        "data": null,
+        "error": {
+          "code": "app_check_required",
+          "message": "Safe fixture message.",
+          "validation": [],
+          "operation": null
+        },
+        "meta": {
+          "contract_version": "mobile-envelope.v1",
+          "request_id": "11111111-1111-4111-8111-111111111111",
+          "http_status": 401,
+          "pagination": null
+        }
+      }
+    },
+    {
+      "name": "placedOrderV2_error_403",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error403",
+      "valid": true,
+      "instance": {
+        "data": null,
+        "error": {
+          "code": "invalid_mobile_app",
+          "message": "Safe fixture message.",
+          "validation": [],
+          "operation": null
+        },
+        "meta": {
+          "contract_version": "mobile-envelope.v1",
+          "request_id": "11111111-1111-4111-8111-111111111111",
+          "http_status": 403,
+          "pagination": null
+        }
+      }
+    },
+    {
+      "name": "placedOrderV2_error_409",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error409",
+      "valid": true,
+      "instance": {
+        "data": null,
+        "error": {
+          "code": "batch_id_payload_conflict",
+          "message": "Safe fixture message.",
+          "validation": [],
+          "operation": {
+            "operation_id": null,
+            "database": "UNKNOWN",
+            "projection": "UNKNOWN",
+            "environment": null,
+            "committed_steps": []
+          }
+        },
+        "meta": {
+          "contract_version": "mobile-envelope.v1",
+          "request_id": "11111111-1111-4111-8111-111111111111",
+          "http_status": 409,
+          "pagination": null
+        }
+      }
+    },
+    {
+      "name": "placedOrderV2_error_422",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error422",
+      "valid": true,
+      "instance": {
+        "data": null,
+        "error": {
+          "code": "invalid_payload",
+          "message": "Safe fixture message.",
+          "validation": [],
+          "operation": null
+        },
+        "meta": {
+          "contract_version": "mobile-envelope.v1",
+          "request_id": "11111111-1111-4111-8111-111111111111",
+          "http_status": 422,
+          "pagination": null
+        }
+      }
+    },
+    {
+      "name": "placedOrderV2_error_503",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error503",
+      "valid": true,
+      "instance": {
+        "data": null,
+        "error": {
+          "code": "authentication_unavailable",
+          "message": "Safe fixture message.",
+          "validation": [],
+          "operation": null
+        },
+        "meta": {
+          "contract_version": "mobile-envelope.v1",
+          "request_id": "11111111-1111-4111-8111-111111111111",
+          "http_status": 503,
+          "pagination": null
+        }
+      }
+    },
+    {
+      "name": "placedOrderV2_error_404",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error404",
+      "valid": true,
+      "instance": {
+        "data": null,
+        "error": {
+          "code": "planning_intent_not_found",
+          "message": "Safe fixture message.",
+          "validation": [],
+          "operation": null
+        },
+        "meta": {
+          "contract_version": "mobile-envelope.v1",
+          "request_id": "11111111-1111-4111-8111-111111111111",
+          "http_status": 404,
+          "pagination": null
+        }
+      }
+    },
+    {
+      "name": "placedOrderV2_error_413",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error413",
+      "valid": true,
+      "instance": {
+        "data": null,
+        "error": {
+          "code": "payload_too_large",
+          "message": "Safe fixture message.",
+          "validation": [],
+          "operation": null
+        },
+        "meta": {
+          "contract_version": "mobile-envelope.v1",
+          "request_id": "11111111-1111-4111-8111-111111111111",
+          "http_status": 413,
+          "pagination": null
+        }
+      }
+    },
+    {
+      "name": "batches_request",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/batchesRequest",
+      "valid": true,
+      "instance": {
+        "path": {},
+        "query": {
+          "limit": 20
+        },
+        "body": null
+      }
+    },
+    {
+      "name": "batches_success",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/batchesResponse",
+      "valid": true,
+      "instance": {
+        "data": {
+          "items": [
+            {
+              "id": "11111111-1111-4111-8111-111111111111",
+              "device_id": "22222222-2222-4222-8222-222222222222",
+              "environment": "sandbox",
+              "received_at": "2026-10-01T03:00:00Z",
+              "record_count": 1,
+              "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            }
+          ]
+        },
+        "error": null,
+        "meta": {
+          "contract_version": "mobile-envelope.v1",
+          "request_id": "11111111-1111-4111-8111-111111111111",
+          "http_status": 200,
+          "pagination": {
+            "limit": 20,
+            "next_cursor": null,
+            "total_count": null
+          }
+        }
+      }
+    },
+    {
+      "name": "batches_error_401",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error401",
+      "valid": true,
+      "instance": {
+        "data": null,
+        "error": {
+          "code": "app_check_required",
+          "message": "Safe fixture message.",
+          "validation": [],
+          "operation": null
+        },
+        "meta": {
+          "contract_version": "mobile-envelope.v1",
+          "request_id": "11111111-1111-4111-8111-111111111111",
+          "http_status": 401,
+          "pagination": null
+        }
+      }
+    },
+    {
+      "name": "batches_error_403",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error403",
+      "valid": true,
+      "instance": {
+        "data": null,
+        "error": {
+          "code": "admin_required",
+          "message": "Safe fixture message.",
+          "validation": [],
+          "operation": null
+        },
+        "meta": {
+          "contract_version": "mobile-envelope.v1",
+          "request_id": "11111111-1111-4111-8111-111111111111",
+          "http_status": 403,
+          "pagination": null
+        }
+      }
+    },
+    {
+      "name": "batches_error_409",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error409",
+      "valid": true,
+      "instance": {
+        "data": null,
+        "error": {
+          "code": "planning_source_conflict",
+          "message": "Safe fixture message.",
+          "validation": [],
+          "operation": null
+        },
+        "meta": {
+          "contract_version": "mobile-envelope.v1",
+          "request_id": "11111111-1111-4111-8111-111111111111",
+          "http_status": 409,
+          "pagination": null
+        }
+      }
+    },
+    {
+      "name": "batches_error_422",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error422",
+      "valid": true,
+      "instance": {
+        "data": null,
+        "error": {
+          "code": "invalid_payload",
+          "message": "Safe fixture message.",
+          "validation": [],
+          "operation": null
+        },
+        "meta": {
+          "contract_version": "mobile-envelope.v1",
+          "request_id": "11111111-1111-4111-8111-111111111111",
+          "http_status": 422,
+          "pagination": null
+        }
+      }
+    },
+    {
+      "name": "batches_error_503",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error503",
+      "valid": true,
+      "instance": {
+        "data": null,
+        "error": {
+          "code": "authentication_unavailable",
+          "message": "Safe fixture message.",
+          "validation": [],
+          "operation": null
+        },
+        "meta": {
+          "contract_version": "mobile-envelope.v1",
+          "request_id": "11111111-1111-4111-8111-111111111111",
+          "http_status": 503,
+          "pagination": null
+        }
+      }
+    },
+    {
+      "name": "batches_error_404",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error404",
+      "valid": true,
+      "instance": {
+        "data": null,
+        "error": {
+          "code": "source_not_found",
+          "message": "Safe fixture message.",
+          "validation": [],
+          "operation": null
+        },
+        "meta": {
+          "contract_version": "mobile-envelope.v1",
+          "request_id": "11111111-1111-4111-8111-111111111111",
+          "http_status": 404,
+          "pagination": null
+        }
+      }
+    },
+    {
+      "name": "batch_request",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/batchRequest",
+      "valid": true,
+      "instance": {
+        "path": {
+          "batch_id": "11111111-1111-4111-8111-111111111111"
+        },
+        "query": {},
+        "body": null
+      }
+    },
+    {
+      "name": "batch_success",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/batchResponse",
+      "valid": true,
+      "instance": {
+        "data": {
+          "id": "11111111-1111-4111-8111-111111111111",
+          "device_id": "22222222-2222-4222-8222-222222222222",
+          "environment": "sandbox",
+          "received_at": "2026-10-01T03:00:00Z",
+          "record_count": 1,
+          "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "records": [
+            {
+              "kind": "order",
+              "environment": "sandbox",
+              "account": "fixture-account",
+              "source_id": "fixture-order",
+              "source_updated_at": "2026-10-01T03:00:00Z",
+              "payload": {
+                "account": "fixture-account",
+                "order_id": "fixture-order",
+                "updated_at": "2026-10-01T03:00:00Z",
+                "created_at": "2026-10-01T03:00:00Z",
+                "symbol": "TEST",
+                "side": "BUY",
+                "order_type": "LO",
+                "quantity": "100",
+                "filled_quantity": "0",
+                "price_vnd": "10000",
+                "average_fill_price_vnd": null,
+                "status": "NEW",
+                "market_type": "STOCK",
+                "category": "NORMAL"
+              },
+              "batch_id": "11111111-1111-4111-8111-111111111111"
+            }
+          ]
+        },
+        "error": null,
+        "meta": {
+          "contract_version": "mobile-envelope.v1",
+          "request_id": "11111111-1111-4111-8111-111111111111",
+          "http_status": 200,
+          "pagination": null
+        }
+      }
+    },
+    {
+      "name": "batch_error_401",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error401",
+      "valid": true,
+      "instance": {
+        "data": null,
+        "error": {
+          "code": "app_check_required",
+          "message": "Safe fixture message.",
+          "validation": [],
+          "operation": null
+        },
+        "meta": {
+          "contract_version": "mobile-envelope.v1",
+          "request_id": "11111111-1111-4111-8111-111111111111",
+          "http_status": 401,
+          "pagination": null
+        }
+      }
+    },
+    {
+      "name": "batch_error_403",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error403",
+      "valid": true,
+      "instance": {
+        "data": null,
+        "error": {
+          "code": "admin_required",
+          "message": "Safe fixture message.",
+          "validation": [],
+          "operation": null
+        },
+        "meta": {
+          "contract_version": "mobile-envelope.v1",
+          "request_id": "11111111-1111-4111-8111-111111111111",
+          "http_status": 403,
+          "pagination": null
+        }
+      }
+    },
+    {
+      "name": "batch_error_409",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error409",
+      "valid": true,
+      "instance": {
+        "data": null,
+        "error": {
+          "code": "planning_source_conflict",
+          "message": "Safe fixture message.",
+          "validation": [],
+          "operation": null
+        },
+        "meta": {
+          "contract_version": "mobile-envelope.v1",
+          "request_id": "11111111-1111-4111-8111-111111111111",
+          "http_status": 409,
+          "pagination": null
+        }
+      }
+    },
+    {
+      "name": "batch_error_422",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error422",
+      "valid": true,
+      "instance": {
+        "data": null,
+        "error": {
+          "code": "invalid_payload",
+          "message": "Safe fixture message.",
+          "validation": [],
+          "operation": null
+        },
+        "meta": {
+          "contract_version": "mobile-envelope.v1",
+          "request_id": "11111111-1111-4111-8111-111111111111",
+          "http_status": 422,
+          "pagination": null
+        }
+      }
+    },
+    {
+      "name": "batch_error_503",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error503",
+      "valid": true,
+      "instance": {
+        "data": null,
+        "error": {
+          "code": "authentication_unavailable",
+          "message": "Safe fixture message.",
+          "validation": [],
+          "operation": null
+        },
+        "meta": {
+          "contract_version": "mobile-envelope.v1",
+          "request_id": "11111111-1111-4111-8111-111111111111",
+          "http_status": 503,
+          "pagination": null
+        }
+      }
+    },
+    {
+      "name": "batch_error_404",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error404",
+      "valid": true,
+      "instance": {
+        "data": null,
+        "error": {
+          "code": "batch_not_found",
+          "message": "Safe fixture message.",
+          "validation": [],
+          "operation": null
+        },
+        "meta": {
+          "contract_version": "mobile-envelope.v1",
+          "request_id": "11111111-1111-4111-8111-111111111111",
+          "http_status": 404,
+          "pagination": null
+        }
+      }
+    },
+    {
+      "name": "orders_request",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/ordersRequest",
+      "valid": true,
+      "instance": {
+        "path": {},
+        "query": {
+          "limit": 20
+        },
+        "body": null
+      }
+    },
+    {
+      "name": "orders_success",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/ordersResponse",
+      "valid": true,
+      "instance": {
+        "data": {
+          "items": [
+            {
+              "id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "kind": "order",
+              "environment": "sandbox",
+              "account": "fixture-account",
+              "source_id": "fixture-order",
+              "source_updated_at": "2026-10-01T03:00:00Z",
+              "payload": {
+                "account": "fixture-account",
+                "order_id": "fixture-order",
+                "updated_at": "2026-10-01T03:00:00Z",
+                "created_at": "2026-10-01T03:00:00Z",
+                "symbol": "TEST",
+                "side": "BUY",
+                "order_type": "LO",
+                "quantity": "100",
+                "filled_quantity": "0",
+                "price_vnd": "10000",
+                "average_fill_price_vnd": null,
+                "status": "NEW",
+                "market_type": "STOCK",
+                "category": "NORMAL"
+              },
+              "batch_id": "11111111-1111-4111-8111-111111111111"
+            }
+          ]
+        },
+        "error": null,
+        "meta": {
+          "contract_version": "mobile-envelope.v1",
+          "request_id": "11111111-1111-4111-8111-111111111111",
+          "http_status": 200,
+          "pagination": {
+            "limit": 20,
+            "next_cursor": null,
+            "total_count": null
+          }
+        }
+      }
+    },
+    {
+      "name": "orders_error_401",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error401",
+      "valid": true,
+      "instance": {
+        "data": null,
+        "error": {
+          "code": "app_check_required",
+          "message": "Safe fixture message.",
+          "validation": [],
+          "operation": null
+        },
+        "meta": {
+          "contract_version": "mobile-envelope.v1",
+          "request_id": "11111111-1111-4111-8111-111111111111",
+          "http_status": 401,
+          "pagination": null
+        }
+      }
+    },
+    {
+      "name": "orders_error_403",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error403",
+      "valid": true,
+      "instance": {
+        "data": null,
+        "error": {
+          "code": "admin_required",
+          "message": "Safe fixture message.",
+          "validation": [],
+          "operation": null
+        },
+        "meta": {
+          "contract_version": "mobile-envelope.v1",
+          "request_id": "11111111-1111-4111-8111-111111111111",
+          "http_status": 403,
+          "pagination": null
+        }
+      }
+    },
+    {
+      "name": "orders_error_409",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error409",
+      "valid": true,
+      "instance": {
+        "data": null,
+        "error": {
+          "code": "planning_source_conflict",
+          "message": "Safe fixture message.",
+          "validation": [],
+          "operation": null
+        },
+        "meta": {
+          "contract_version": "mobile-envelope.v1",
+          "request_id": "11111111-1111-4111-8111-111111111111",
+          "http_status": 409,
+          "pagination": null
+        }
+      }
+    },
+    {
+      "name": "orders_error_422",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error422",
+      "valid": true,
+      "instance": {
+        "data": null,
+        "error": {
+          "code": "invalid_payload",
+          "message": "Safe fixture message.",
+          "validation": [],
+          "operation": null
+        },
+        "meta": {
+          "contract_version": "mobile-envelope.v1",
+          "request_id": "11111111-1111-4111-8111-111111111111",
+          "http_status": 422,
+          "pagination": null
+        }
+      }
+    },
+    {
+      "name": "orders_error_503",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error503",
+      "valid": true,
+      "instance": {
+        "data": null,
+        "error": {
+          "code": "authentication_unavailable",
+          "message": "Safe fixture message.",
+          "validation": [],
+          "operation": null
+        },
+        "meta": {
+          "contract_version": "mobile-envelope.v1",
+          "request_id": "11111111-1111-4111-8111-111111111111",
+          "http_status": 503,
+          "pagination": null
+        }
+      }
+    },
+    {
+      "name": "orders_error_404",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error404",
+      "valid": true,
+      "instance": {
+        "data": null,
+        "error": {
+          "code": "source_not_found",
+          "message": "Safe fixture message.",
+          "validation": [],
+          "operation": null
+        },
+        "meta": {
+          "contract_version": "mobile-envelope.v1",
+          "request_id": "11111111-1111-4111-8111-111111111111",
+          "http_status": 404,
+          "pagination": null
+        }
+      }
+    },
+    {
+      "name": "order_request",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/orderRequest",
+      "valid": true,
+      "instance": {
+        "path": {
+          "account": "fixture-account",
+          "order_id": "fixture-order"
+        },
+        "query": {},
+        "body": null
+      }
+    },
+    {
+      "name": "order_success",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/orderResponse",
+      "valid": true,
+      "instance": {
+        "data": {
+          "id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "kind": "order",
+          "environment": "sandbox",
+          "account": "fixture-account",
+          "source_id": "fixture-order",
+          "source_updated_at": "2026-10-01T03:00:00Z",
+          "payload": {
+            "account": "fixture-account",
+            "order_id": "fixture-order",
+            "updated_at": "2026-10-01T03:00:00Z",
+            "created_at": "2026-10-01T03:00:00Z",
+            "symbol": "TEST",
+            "side": "BUY",
+            "order_type": "LO",
+            "quantity": "100",
+            "filled_quantity": "0",
+            "price_vnd": "10000",
+            "average_fill_price_vnd": null,
+            "status": "NEW",
+            "market_type": "STOCK",
+            "category": "NORMAL"
+          },
+          "batch_id": "11111111-1111-4111-8111-111111111111"
+        },
+        "error": null,
+        "meta": {
+          "contract_version": "mobile-envelope.v1",
+          "request_id": "11111111-1111-4111-8111-111111111111",
+          "http_status": 200,
+          "pagination": null
+        }
+      }
+    },
+    {
+      "name": "order_error_401",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error401",
+      "valid": true,
+      "instance": {
+        "data": null,
+        "error": {
+          "code": "app_check_required",
+          "message": "Safe fixture message.",
+          "validation": [],
+          "operation": null
+        },
+        "meta": {
+          "contract_version": "mobile-envelope.v1",
+          "request_id": "11111111-1111-4111-8111-111111111111",
+          "http_status": 401,
+          "pagination": null
+        }
+      }
+    },
+    {
+      "name": "order_error_403",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error403",
+      "valid": true,
+      "instance": {
+        "data": null,
+        "error": {
+          "code": "admin_required",
+          "message": "Safe fixture message.",
+          "validation": [],
+          "operation": null
+        },
+        "meta": {
+          "contract_version": "mobile-envelope.v1",
+          "request_id": "11111111-1111-4111-8111-111111111111",
+          "http_status": 403,
+          "pagination": null
+        }
+      }
+    },
+    {
+      "name": "order_error_409",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error409",
+      "valid": true,
+      "instance": {
+        "data": null,
+        "error": {
+          "code": "planning_source_conflict",
+          "message": "Safe fixture message.",
+          "validation": [],
+          "operation": null
+        },
+        "meta": {
+          "contract_version": "mobile-envelope.v1",
+          "request_id": "11111111-1111-4111-8111-111111111111",
+          "http_status": 409,
+          "pagination": null
+        }
+      }
+    },
+    {
+      "name": "order_error_422",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error422",
+      "valid": true,
+      "instance": {
+        "data": null,
+        "error": {
+          "code": "invalid_payload",
+          "message": "Safe fixture message.",
+          "validation": [],
+          "operation": null
+        },
+        "meta": {
+          "contract_version": "mobile-envelope.v1",
+          "request_id": "11111111-1111-4111-8111-111111111111",
+          "http_status": 422,
+          "pagination": null
+        }
+      }
+    },
+    {
+      "name": "order_error_503",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error503",
+      "valid": true,
+      "instance": {
+        "data": null,
+        "error": {
+          "code": "authentication_unavailable",
+          "message": "Safe fixture message.",
+          "validation": [],
+          "operation": null
+        },
+        "meta": {
+          "contract_version": "mobile-envelope.v1",
+          "request_id": "11111111-1111-4111-8111-111111111111",
+          "http_status": 503,
+          "pagination": null
+        }
+      }
+    },
+    {
+      "name": "order_error_404",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error404",
+      "valid": true,
+      "instance": {
+        "data": null,
+        "error": {
+          "code": "order_not_found",
+          "message": "Safe fixture message.",
+          "validation": [],
+          "operation": null
+        },
+        "meta": {
+          "contract_version": "mobile-envelope.v1",
+          "request_id": "11111111-1111-4111-8111-111111111111",
+          "http_status": 404,
+          "pagination": null
+        }
+      }
+    },
+    {
+      "name": "notifications_request",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/notificationsRequest",
+      "valid": true,
+      "instance": {
+        "path": {},
+        "query": {
+          "limit": 20
+        },
+        "body": null
+      }
+    },
+    {
+      "name": "notifications_success",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/notificationsResponse",
+      "valid": true,
+      "instance": {
+        "data": {
+          "items": [
+            {
+              "event_id": "33333333-3333-4333-8333-333333333333",
+              "recipient_uid": "fixture-user",
+              "plan_id": "fixture-plan",
+              "planning_revision_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "planning_item_id": "11111111-1111-4111-8111-111111111111",
+              "expected_plan_version": 0,
+              "action": "PLACE_ORDER",
+              "reason": "fixture only",
+              "account": "fixture-account",
+              "symbol": "TEST",
+              "order_id": null,
+              "due_at": "2026-10-01T03:00:00Z",
+              "expires_at": "2026-10-01T03:05:00Z",
+              "version": 1,
+              "created_at": "2026-10-01T03:00:00Z",
+              "superseded_by": null,
+              "delivery_state": "PENDING",
+              "source_context": {
+                "source_id": "fixture-source-0001",
+                "source_generation": 1
+              },
+              "is_current": true,
+              "revision_is_current": true,
+              "requires_review": true,
+              "test_notification_visible": false,
+              "broker_action_executed": false
+            }
+          ]
+        },
+        "error": null,
+        "meta": {
+          "contract_version": "mobile-envelope.v1",
+          "request_id": "11111111-1111-4111-8111-111111111111",
+          "http_status": 200,
+          "pagination": {
+            "limit": 20,
+            "next_cursor": null,
+            "total_count": null
+          }
+        }
+      }
+    },
+    {
+      "name": "notifications_error_401",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error401",
+      "valid": true,
+      "instance": {
+        "data": null,
+        "error": {
+          "code": "app_check_required",
+          "message": "Safe fixture message.",
+          "validation": [],
+          "operation": null
+        },
+        "meta": {
+          "contract_version": "mobile-envelope.v1",
+          "request_id": "11111111-1111-4111-8111-111111111111",
+          "http_status": 401,
+          "pagination": null
+        }
+      }
+    },
+    {
+      "name": "notifications_error_403",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error403",
+      "valid": true,
+      "instance": {
+        "data": null,
+        "error": {
+          "code": "invalid_mobile_app",
+          "message": "Safe fixture message.",
+          "validation": [],
+          "operation": null
+        },
+        "meta": {
+          "contract_version": "mobile-envelope.v1",
+          "request_id": "11111111-1111-4111-8111-111111111111",
+          "http_status": 403,
+          "pagination": null
+        }
+      }
+    },
+    {
+      "name": "notifications_error_409",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error409",
+      "valid": true,
+      "instance": {
+        "data": null,
+        "error": {
+          "code": "planning_source_conflict",
+          "message": "Safe fixture message.",
+          "validation": [],
+          "operation": null
+        },
+        "meta": {
+          "contract_version": "mobile-envelope.v1",
+          "request_id": "11111111-1111-4111-8111-111111111111",
+          "http_status": 409,
+          "pagination": null
+        }
+      }
+    },
+    {
+      "name": "notifications_error_422",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error422",
+      "valid": true,
+      "instance": {
+        "data": null,
+        "error": {
+          "code": "invalid_payload",
+          "message": "Safe fixture message.",
+          "validation": [],
+          "operation": null
+        },
+        "meta": {
+          "contract_version": "mobile-envelope.v1",
+          "request_id": "11111111-1111-4111-8111-111111111111",
+          "http_status": 422,
+          "pagination": null
+        }
+      }
+    },
+    {
+      "name": "notifications_error_503",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error503",
+      "valid": true,
+      "instance": {
+        "data": null,
+        "error": {
+          "code": "authentication_unavailable",
+          "message": "Safe fixture message.",
+          "validation": [],
+          "operation": null
+        },
+        "meta": {
+          "contract_version": "mobile-envelope.v1",
+          "request_id": "11111111-1111-4111-8111-111111111111",
+          "http_status": 503,
+          "pagination": null
+        }
+      }
+    },
+    {
+      "name": "notification_request",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/notificationRequest",
+      "valid": true,
+      "instance": {
+        "path": {
+          "event_id": "33333333-3333-4333-8333-333333333333"
+        },
+        "query": {},
+        "body": null
+      }
+    },
+    {
+      "name": "notification_success",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/notificationResponse",
+      "valid": true,
+      "instance": {
+        "data": {
+          "event_id": "33333333-3333-4333-8333-333333333333",
+          "recipient_uid": "fixture-user",
+          "plan_id": "fixture-plan",
+          "planning_revision_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "planning_item_id": "11111111-1111-4111-8111-111111111111",
+          "expected_plan_version": 0,
+          "action": "PLACE_ORDER",
+          "reason": "fixture only",
+          "account": "fixture-account",
+          "symbol": "TEST",
+          "order_id": null,
+          "due_at": "2026-10-01T03:00:00Z",
+          "expires_at": "2026-10-01T03:05:00Z",
+          "version": 1,
+          "created_at": "2026-10-01T03:00:00Z",
+          "superseded_by": null,
+          "delivery_state": "PENDING",
+          "source_context": {
+            "source_id": "fixture-source-0001",
+            "source_generation": 1
+          },
+          "is_current": true,
+          "revision_is_current": true,
+          "requires_review": true,
+          "test_notification_visible": false,
+          "broker_action_executed": false
+        },
+        "error": null,
+        "meta": {
+          "contract_version": "mobile-envelope.v1",
+          "request_id": "11111111-1111-4111-8111-111111111111",
+          "http_status": 200,
+          "pagination": null
+        }
+      }
+    },
+    {
+      "name": "notification_error_401",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error401",
+      "valid": true,
+      "instance": {
+        "data": null,
+        "error": {
+          "code": "app_check_required",
+          "message": "Safe fixture message.",
+          "validation": [],
+          "operation": null
+        },
+        "meta": {
+          "contract_version": "mobile-envelope.v1",
+          "request_id": "11111111-1111-4111-8111-111111111111",
+          "http_status": 401,
+          "pagination": null
+        }
+      }
+    },
+    {
+      "name": "notification_error_403",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error403",
+      "valid": true,
+      "instance": {
+        "data": null,
+        "error": {
+          "code": "invalid_mobile_app",
+          "message": "Safe fixture message.",
+          "validation": [],
+          "operation": null
+        },
+        "meta": {
+          "contract_version": "mobile-envelope.v1",
+          "request_id": "11111111-1111-4111-8111-111111111111",
+          "http_status": 403,
+          "pagination": null
+        }
+      }
+    },
+    {
+      "name": "notification_error_409",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error409",
+      "valid": true,
+      "instance": {
+        "data": null,
+        "error": {
+          "code": "planning_source_conflict",
+          "message": "Safe fixture message.",
+          "validation": [],
+          "operation": null
+        },
+        "meta": {
+          "contract_version": "mobile-envelope.v1",
+          "request_id": "11111111-1111-4111-8111-111111111111",
+          "http_status": 409,
+          "pagination": null
+        }
+      }
+    },
+    {
+      "name": "notification_error_422",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error422",
+      "valid": true,
+      "instance": {
+        "data": null,
+        "error": {
+          "code": "invalid_payload",
+          "message": "Safe fixture message.",
+          "validation": [],
+          "operation": null
+        },
+        "meta": {
+          "contract_version": "mobile-envelope.v1",
+          "request_id": "11111111-1111-4111-8111-111111111111",
+          "http_status": 422,
+          "pagination": null
+        }
+      }
+    },
+    {
+      "name": "notification_error_503",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error503",
+      "valid": true,
+      "instance": {
+        "data": null,
+        "error": {
+          "code": "authentication_unavailable",
+          "message": "Safe fixture message.",
+          "validation": [],
+          "operation": null
+        },
+        "meta": {
+          "contract_version": "mobile-envelope.v1",
+          "request_id": "11111111-1111-4111-8111-111111111111",
+          "http_status": 503,
+          "pagination": null
+        }
+      }
+    },
+    {
+      "name": "notification_error_404",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error404",
+      "valid": true,
+      "instance": {
+        "data": null,
+        "error": {
+          "code": "notification_not_found",
+          "message": "Safe fixture message.",
+          "validation": [],
+          "operation": null
+        },
+        "meta": {
+          "contract_version": "mobile-envelope.v1",
+          "request_id": "11111111-1111-4111-8111-111111111111",
+          "http_status": 404,
+          "pagination": null
+        }
+      }
+    },
+    {
+      "name": "notificationPlan_request",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/notificationPlanRequest",
+      "valid": true,
+      "instance": {
+        "path": {
+          "plan_id": "fixture-plan"
+        },
+        "query": {},
+        "body": null
+      }
+    },
+    {
+      "name": "notificationPlan_success",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/notificationPlanResponse",
+      "valid": true,
+      "instance": {
+        "data": {
+          "plan_id": "fixture-plan",
+          "version": 1,
+          "event_id": "33333333-3333-4333-8333-333333333333",
+          "account": "fixture-account",
+          "symbol": "TEST",
+          "recipient_uid": "fixture-user"
+        },
+        "error": null,
+        "meta": {
+          "contract_version": "mobile-envelope.v1",
+          "request_id": "11111111-1111-4111-8111-111111111111",
+          "http_status": 200,
+          "pagination": null
+        }
+      }
+    },
+    {
+      "name": "notificationPlan_error_401",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error401",
+      "valid": true,
+      "instance": {
+        "data": null,
+        "error": {
+          "code": "app_check_required",
+          "message": "Safe fixture message.",
+          "validation": [],
+          "operation": null
+        },
+        "meta": {
+          "contract_version": "mobile-envelope.v1",
+          "request_id": "11111111-1111-4111-8111-111111111111",
+          "http_status": 401,
+          "pagination": null
+        }
+      }
+    },
+    {
+      "name": "notificationPlan_error_403",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error403",
+      "valid": true,
+      "instance": {
+        "data": null,
+        "error": {
+          "code": "invalid_mobile_app",
+          "message": "Safe fixture message.",
+          "validation": [],
+          "operation": null
+        },
+        "meta": {
+          "contract_version": "mobile-envelope.v1",
+          "request_id": "11111111-1111-4111-8111-111111111111",
+          "http_status": 403,
+          "pagination": null
+        }
+      }
+    },
+    {
+      "name": "notificationPlan_error_409",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error409",
+      "valid": true,
+      "instance": {
+        "data": null,
+        "error": {
+          "code": "planning_source_conflict",
+          "message": "Safe fixture message.",
+          "validation": [],
+          "operation": null
+        },
+        "meta": {
+          "contract_version": "mobile-envelope.v1",
+          "request_id": "11111111-1111-4111-8111-111111111111",
+          "http_status": 409,
+          "pagination": null
+        }
+      }
+    },
+    {
+      "name": "notificationPlan_error_422",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error422",
+      "valid": true,
+      "instance": {
+        "data": null,
+        "error": {
+          "code": "invalid_payload",
+          "message": "Safe fixture message.",
+          "validation": [],
+          "operation": null
+        },
+        "meta": {
+          "contract_version": "mobile-envelope.v1",
+          "request_id": "11111111-1111-4111-8111-111111111111",
+          "http_status": 422,
+          "pagination": null
+        }
+      }
+    },
+    {
+      "name": "notificationPlan_error_503",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error503",
+      "valid": true,
+      "instance": {
+        "data": null,
+        "error": {
+          "code": "authentication_unavailable",
+          "message": "Safe fixture message.",
+          "validation": [],
+          "operation": null
+        },
+        "meta": {
+          "contract_version": "mobile-envelope.v1",
+          "request_id": "11111111-1111-4111-8111-111111111111",
+          "http_status": 503,
+          "pagination": null
+        }
+      }
+    },
+    {
+      "name": "notificationPlan_error_404",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error404",
+      "valid": true,
+      "instance": {
+        "data": null,
+        "error": {
+          "code": "notification_not_found",
+          "message": "Safe fixture message.",
+          "validation": [],
+          "operation": null
+        },
+        "meta": {
+          "contract_version": "mobile-envelope.v1",
+          "request_id": "11111111-1111-4111-8111-111111111111",
+          "http_status": 404,
+          "pagination": null
+        }
+      }
+    },
+    {
+      "name": "registerDevice_request",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/registerDeviceRequest",
+      "valid": true,
+      "instance": {
+        "path": {
+          "device_id": "22222222-2222-4222-8222-222222222222"
+        },
+        "query": {},
+        "body": {
+          "fcm_token": "fixture-only-not-a-real-device-token"
+        }
+      }
+    },
+    {
+      "name": "registerDevice_success",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/registerDeviceResponse",
+      "valid": true,
+      "instance": {
+        "data": {
+          "device_id": "22222222-2222-4222-8222-222222222222",
+          "registered": true
+        },
+        "error": null,
+        "meta": {
+          "contract_version": "mobile-envelope.v1",
+          "request_id": "11111111-1111-4111-8111-111111111111",
+          "http_status": 200,
+          "pagination": null
+        }
+      }
+    },
+    {
+      "name": "registerDevice_error_401",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error401",
+      "valid": true,
+      "instance": {
+        "data": null,
+        "error": {
+          "code": "app_check_required",
+          "message": "Safe fixture message.",
+          "validation": [],
+          "operation": null
+        },
+        "meta": {
+          "contract_version": "mobile-envelope.v1",
+          "request_id": "11111111-1111-4111-8111-111111111111",
+          "http_status": 401,
+          "pagination": null
+        }
+      }
+    },
+    {
+      "name": "registerDevice_error_403",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error403",
+      "valid": true,
+      "instance": {
+        "data": null,
+        "error": {
+          "code": "invalid_mobile_app",
+          "message": "Safe fixture message.",
+          "validation": [],
+          "operation": null
+        },
+        "meta": {
+          "contract_version": "mobile-envelope.v1",
+          "request_id": "11111111-1111-4111-8111-111111111111",
+          "http_status": 403,
+          "pagination": null
+        }
+      }
+    },
+    {
+      "name": "registerDevice_error_409",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error409",
+      "valid": true,
+      "instance": {
+        "data": null,
+        "error": {
+          "code": "device_limit_10",
+          "message": "Safe fixture message.",
+          "validation": [],
+          "operation": {
+            "operation_id": null,
+            "database": "UNKNOWN",
+            "projection": "UNKNOWN",
+            "environment": null,
+            "committed_steps": []
+          }
+        },
+        "meta": {
+          "contract_version": "mobile-envelope.v1",
+          "request_id": "11111111-1111-4111-8111-111111111111",
+          "http_status": 409,
+          "pagination": null
+        }
+      }
+    },
+    {
+      "name": "registerDevice_error_422",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error422",
+      "valid": true,
+      "instance": {
+        "data": null,
+        "error": {
+          "code": "invalid_payload",
+          "message": "Safe fixture message.",
+          "validation": [],
+          "operation": null
+        },
+        "meta": {
+          "contract_version": "mobile-envelope.v1",
+          "request_id": "11111111-1111-4111-8111-111111111111",
+          "http_status": 422,
+          "pagination": null
+        }
+      }
+    },
+    {
+      "name": "registerDevice_error_503",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error503",
+      "valid": true,
+      "instance": {
+        "data": null,
+        "error": {
+          "code": "authentication_unavailable",
+          "message": "Safe fixture message.",
+          "validation": [],
+          "operation": null
+        },
+        "meta": {
+          "contract_version": "mobile-envelope.v1",
+          "request_id": "11111111-1111-4111-8111-111111111111",
+          "http_status": 503,
+          "pagination": null
+        }
+      }
+    },
+    {
+      "name": "registerDevice_error_413",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error413",
+      "valid": true,
+      "instance": {
+        "data": null,
+        "error": {
+          "code": "payload_too_large",
+          "message": "Safe fixture message.",
+          "validation": [],
+          "operation": null
+        },
+        "meta": {
+          "contract_version": "mobile-envelope.v1",
+          "request_id": "11111111-1111-4111-8111-111111111111",
+          "http_status": 413,
+          "pagination": null
+        }
+      }
+    },
+    {
+      "name": "removeDevice_request",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/removeDeviceRequest",
+      "valid": true,
+      "instance": {
+        "path": {
+          "device_id": "22222222-2222-4222-8222-222222222222"
+        },
+        "query": {},
+        "body": null
+      }
+    },
+    {
+      "name": "removeDevice_success",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/removeDeviceResponse",
+      "valid": true,
+      "instance": {
+        "data": {
+          "device_id": "22222222-2222-4222-8222-222222222222",
+          "registered": false
+        },
+        "error": null,
+        "meta": {
+          "contract_version": "mobile-envelope.v1",
+          "request_id": "11111111-1111-4111-8111-111111111111",
+          "http_status": 200,
+          "pagination": null
+        }
+      }
+    },
+    {
+      "name": "removeDevice_error_401",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error401",
+      "valid": true,
+      "instance": {
+        "data": null,
+        "error": {
+          "code": "app_check_required",
+          "message": "Safe fixture message.",
+          "validation": [],
+          "operation": null
+        },
+        "meta": {
+          "contract_version": "mobile-envelope.v1",
+          "request_id": "11111111-1111-4111-8111-111111111111",
+          "http_status": 401,
+          "pagination": null
+        }
+      }
+    },
+    {
+      "name": "removeDevice_error_403",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error403",
+      "valid": true,
+      "instance": {
+        "data": null,
+        "error": {
+          "code": "invalid_mobile_app",
+          "message": "Safe fixture message.",
+          "validation": [],
+          "operation": null
+        },
+        "meta": {
+          "contract_version": "mobile-envelope.v1",
+          "request_id": "11111111-1111-4111-8111-111111111111",
+          "http_status": 403,
+          "pagination": null
+        }
+      }
+    },
+    {
+      "name": "removeDevice_error_409",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error409",
+      "valid": true,
+      "instance": {
+        "data": null,
+        "error": {
+          "code": "planning_source_conflict",
+          "message": "Safe fixture message.",
+          "validation": [],
+          "operation": {
+            "operation_id": null,
+            "database": "UNKNOWN",
+            "projection": "UNKNOWN",
+            "environment": null,
+            "committed_steps": []
+          }
+        },
+        "meta": {
+          "contract_version": "mobile-envelope.v1",
+          "request_id": "11111111-1111-4111-8111-111111111111",
+          "http_status": 409,
+          "pagination": null
+        }
+      }
+    },
+    {
+      "name": "removeDevice_error_422",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error422",
+      "valid": true,
+      "instance": {
+        "data": null,
+        "error": {
+          "code": "invalid_payload",
+          "message": "Safe fixture message.",
+          "validation": [],
+          "operation": null
+        },
+        "meta": {
+          "contract_version": "mobile-envelope.v1",
+          "request_id": "11111111-1111-4111-8111-111111111111",
+          "http_status": 422,
+          "pagination": null
+        }
+      }
+    },
+    {
+      "name": "removeDevice_error_503",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error503",
+      "valid": true,
+      "instance": {
+        "data": null,
+        "error": {
+          "code": "authentication_unavailable",
+          "message": "Safe fixture message.",
+          "validation": [],
+          "operation": null
+        },
+        "meta": {
+          "contract_version": "mobile-envelope.v1",
+          "request_id": "11111111-1111-4111-8111-111111111111",
+          "http_status": 503,
+          "pagination": null
+        }
+      }
+    },
+    {
+      "name": "removeDevice_error_404",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error404",
+      "valid": true,
+      "instance": {
+        "data": null,
+        "error": {
+          "code": "device_not_registered",
+          "message": "Safe fixture message.",
+          "validation": [],
+          "operation": null
+        },
+        "meta": {
+          "contract_version": "mobile-envelope.v1",
+          "request_id": "11111111-1111-4111-8111-111111111111",
+          "http_status": 404,
+          "pagination": null
+        }
+      }
+    },
+    {
+      "name": "receipt_request",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/receiptRequest",
+      "valid": true,
+      "instance": {
+        "path": {
+          "event_id": "33333333-3333-4333-8333-333333333333"
+        },
+        "query": {},
+        "body": {
+          "device_id": "22222222-2222-4222-8222-222222222222",
+          "state": "RECEIVED"
+        }
+      }
+    },
+    {
+      "name": "receipt_success",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/receiptResponse",
+      "valid": true,
+      "instance": {
+        "data": {
+          "event_id": "33333333-3333-4333-8333-333333333333",
+          "recorded": "RECEIVED",
+          "broker_action_executed": false
+        },
+        "error": null,
+        "meta": {
+          "contract_version": "mobile-envelope.v1",
+          "request_id": "11111111-1111-4111-8111-111111111111",
+          "http_status": 200,
+          "pagination": null
+        }
+      }
+    },
+    {
+      "name": "receipt_error_401",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error401",
+      "valid": true,
+      "instance": {
+        "data": null,
+        "error": {
+          "code": "app_check_required",
+          "message": "Safe fixture message.",
+          "validation": [],
+          "operation": null
+        },
+        "meta": {
+          "contract_version": "mobile-envelope.v1",
+          "request_id": "11111111-1111-4111-8111-111111111111",
+          "http_status": 401,
+          "pagination": null
+        }
+      }
+    },
+    {
+      "name": "receipt_error_403",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error403",
+      "valid": true,
+      "instance": {
+        "data": null,
+        "error": {
+          "code": "invalid_mobile_app",
+          "message": "Safe fixture message.",
+          "validation": [],
+          "operation": null
+        },
+        "meta": {
+          "contract_version": "mobile-envelope.v1",
+          "request_id": "11111111-1111-4111-8111-111111111111",
+          "http_status": 403,
+          "pagination": null
+        }
+      }
+    },
+    {
+      "name": "receipt_error_409",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error409",
+      "valid": true,
+      "instance": {
+        "data": null,
+        "error": {
+          "code": "planning_source_conflict",
+          "message": "Safe fixture message.",
+          "validation": [],
+          "operation": {
+            "operation_id": null,
+            "database": "UNKNOWN",
+            "projection": "UNKNOWN",
+            "environment": null,
+            "committed_steps": []
+          }
+        },
+        "meta": {
+          "contract_version": "mobile-envelope.v1",
+          "request_id": "11111111-1111-4111-8111-111111111111",
+          "http_status": 409,
+          "pagination": null
+        }
+      }
+    },
+    {
+      "name": "receipt_error_422",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error422",
+      "valid": true,
+      "instance": {
+        "data": null,
+        "error": {
+          "code": "invalid_payload",
+          "message": "Safe fixture message.",
+          "validation": [],
+          "operation": null
+        },
+        "meta": {
+          "contract_version": "mobile-envelope.v1",
+          "request_id": "11111111-1111-4111-8111-111111111111",
+          "http_status": 422,
+          "pagination": null
+        }
+      }
+    },
+    {
+      "name": "receipt_error_503",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error503",
+      "valid": true,
+      "instance": {
+        "data": null,
+        "error": {
+          "code": "authentication_unavailable",
+          "message": "Safe fixture message.",
+          "validation": [],
+          "operation": null
+        },
+        "meta": {
+          "contract_version": "mobile-envelope.v1",
+          "request_id": "11111111-1111-4111-8111-111111111111",
+          "http_status": 503,
+          "pagination": null
+        }
+      }
+    },
+    {
+      "name": "receipt_error_404",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error404",
+      "valid": true,
+      "instance": {
+        "data": null,
+        "error": {
+          "code": "device_not_registered",
+          "message": "Safe fixture message.",
+          "validation": [],
+          "operation": null
+        },
+        "meta": {
+          "contract_version": "mobile-envelope.v1",
+          "request_id": "11111111-1111-4111-8111-111111111111",
+          "http_status": 404,
+          "pagination": null
+        }
+      }
+    },
+    {
+      "name": "receipt_error_413",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error413",
+      "valid": true,
+      "instance": {
+        "data": null,
+        "error": {
+          "code": "payload_too_large",
+          "message": "Safe fixture message.",
+          "validation": [],
+          "operation": null
+        },
+        "meta": {
+          "contract_version": "mobile-envelope.v1",
+          "request_id": "11111111-1111-4111-8111-111111111111",
+          "http_status": 413,
+          "pagination": null
+        }
+      }
+    },
+    {
+      "name": "publishInstruction_request",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/publishInstructionRequest",
+      "valid": true,
+      "instance": {
+        "path": {},
+        "query": {},
+        "body": {
+          "event_id": "33333333-3333-4333-8333-333333333333",
+          "recipient_uid": "fixture-user",
+          "plan_id": "fixture-plan",
+          "planning_revision_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "planning_item_id": "11111111-1111-4111-8111-111111111111",
+          "expected_plan_version": 0,
+          "action": "PLACE_ORDER",
+          "reason": "fixture only",
+          "account": "fixture-account",
+          "symbol": "TEST",
+          "order_id": null,
+          "due_at": "2026-10-01T03:00:00Z",
+          "expires_at": "2026-10-01T03:05:00Z"
+        }
+      }
+    },
+    {
+      "name": "publishInstruction_success",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/publishInstructionResponse",
+      "valid": true,
+      "instance": {
+        "data": {
+          "event_id": "33333333-3333-4333-8333-333333333333",
+          "version": 1,
+          "duplicate": false
+        },
+        "error": null,
+        "meta": {
+          "contract_version": "mobile-envelope.v1",
+          "request_id": "11111111-1111-4111-8111-111111111111",
+          "http_status": 200,
+          "pagination": null
+        }
+      }
+    },
+    {
+      "name": "publishInstruction_error_401",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error401",
+      "valid": true,
+      "instance": {
+        "data": null,
+        "error": {
+          "code": "app_check_required",
+          "message": "Safe fixture message.",
+          "validation": [],
+          "operation": null
+        },
+        "meta": {
+          "contract_version": "mobile-envelope.v1",
+          "request_id": "11111111-1111-4111-8111-111111111111",
+          "http_status": 401,
+          "pagination": null
+        }
+      }
+    },
+    {
+      "name": "publishInstruction_error_403",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error403",
+      "valid": true,
+      "instance": {
+        "data": null,
+        "error": {
+          "code": "admin_required",
+          "message": "Safe fixture message.",
+          "validation": [],
+          "operation": null
+        },
+        "meta": {
+          "contract_version": "mobile-envelope.v1",
+          "request_id": "11111111-1111-4111-8111-111111111111",
+          "http_status": 403,
+          "pagination": null
+        }
+      }
+    },
+    {
+      "name": "publishInstruction_error_409",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error409",
+      "valid": true,
+      "instance": {
+        "data": null,
+        "error": {
+          "code": "event_id_payload_conflict",
+          "message": "Safe fixture message.",
+          "validation": [],
+          "operation": {
+            "operation_id": null,
+            "database": "UNKNOWN",
+            "projection": "UNKNOWN",
+            "environment": null,
+            "committed_steps": []
+          }
+        },
+        "meta": {
+          "contract_version": "mobile-envelope.v1",
+          "request_id": "11111111-1111-4111-8111-111111111111",
+          "http_status": 409,
+          "pagination": null
+        }
+      }
+    },
+    {
+      "name": "publishInstruction_error_422",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error422",
+      "valid": true,
+      "instance": {
+        "data": null,
+        "error": {
+          "code": "invalid_payload",
+          "message": "Safe fixture message.",
+          "validation": [],
+          "operation": null
+        },
+        "meta": {
+          "contract_version": "mobile-envelope.v1",
+          "request_id": "11111111-1111-4111-8111-111111111111",
+          "http_status": 422,
+          "pagination": null
+        }
+      }
+    },
+    {
+      "name": "publishInstruction_error_503",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error503",
+      "valid": true,
+      "instance": {
+        "data": null,
+        "error": {
+          "code": "authentication_unavailable",
+          "message": "Safe fixture message.",
+          "validation": [],
+          "operation": null
+        },
+        "meta": {
+          "contract_version": "mobile-envelope.v1",
+          "request_id": "11111111-1111-4111-8111-111111111111",
+          "http_status": 503,
+          "pagination": null
+        }
+      }
+    },
+    {
+      "name": "publishInstruction_error_413",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error413",
+      "valid": true,
+      "instance": {
+        "data": null,
+        "error": {
+          "code": "payload_too_large",
+          "message": "Safe fixture message.",
+          "validation": [],
+          "operation": null
+        },
+        "meta": {
+          "contract_version": "mobile-envelope.v1",
+          "request_id": "11111111-1111-4111-8111-111111111111",
+          "http_status": 413,
+          "pagination": null
+        }
+      }
+    },
+    {
+      "name": "previewNotification_request",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/previewNotificationRequest",
+      "valid": true,
+      "instance": {
+        "path": {},
+        "query": {},
+        "body": {
+          "planning": {
+            "account": "DEMO-ACCOUNT",
+            "symbol": "DEMO",
+            "quantity": "100",
+            "price_vnd": "10000"
+          },
+          "notification": {
+            "event_id": "33333333-3333-4333-8333-333333333333",
+            "recipient_uid": "fixture-user",
+            "plan_id": "fixture-plan",
+            "planning_revision_id": "5e3ff232d43f73b3e2255d1d92603115c5831e26a800067fd6b93b973fefdd15",
+            "planning_item_id": "11111111-1111-4111-8111-111111111111",
+            "expected_plan_version": 0,
+            "action": "PLACE_ORDER",
+            "reason": "fixture only",
+            "account": "DEMO-ACCOUNT",
+            "symbol": "DEMO",
+            "order_id": null,
+            "due_at": "2026-10-01T03:00:00Z",
+            "expires_at": "2026-10-01T03:05:00Z"
+          },
+          "calendar_test": null
+        }
+      }
+    },
+    {
+      "name": "previewNotification_success",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/previewNotificationResponse",
+      "valid": true,
+      "instance": {
+        "data": {
+          "mode": "CLOUD_PREVIEW",
+          "persisted": false,
+          "fcm_sent": false,
+          "broker_action_executed": false,
+          "planning": {
+            "account": "DEMO-ACCOUNT",
+            "symbol": "DEMO",
+            "quantity": "100",
+            "price_vnd": "10000"
+          },
+          "notification": {
+            "event_id": "33333333-3333-4333-8333-333333333333",
+            "recipient_uid": "fixture-user",
+            "plan_id": "fixture-plan",
+            "planning_revision_id": "5e3ff232d43f73b3e2255d1d92603115c5831e26a800067fd6b93b973fefdd15",
+            "planning_item_id": "11111111-1111-4111-8111-111111111111",
+            "expected_plan_version": 0,
+            "action": "PLACE_ORDER",
+            "reason": "fixture only",
+            "account": "DEMO-ACCOUNT",
+            "symbol": "DEMO",
+            "order_id": null,
+            "due_at": "2026-10-01T03:00:00Z",
+            "expires_at": "2026-10-01T03:05:00Z"
+          },
+          "fcm_preview": {
+            "token": "DEMO-DEVICE-NOT-A-REAL-FCM-TOKEN",
+            "data": {
+              "schema_version": "1",
+              "event_id": "33333333-3333-4333-8333-333333333333",
+              "target_uid": "",
+              "plan_id": "fixture-plan",
+              "version": "1",
+              "type": "PLANNING_REVIEW_REQUIRED"
+            },
+            "android": {
+              "priority": "high",
+              "ttl": "300s"
+            }
+          }
+        },
+        "error": null,
+        "meta": {
+          "contract_version": "mobile-envelope.v1",
+          "request_id": "11111111-1111-4111-8111-111111111111",
+          "http_status": 200,
+          "pagination": null
+        }
+      }
+    },
+    {
+      "name": "previewNotification_error_401",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error401",
+      "valid": true,
+      "instance": {
+        "data": null,
+        "error": {
+          "code": "app_check_required",
+          "message": "Safe fixture message.",
+          "validation": [],
+          "operation": null
+        },
+        "meta": {
+          "contract_version": "mobile-envelope.v1",
+          "request_id": "11111111-1111-4111-8111-111111111111",
+          "http_status": 401,
+          "pagination": null
+        }
+      }
+    },
+    {
+      "name": "previewNotification_error_403",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error403",
+      "valid": true,
+      "instance": {
+        "data": null,
+        "error": {
+          "code": "admin_required",
+          "message": "Safe fixture message.",
+          "validation": [],
+          "operation": null
+        },
+        "meta": {
+          "contract_version": "mobile-envelope.v1",
+          "request_id": "11111111-1111-4111-8111-111111111111",
+          "http_status": 403,
+          "pagination": null
+        }
+      }
+    },
+    {
+      "name": "previewNotification_error_409",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error409",
+      "valid": true,
+      "instance": {
+        "data": null,
+        "error": {
+          "code": "planning_source_conflict",
+          "message": "Safe fixture message.",
+          "validation": [],
+          "operation": {
+            "operation_id": null,
+            "database": "UNKNOWN",
+            "projection": "UNKNOWN",
+            "environment": null,
+            "committed_steps": []
+          }
+        },
+        "meta": {
+          "contract_version": "mobile-envelope.v1",
+          "request_id": "11111111-1111-4111-8111-111111111111",
+          "http_status": 409,
+          "pagination": null
+        }
+      }
+    },
+    {
+      "name": "previewNotification_error_422",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error422",
+      "valid": true,
+      "instance": {
+        "data": null,
+        "error": {
+          "code": "invalid_payload",
+          "message": "Safe fixture message.",
+          "validation": [],
+          "operation": null
+        },
+        "meta": {
+          "contract_version": "mobile-envelope.v1",
+          "request_id": "11111111-1111-4111-8111-111111111111",
+          "http_status": 422,
+          "pagination": null
+        }
+      }
+    },
+    {
+      "name": "previewNotification_error_503",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error503",
+      "valid": true,
+      "instance": {
+        "data": null,
+        "error": {
+          "code": "authentication_unavailable",
+          "message": "Safe fixture message.",
+          "validation": [],
+          "operation": null
+        },
+        "meta": {
+          "contract_version": "mobile-envelope.v1",
+          "request_id": "11111111-1111-4111-8111-111111111111",
+          "http_status": 503,
+          "pagination": null
+        }
+      }
+    },
+    {
+      "name": "previewNotification_error_404",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error404",
+      "valid": true,
+      "instance": {
+        "data": null,
+        "error": {
+          "code": "route_not_enabled",
+          "message": "Safe fixture message.",
+          "validation": [],
+          "operation": null
+        },
+        "meta": {
+          "contract_version": "mobile-envelope.v1",
+          "request_id": "11111111-1111-4111-8111-111111111111",
+          "http_status": 404,
+          "pagination": null
+        }
+      }
+    },
+    {
+      "name": "previewNotification_error_413",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error413",
+      "valid": true,
+      "instance": {
+        "data": null,
+        "error": {
+          "code": "payload_too_large",
+          "message": "Safe fixture message.",
+          "validation": [],
+          "operation": null
+        },
+        "meta": {
+          "contract_version": "mobile-envelope.v1",
+          "request_id": "11111111-1111-4111-8111-111111111111",
+          "http_status": 413,
+          "pagination": null
+        }
+      }
+    },
+    {
+      "name": "health_request",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/healthRequest",
+      "valid": true,
+      "instance": {
+        "path": {},
+        "query": {},
+        "body": null
+      }
+    },
+    {
+      "name": "health_success",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/HealthDto",
+      "valid": true,
+      "instance": {
+        "status": "ok",
+        "storage": "firestore"
+      }
+    },
+    {
+      "name": "unknown_mutation_no_invented_id",
+      "schema_ref": "urn:finance:mobile-envelope:v1:proposal",
+      "valid": true,
+      "instance": {
+        "data": null,
+        "error": {
+          "code": "service_unavailable",
+          "message": "Safe fixture message.",
+          "validation": [],
+          "operation": {
+            "operation_id": null,
+            "database": "UNKNOWN",
+            "projection": "UNKNOWN",
+            "environment": null,
+            "committed_steps": []
+          }
+        },
+        "meta": {
+          "contract_version": "mobile-envelope.v1",
+          "request_id": "11111111-1111-4111-8111-111111111111",
+          "http_status": 503,
+          "pagination": null
+        }
+      }
+    },
+    {
+      "name": "partially_known_report_overall_unknown",
+      "schema_ref": "urn:finance:mobile-envelope:v1:proposal",
+      "valid": true,
+      "instance": {
+        "data": null,
+        "error": {
+          "code": "service_unavailable",
+          "message": "Safe fixture message.",
+          "validation": [],
+          "operation": {
+            "operation_id": "33333333-3333-4333-8333-333333333333",
+            "database": "UNKNOWN",
+            "projection": "UNKNOWN",
+            "environment": "sandbox",
+            "committed_steps": [
+              "PLACED_REPORT"
+            ]
+          }
+        },
+        "meta": {
+          "contract_version": "mobile-envelope.v1",
+          "request_id": "11111111-1111-4111-8111-111111111111",
+          "http_status": 503,
+          "pagination": null
+        }
+      }
+    },
+    {
+      "name": "known_legacy_commit_projection_pending",
+      "schema_ref": "urn:finance:mobile-envelope:v1:proposal",
+      "valid": true,
+      "instance": {
+        "data": null,
+        "error": {
+          "code": "sheet_update_failed",
+          "message": "Safe fixture message.",
+          "validation": [],
+          "operation": {
+            "operation_id": "33333333-3333-4333-8333-333333333333",
+            "database": "COMMITTED",
+            "projection": "PENDING",
+            "environment": "sandbox",
+            "committed_steps": [
+              "SYNC_BATCH"
+            ]
+          }
+        },
+        "meta": {
+          "contract_version": "mobile-envelope.v1",
+          "request_id": "11111111-1111-4111-8111-111111111111",
+          "http_status": 503,
+          "pagination": null
+        }
+      }
+    },
+    {
+      "name": "unknown_code_remains_error",
+      "schema_ref": "urn:finance:mobile-envelope:v1:proposal",
+      "valid": true,
+      "instance": {
+        "data": null,
+        "error": {
+          "code": "future_conflict",
+          "message": "Safe fixture message.",
+          "validation": [],
+          "operation": null
+        },
+        "meta": {
+          "contract_version": "mobile-envelope.v1",
+          "request_id": "11111111-1111-4111-8111-111111111111",
+          "http_status": 409,
+          "pagination": null
+        }
+      }
+    },
+    {
+      "name": "empty_page_terminal",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/notificationsResponse",
+      "valid": true,
+      "instance": {
+        "data": {
+          "items": []
+        },
+        "error": null,
+        "meta": {
+          "contract_version": "mobile-envelope.v1",
+          "request_id": "11111111-1111-4111-8111-111111111111",
+          "http_status": 200,
+          "pagination": {
+            "limit": 20,
+            "next_cursor": null,
+            "total_count": null
+          }
+        }
+      }
+    },
+    {
+      "name": "nullable_not_found_notification_plan",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/notificationPlanResponse",
+      "valid": true,
+      "instance": {
+        "data": {
+          "plan_id": "fixture-plan",
+          "version": 0,
+          "event_id": null
+        },
+        "error": null,
+        "meta": {
+          "contract_version": "mobile-envelope.v1",
+          "request_id": "11111111-1111-4111-8111-111111111111",
+          "http_status": 200,
+          "pagination": null
+        }
+      }
+    },
+    {
+      "name": "ineligible_preflight_has_no_execution_id",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/planningPreflightResponse",
+      "valid": true,
+      "instance": {
+        "data": {
+          "eligible": false,
+          "reasons": [
+            "NOT_APPROVED"
+          ],
+          "server_time": "2026-10-01T03:00:00Z",
+          "source_context": {
+            "source_id": "fixture-source-0001",
+            "source_generation": 1
+          },
+          "cash_requirements": {
+            "currency": "VND",
+            "principal_vnd": "1000000",
+            "fee_reserve_vnd": "2000",
+            "required_cash_vnd": "1002000",
+            "fee_reserve_rate": "0.002",
+            "policy_version": "cash-v1",
+            "cash_only": true
+          },
+          "preflight_id": null,
+          "preflight_expires_at": null,
+          "duplicate": false
+        },
+        "error": null,
+        "meta": {
+          "contract_version": "mobile-envelope.v1",
+          "request_id": "11111111-1111-4111-8111-111111111111",
+          "http_status": 200,
+          "pagination": null
+        }
+      }
+    },
+    {
+      "name": "legacy_page_nulls_are_display_only",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/allPlanningResponse",
+      "valid": true,
+      "instance": {
+        "data": {
+          "contract_version": "2.0",
+          "source_context": {
+            "source_id": "fixture-source-0001",
+            "source_generation": 1
+          },
+          "snapshot_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "items": [
+            {
+              "contract_version": "2.0",
+              "source_context": {
+                "source_id": "fixture-source-0001",
+                "source_generation": 1
+              },
+              "plan_id": "11111111-1111-4111-8111-111111111111",
+              "intent_id": "22222222-2222-4222-8222-222222222222",
+              "version": 1,
+              "environment": "production",
+              "symbol": "TE",
+              "side": "BUY",
+              "thesis": "legacy fixture",
+              "conditions": "",
+              "eligibility": {
+                "eligible": false,
+                "reasons": [
+                  "LEGACY_READ_ONLY",
+                  "UNKNOWN_SCHEDULE"
+                ],
+                "server_time": "2026-10-01T03:00:00Z"
+              },
+              "record_kind": "LEGACY",
+              "authoring_state": "LEGACY",
+              "execution_state": "LEGACY_UNVERIFIED",
+              "recipient_uid": null,
+              "account": null,
+              "quantity": "",
+              "limit_price_vnd": "",
+              "scheduled_at": null,
+              "window_starts_at": null,
+              "window_ends_at": null,
+              "cash_requirements": null,
+              "source_row": 2,
+              "legacy_fields": {
+                "Ng\u00e0y d\u1ef1 ki\u1ebfn": "2026-09-01",
+                "M\u00e3": "TE"
+              },
+              "legacy_status": "PLANNING ONLY",
+              "scheduled_date": "2026-09-01",
+              "time_status": "DATE_ONLY",
+              "raw_scheduled_at": "2026-09-01"
+            }
+          ]
+        },
+        "error": null,
+        "meta": {
+          "contract_version": "mobile-envelope.v1",
+          "request_id": "11111111-1111-4111-8111-111111111111",
+          "http_status": 200,
+          "pagination": {
+            "limit": 20,
+            "next_cursor": null,
+            "total_count": 1
+          }
+        }
+      }
+    },
+    {
+      "name": "field_validation",
+      "schema_ref": "urn:finance:mobile-envelope:v1:proposal",
+      "valid": true,
+      "instance": {
+        "data": null,
+        "error": {
+          "code": "invalid_payload",
+          "message": "Safe fixture message.",
+          "validation": [
+            {
+              "location": "body",
+              "pointer": "/device_id",
+              "code": "invalid_uuid",
+              "message": "Expected a UUID."
+            }
+          ],
+          "operation": null
+        },
+        "meta": {
+          "contract_version": "mobile-envelope.v1",
+          "request_id": "11111111-1111-4111-8111-111111111111",
+          "http_status": 422,
+          "pagination": null
+        }
+      }
+    },
+    {
+      "name": "success_and_error_together",
+      "schema_ref": "urn:finance:mobile-envelope:v1:proposal",
+      "valid": false,
+      "instance": {
+        "data": {
+          "pending_sheet_batches": 0,
+          "count_capped_at": 200,
+          "sheet_writes": false,
+          "role": "uploader"
+        },
+        "error": {
+          "code": "invalid_payload",
+          "message": "Safe fixture message.",
+          "validation": [
+            {
+              "location": "body",
+              "pointer": "/device_id",
+              "code": "invalid_uuid",
+              "message": "Expected a UUID."
+            }
+          ],
+          "operation": null
+        },
+        "meta": {
+          "contract_version": "mobile-envelope.v1",
+          "request_id": "11111111-1111-4111-8111-111111111111",
+          "http_status": 200,
+          "pagination": null
+        }
+      },
+      "reason": "2xx must not carry an error"
+    },
+    {
+      "name": "error_with_data",
+      "schema_ref": "urn:finance:mobile-envelope:v1:proposal",
+      "valid": false,
+      "instance": {
+        "data": {
+          "pending_sheet_batches": 0,
+          "count_capped_at": 200,
+          "sheet_writes": false,
+          "role": "uploader"
+        },
+        "error": {
+          "code": "service_unavailable",
+          "message": "Safe fixture message.",
+          "validation": [],
+          "operation": null
+        },
+        "meta": {
+          "contract_version": "mobile-envelope.v1",
+          "request_id": "11111111-1111-4111-8111-111111111111",
+          "http_status": 503,
+          "pagination": null
+        }
+      },
+      "reason": "error data must be null"
+    },
+    {
+      "name": "status_endpoint_null_data",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/syncStatusResponse",
+      "valid": false,
+      "instance": {
+        "data": null,
+        "error": null,
+        "meta": {
+          "contract_version": "mobile-envelope.v1",
+          "request_id": "11111111-1111-4111-8111-111111111111",
+          "http_status": 200,
+          "pagination": null
+        }
+      },
+      "reason": "SyncStatus DTO is non-null"
+    },
+    {
+      "name": "missing_cursor_not_terminal",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/notificationsResponse",
+      "valid": false,
+      "instance": {
+        "data": {
+          "items": []
+        },
+        "error": null,
+        "meta": {
+          "contract_version": "mobile-envelope.v1",
+          "request_id": "11111111-1111-4111-8111-111111111111",
+          "http_status": 200,
+          "pagination": {
+            "limit": 20,
+            "total_count": null
+          }
+        }
+      },
+      "reason": "required cursor missing"
+    },
+    {
+      "name": "non_uuid_correlation",
+      "schema_ref": "urn:finance:mobile-envelope:v1:proposal",
+      "valid": false,
+      "instance": {
+        "data": {
+          "pending_sheet_batches": 0,
+          "count_capped_at": 200,
+          "sheet_writes": false,
+          "role": "uploader"
+        },
+        "error": null,
+        "meta": {
+          "contract_version": "mobile-envelope.v1",
+          "request_id": "invented-correlation",
+          "http_status": 200,
+          "pagination": null
+        }
+      },
+      "reason": "server ID must be UUIDv4"
+    },
+    {
+      "name": "json_envelope_on_204",
+      "schema_ref": "urn:finance:mobile-envelope:v1:proposal",
+      "valid": false,
+      "instance": {
+        "data": {
+          "pending_sheet_batches": 0,
+          "count_capped_at": 200,
+          "sheet_writes": false,
+          "role": "uploader"
+        },
+        "error": null,
+        "meta": {
+          "contract_version": "mobile-envelope.v1",
+          "request_id": "11111111-1111-4111-8111-111111111111",
+          "http_status": 204,
+          "pagination": null
+        }
+      },
+      "reason": "204 is bodyless"
+    },
+    {
+      "name": "committed_without_confirmed_steps",
+      "schema_ref": "urn:finance:mobile-envelope:v1:proposal",
+      "valid": false,
+      "instance": {
+        "data": null,
+        "error": {
+          "code": "service_unavailable",
+          "message": "Safe fixture message.",
+          "validation": [],
+          "operation": {
+            "operation_id": null,
+            "database": "COMMITTED",
+            "projection": "UNKNOWN",
+            "environment": null,
+            "committed_steps": []
+          }
+        },
+        "meta": {
+          "contract_version": "mobile-envelope.v1",
+          "request_id": "11111111-1111-4111-8111-111111111111",
+          "http_status": 503,
+          "pagination": null
+        }
+      },
+      "reason": "COMMITTED requires a known durable step"
+    },
+    {
+      "name": "not_applied_with_committed_step",
+      "schema_ref": "urn:finance:mobile-envelope:v1:proposal",
+      "valid": false,
+      "instance": {
+        "data": null,
+        "error": {
+          "code": "service_unavailable",
+          "message": "Safe fixture message.",
+          "validation": [],
+          "operation": {
+            "operation_id": null,
+            "database": "NOT_APPLIED",
+            "projection": "NOT_APPLICABLE",
+            "environment": null,
+            "committed_steps": [
+              "PLACED_REPORT"
+            ]
+          }
+        },
+        "meta": {
+          "contract_version": "mobile-envelope.v1",
+          "request_id": "11111111-1111-4111-8111-111111111111",
+          "http_status": 503,
+          "pagination": null
+        }
+      },
+      "reason": "cannot erase confirmed partial writes"
+    },
+    {
+      "name": "unknown_with_claimed_projection_success",
+      "schema_ref": "urn:finance:mobile-envelope:v1:proposal",
+      "valid": false,
+      "instance": {
+        "data": null,
+        "error": {
+          "code": "service_unavailable",
+          "message": "Safe fixture message.",
+          "validation": [],
+          "operation": {
+            "operation_id": null,
+            "database": "UNKNOWN",
+            "projection": "UP_TO_DATE",
+            "environment": null,
+            "committed_steps": []
+          }
+        },
+        "meta": {
+          "contract_version": "mobile-envelope.v1",
+          "request_id": "11111111-1111-4111-8111-111111111111",
+          "http_status": 503,
+          "pagination": null
+        }
+      },
+      "reason": "UNKNOWN projection cannot claim success"
+    },
+    {
+      "name": "invalid_operation_id",
+      "schema_ref": "urn:finance:mobile-envelope:v1:proposal",
+      "valid": false,
+      "instance": {
+        "data": null,
+        "error": {
+          "code": "service_unavailable",
+          "message": "Safe fixture message.",
+          "validation": [],
+          "operation": {
+            "operation_id": "not-a-real-operation-id",
+            "database": "UNKNOWN",
+            "projection": "UNKNOWN",
+            "environment": null,
+            "committed_steps": []
+          }
+        },
+        "meta": {
+          "contract_version": "mobile-envelope.v1",
+          "request_id": "11111111-1111-4111-8111-111111111111",
+          "http_status": 503,
+          "pagination": null
+        }
+      },
+      "reason": "unknown ID must be null, not placeholder"
+    },
+    {
+      "name": "validation_echoes_input",
+      "schema_ref": "urn:finance:mobile-envelope:v1:proposal",
+      "valid": false,
+      "instance": {
+        "data": null,
+        "error": {
+          "code": "invalid_payload",
+          "message": "Safe fixture message.",
+          "validation": [
+            {
+              "location": "body",
+              "pointer": "/device_id",
+              "code": "invalid_uuid",
+              "message": "Expected a UUID.",
+              "input": "private-value"
+            }
+          ],
+          "operation": null
+        },
+        "meta": {
+          "contract_version": "mobile-envelope.v1",
+          "request_id": "11111111-1111-4111-8111-111111111111",
+          "http_status": 422,
+          "pagination": null
+        }
+      },
+      "reason": "raw validation input forbidden"
+    },
+    {
+      "name": "invalid_device_path_uuid",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/removeDeviceRequest",
+      "valid": false,
+      "instance": {
+        "path": {
+          "device_id": "broken"
+        },
+        "query": {},
+        "body": null
+      },
+      "reason": "UUID path validation"
+    },
+    {
+      "name": "notification_receipt_bad_state",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/receiptRequest",
+      "valid": false,
+      "instance": {
+        "path": {
+          "event_id": "33333333-3333-4333-8333-333333333333"
+        },
+        "query": {},
+        "body": {
+          "device_id": "22222222-2222-4222-8222-222222222222",
+          "state": "FILLED"
+        }
+      },
+      "reason": "receipt cannot report broker state"
+    },
+    {
+      "name": "request_secret_extra_field",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/uploadRequest",
+      "valid": false,
+      "instance": {
+        "path": {},
+        "query": {},
+        "body": {
+          "source_context": {
+            "source_id": "fixture-source-0001",
+            "source_generation": 1
+          },
+          "batch_id": "11111111-1111-4111-8111-111111111111",
+          "device_id": "22222222-2222-4222-8222-222222222222",
+          "environment": "sandbox",
+          "orders": [
+            {
+              "account": "fixture-account",
+              "order_id": "fixture-order",
+              "updated_at": "2026-10-01T03:00:00Z",
+              "created_at": "2026-10-01T03:00:00Z",
+              "symbol": "TEST",
+              "side": "BUY",
+              "order_type": "LO",
+              "quantity": "100",
+              "filled_quantity": "0",
+              "price_vnd": "10000",
+              "average_fill_price_vnd": null,
+              "status": "NEW",
+              "market_type": "STOCK",
+              "category": "NORMAL"
+            }
+          ],
+          "executions": [],
+          "positions": [],
+          "balances": [],
+          "dnse_secret": "fixture-private"
+        }
+      },
+      "reason": "extra secret fields forbidden"
+    },
+    {
+      "name": "wrong_money_wire_type",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/OrderDto",
+      "valid": false,
+      "instance": {
+        "account": "fixture-account",
+        "order_id": "fixture-order",
+        "updated_at": "2026-10-01T03:00:00Z",
+        "created_at": "2026-10-01T03:00:00Z",
+        "symbol": "TEST",
+        "side": "BUY",
+        "order_type": "LO",
+        "quantity": 100,
+        "filled_quantity": "0",
+        "price_vnd": "10000",
+        "average_fill_price_vnd": null,
+        "status": "NEW",
+        "market_type": "STOCK",
+        "category": "NORMAL"
+      },
+      "reason": "canonical returned amounts are strings"
+    },
+    {
+      "name": "unsupported_environment",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/placedOrderRequest",
+      "valid": false,
+      "instance": {
+        "path": {},
+        "query": {},
+        "body": {
+          "request_id": "33333333-3333-4333-8333-333333333333",
+          "device_id": "22222222-2222-4222-8222-222222222222",
+          "environment": "test",
+          "order": {
+            "account": "fixture-account",
+            "order_id": "fixture-order",
+            "updated_at": "2026-10-01T03:00:00Z",
+            "created_at": "2026-10-01T03:00:00Z",
+            "symbol": "TEST",
+            "side": "BUY",
+            "order_type": "LO",
+            "quantity": "100",
+            "filled_quantity": "0",
+            "price_vnd": "10000",
+            "average_fill_price_vnd": null,
+            "status": "NEW",
+            "market_type": "STOCK",
+            "category": "NORMAL"
+          }
+        }
+      },
+      "reason": "sandbox or production only"
+    },
+    {
+      "name": "invalid_page_limit",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/notificationsRequest",
+      "valid": false,
+      "instance": {
+        "path": {},
+        "query": {
+          "limit": 101
+        },
+        "body": null
+      },
+      "reason": "maximum limit 100"
+    },
+    {
+      "name": "eligible_without_preflight_id",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/planningPreflightResponse",
+      "valid": false,
+      "instance": {
+        "data": {
+          "eligible": true,
+          "reasons": [],
+          "server_time": "2026-10-01T03:00:00Z",
+          "source_context": {
+            "source_id": "fixture-source-0001",
+            "source_generation": 1
+          },
+          "cash_requirements": {
+            "currency": "VND",
+            "principal_vnd": "1000000",
+            "fee_reserve_vnd": "2000",
+            "required_cash_vnd": "1002000",
+            "fee_reserve_rate": "0.002",
+            "policy_version": "cash-v1",
+            "cash_only": true
+          },
+          "preflight_id": null,
+          "preflight_expires_at": "2026-10-01T03:05:00Z",
+          "duplicate": false
+        },
+        "error": null,
+        "meta": {
+          "contract_version": "mobile-envelope.v1",
+          "request_id": "11111111-1111-4111-8111-111111111111",
+          "http_status": 200,
+          "pagination": null
+        }
+      },
+      "reason": "eligible requires actual claim ID"
+    },
+    {
+      "name": "unexpected_response_field",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/syncStatusResponse",
+      "valid": false,
+      "instance": {
+        "data": {
+          "pending_sheet_batches": 0,
+          "count_capped_at": 200,
+          "sheet_writes": false,
+          "role": "uploader",
+          "unexpected_secret": "fixture-private"
+        },
+        "error": null,
+        "meta": {
+          "contract_version": "mobile-envelope.v1",
+          "request_id": "11111111-1111-4111-8111-111111111111",
+          "http_status": 200,
+          "pagination": null
+        }
+      },
+      "reason": "typed result projection excludes extras"
+    },
+    {
+      "name": "required_current_mobile_headers",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/AuthHeaders",
+      "valid": true,
+      "instance": {
+        "Authorization": "Bearer fixture-id-token",
+        "X-Firebase-AppCheck": "fixture-app-check"
+      }
+    },
+    {
+      "name": "missing_required_app_check_header",
+      "schema_ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/AuthHeaders",
+      "valid": false,
+      "instance": {
+        "Authorization": "Bearer fixture-id-token"
+      },
+      "reason": "valid mobile request profile requires attestation"
+    }
+  ],
+  "http_only_examples": [
+    {
+      "status": 204,
+      "headers": {
+        "X-Request-ID": "11111111-1111-4111-8111-111111111111"
+      },
+      "body_absent": true,
+      "supported_by_current_mobile_inventory": false
+    }
+  ]
+}

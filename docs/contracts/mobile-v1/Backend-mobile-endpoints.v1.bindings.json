@@ -1,0 +1,1833 @@
+{
+  "design_only": true,
+  "proposal_revision": 2,
+  "backend_revision": "6a1bf2163317c3199ee6d38c089292ba3584d2aa",
+  "endpoints": [
+    {
+      "operation": "syncStatus",
+      "method": "GET",
+      "current_path": "/v1/sync/status",
+      "proposed_path": "/mobile/v1/sync/status",
+      "request_schema": {
+        "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/syncStatusRequest"
+      },
+      "responses": {
+        "200": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/syncStatusResponse"
+        },
+        "401": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error401",
+          "x-known-codes": [
+            "app_check_required",
+            "authentication_required",
+            "invalid_access_token",
+            "invalid_app_check_token",
+            "invalid_firebase_token"
+          ]
+        },
+        "403": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error403",
+          "x-known-codes": [
+            "invalid_mobile_app",
+            "verified_google_account_required"
+          ]
+        },
+        "409": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error409",
+          "x-known-codes": [
+            "planning_source_conflict",
+            "planning_source_generation_conflict"
+          ]
+        },
+        "422": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error422",
+          "x-known-codes": [
+            "invalid_payload"
+          ]
+        },
+        "503": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error503",
+          "x-known-codes": [
+            "authentication_unavailable",
+            "planning_source_unavailable",
+            "response_too_large",
+            "service_unavailable"
+          ]
+        }
+      },
+      "unknown_error_policy": "Any otherwise-valid 4xx/5xx envelope is decoded as a server rejection; unknown codes do not imply reauthentication or retry.",
+      "auth": "firebase_app_check",
+      "success_nullable": false,
+      "success_204": false,
+      "operation_id_source": null,
+      "pagination": false,
+      "body_wire": "absent (empty body; not JSON null)",
+      "notes": "Status-specific schemas validate shape/status; x-known-codes enumerates current/proposed mapped codes, while unknown machine codes are intentionally supported by the default error contract.",
+      "default_error_schema": {
+        "$ref": "urn:finance:mobile-envelope:v1:proposal#/definitions/Failure"
+      }
+    },
+    {
+      "operation": "adminSources",
+      "method": "GET",
+      "current_path": "/v1/admin/sources",
+      "proposed_path": "/mobile/v1/admin/sources",
+      "request_schema": {
+        "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/adminSourcesRequest"
+      },
+      "responses": {
+        "200": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/adminSourcesResponse"
+        },
+        "401": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error401",
+          "x-known-codes": [
+            "app_check_required",
+            "authentication_required",
+            "invalid_access_token",
+            "invalid_app_check_token",
+            "invalid_firebase_token"
+          ]
+        },
+        "403": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error403",
+          "x-known-codes": [
+            "admin_required",
+            "invalid_mobile_app",
+            "verified_google_account_required"
+          ]
+        },
+        "409": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error409",
+          "x-known-codes": [
+            "planning_source_conflict",
+            "planning_source_generation_conflict"
+          ]
+        },
+        "422": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error422",
+          "x-known-codes": [
+            "invalid_payload"
+          ]
+        },
+        "503": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error503",
+          "x-known-codes": [
+            "authentication_unavailable",
+            "planning_source_unavailable",
+            "response_too_large",
+            "service_unavailable"
+          ]
+        }
+      },
+      "unknown_error_policy": "Any otherwise-valid 4xx/5xx envelope is decoded as a server rejection; unknown codes do not imply reauthentication or retry.",
+      "auth": "firebase_app_check",
+      "success_nullable": false,
+      "success_204": false,
+      "operation_id_source": null,
+      "pagination": true,
+      "body_wire": "absent (empty body; not JSON null)",
+      "notes": "Server default limit 100; existing Android explicitly sends 20. First page may include one additional legacy entry, so item count may be limit+1. Status-specific schemas validate shape/status; x-known-codes enumerates current/proposed mapped codes, while unknown machine codes are intentionally supported by the default error contract.",
+      "default_error_schema": {
+        "$ref": "urn:finance:mobile-envelope:v1:proposal#/definitions/Failure"
+      }
+    },
+    {
+      "operation": "adminRecords",
+      "method": "GET",
+      "current_path": "/v1/admin/sources/{source}/records",
+      "proposed_path": "/mobile/v1/admin/sources/{source}/records",
+      "request_schema": {
+        "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/adminRecordsRequest"
+      },
+      "responses": {
+        "200": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/adminRecordsResponse"
+        },
+        "401": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error401",
+          "x-known-codes": [
+            "app_check_required",
+            "authentication_required",
+            "invalid_access_token",
+            "invalid_app_check_token",
+            "invalid_firebase_token"
+          ]
+        },
+        "403": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error403",
+          "x-known-codes": [
+            "admin_required",
+            "invalid_mobile_app",
+            "verified_google_account_required"
+          ]
+        },
+        "409": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error409",
+          "x-known-codes": [
+            "planning_source_conflict",
+            "planning_source_generation_conflict"
+          ]
+        },
+        "422": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error422",
+          "x-known-codes": [
+            "invalid_payload"
+          ]
+        },
+        "503": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error503",
+          "x-known-codes": [
+            "authentication_unavailable",
+            "planning_source_unavailable",
+            "response_too_large",
+            "service_unavailable"
+          ]
+        },
+        "404": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error404",
+          "x-known-codes": [
+            "source_not_found"
+          ]
+        }
+      },
+      "unknown_error_policy": "Any otherwise-valid 4xx/5xx envelope is decoded as a server rejection; unknown codes do not imply reauthentication or retry.",
+      "auth": "firebase_app_check",
+      "success_nullable": false,
+      "success_204": false,
+      "operation_id_source": null,
+      "pagination": true,
+      "body_wire": "absent (empty body; not JSON null)",
+      "notes": "Status-specific schemas validate shape/status; x-known-codes enumerates current/proposed mapped codes, while unknown machine codes are intentionally supported by the default error contract.",
+      "default_error_schema": {
+        "$ref": "urn:finance:mobile-envelope:v1:proposal#/definitions/Failure"
+      }
+    },
+    {
+      "operation": "allPlanning",
+      "method": "GET",
+      "current_path": "/v2/planning/intents",
+      "proposed_path": "/mobile/v1/planning/intents",
+      "request_schema": {
+        "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/allPlanningRequest"
+      },
+      "responses": {
+        "200": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/allPlanningResponse"
+        },
+        "401": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error401",
+          "x-known-codes": [
+            "app_check_required",
+            "authentication_required",
+            "invalid_access_token",
+            "invalid_app_check_token",
+            "invalid_firebase_token"
+          ]
+        },
+        "403": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error403",
+          "x-known-codes": [
+            "invalid_mobile_app",
+            "verified_google_account_required"
+          ]
+        },
+        "409": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error409",
+          "x-known-codes": [
+            "planning_snapshot_conflict",
+            "planning_source_conflict",
+            "planning_source_generation_conflict"
+          ]
+        },
+        "422": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error422",
+          "x-known-codes": [
+            "invalid_payload",
+            "invalid_planning_cursor"
+          ]
+        },
+        "503": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error503",
+          "x-known-codes": [
+            "authentication_unavailable",
+            "planning_source_not_configured",
+            "planning_source_unavailable",
+            "response_too_large",
+            "service_unavailable"
+          ]
+        }
+      },
+      "unknown_error_policy": "Any otherwise-valid 4xx/5xx envelope is decoded as a server rejection; unknown codes do not imply reauthentication or retry.",
+      "auth": "firebase_app_check",
+      "success_nullable": false,
+      "success_204": false,
+      "operation_id_source": null,
+      "pagination": true,
+      "body_wire": "absent (empty body; not JSON null)",
+      "notes": "Current Android sends view=all,limit=100. all has snapshot_id and exact total_count; other existing views have null total_count and no snapshot_id. Status-specific schemas validate shape/status; x-known-codes enumerates current/proposed mapped codes, while unknown machine codes are intentionally supported by the default error contract.",
+      "default_error_schema": {
+        "$ref": "urn:finance:mobile-envelope:v1:proposal#/definitions/Failure"
+      }
+    },
+    {
+      "operation": "planningIntent",
+      "method": "GET",
+      "current_path": "/v2/planning/intents/{intent_id}",
+      "proposed_path": "/mobile/v1/planning/intents/{intent_id}",
+      "request_schema": {
+        "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/planningIntentRequest"
+      },
+      "responses": {
+        "200": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/planningIntentResponse"
+        },
+        "401": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error401",
+          "x-known-codes": [
+            "app_check_required",
+            "authentication_required",
+            "invalid_access_token",
+            "invalid_app_check_token",
+            "invalid_firebase_token"
+          ]
+        },
+        "403": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error403",
+          "x-known-codes": [
+            "invalid_mobile_app",
+            "verified_google_account_required"
+          ]
+        },
+        "409": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error409",
+          "x-known-codes": [
+            "planning_source_conflict",
+            "planning_source_generation_conflict"
+          ]
+        },
+        "422": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error422",
+          "x-known-codes": [
+            "invalid_payload"
+          ]
+        },
+        "503": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error503",
+          "x-known-codes": [
+            "authentication_unavailable",
+            "planning_source_unavailable",
+            "response_too_large",
+            "service_unavailable"
+          ]
+        },
+        "404": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error404",
+          "x-known-codes": [
+            "planning_intent_not_found"
+          ]
+        }
+      },
+      "unknown_error_policy": "Any otherwise-valid 4xx/5xx envelope is decoded as a server rejection; unknown codes do not imply reauthentication or retry.",
+      "auth": "firebase_app_check",
+      "success_nullable": false,
+      "success_204": false,
+      "operation_id_source": null,
+      "pagination": false,
+      "body_wire": "absent (empty body; not JSON null)",
+      "notes": "Status-specific schemas validate shape/status; x-known-codes enumerates current/proposed mapped codes, while unknown machine codes are intentionally supported by the default error contract.",
+      "default_error_schema": {
+        "$ref": "urn:finance:mobile-envelope:v1:proposal#/definitions/Failure"
+      }
+    },
+    {
+      "operation": "planningSource",
+      "method": "GET",
+      "current_path": "/v2/planning/source",
+      "proposed_path": "/mobile/v1/planning/source",
+      "request_schema": {
+        "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/planningSourceRequest"
+      },
+      "responses": {
+        "200": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/planningSourceResponse"
+        },
+        "401": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error401",
+          "x-known-codes": [
+            "app_check_required",
+            "authentication_required",
+            "invalid_access_token",
+            "invalid_app_check_token",
+            "invalid_firebase_token"
+          ]
+        },
+        "403": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error403",
+          "x-known-codes": [
+            "invalid_mobile_app",
+            "verified_google_account_required"
+          ]
+        },
+        "409": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error409",
+          "x-known-codes": [
+            "planning_source_conflict",
+            "planning_source_generation_conflict"
+          ]
+        },
+        "422": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error422",
+          "x-known-codes": [
+            "invalid_payload"
+          ]
+        },
+        "503": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error503",
+          "x-known-codes": [
+            "authentication_unavailable",
+            "planning_source_not_configured",
+            "planning_source_unavailable",
+            "response_too_large",
+            "service_unavailable"
+          ]
+        }
+      },
+      "unknown_error_policy": "Any otherwise-valid 4xx/5xx envelope is decoded as a server rejection; unknown codes do not imply reauthentication or retry.",
+      "auth": "firebase_app_check",
+      "success_nullable": false,
+      "success_204": false,
+      "operation_id_source": null,
+      "pagination": false,
+      "body_wire": "absent (empty body; not JSON null)",
+      "notes": "Status-specific schemas validate shape/status; x-known-codes enumerates current/proposed mapped codes, while unknown machine codes are intentionally supported by the default error contract.",
+      "default_error_schema": {
+        "$ref": "urn:finance:mobile-envelope:v1:proposal#/definitions/Failure"
+      }
+    },
+    {
+      "operation": "planningPreflight",
+      "method": "POST",
+      "current_path": "/v2/planning/intents/{intent_id}/preflight",
+      "proposed_path": "/mobile/v1/planning/intents/{intent_id}/preflight",
+      "request_schema": {
+        "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/planningPreflightRequest"
+      },
+      "responses": {
+        "200": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/planningPreflightResponse"
+        },
+        "401": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error401",
+          "x-known-codes": [
+            "app_check_required",
+            "authentication_required",
+            "invalid_access_token",
+            "invalid_app_check_token",
+            "invalid_firebase_token"
+          ]
+        },
+        "403": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error403",
+          "x-known-codes": [
+            "invalid_mobile_app",
+            "preflight_requires_user",
+            "verified_google_account_required"
+          ]
+        },
+        "409": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error409",
+          "x-known-codes": [
+            "intent_execution_claimed",
+            "planning_source_conflict",
+            "planning_source_generation_conflict",
+            "preflight_context_conflict",
+            "preflight_expired",
+            "preflight_request_id_payload_conflict"
+          ]
+        },
+        "422": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error422",
+          "x-known-codes": [
+            "invalid_payload"
+          ]
+        },
+        "503": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error503",
+          "x-known-codes": [
+            "authentication_unavailable",
+            "planning_source_unavailable",
+            "response_too_large",
+            "service_unavailable"
+          ]
+        },
+        "404": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error404",
+          "x-known-codes": [
+            "planning_intent_not_found"
+          ]
+        },
+        "413": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error413",
+          "x-known-codes": [
+            "payload_too_large"
+          ]
+        }
+      },
+      "unknown_error_policy": "Any otherwise-valid 4xx/5xx envelope is decoded as a server rejection; unknown codes do not imply reauthentication or retry.",
+      "auth": "firebase_app_check",
+      "success_nullable": false,
+      "success_204": false,
+      "operation_id_source": "body.request_id",
+      "pagination": false,
+      "body_wire": "JSON object",
+      "notes": "Status-specific schemas validate shape/status; x-known-codes enumerates current/proposed mapped codes, while unknown machine codes are intentionally supported by the default error contract.",
+      "default_error_schema": {
+        "$ref": "urn:finance:mobile-envelope:v1:proposal#/definitions/Failure"
+      }
+    },
+    {
+      "operation": "importPlanning",
+      "method": "POST",
+      "current_path": "/v1/planning/import",
+      "proposed_path": "/mobile/v1/legacy/planning/import",
+      "request_schema": {
+        "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/importPlanningRequest"
+      },
+      "responses": {
+        "200": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/importPlanningResponse"
+        },
+        "401": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error401",
+          "x-known-codes": [
+            "app_check_required",
+            "authentication_required",
+            "invalid_access_token",
+            "invalid_app_check_token",
+            "invalid_firebase_token"
+          ]
+        },
+        "403": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error403",
+          "x-known-codes": [
+            "admin_required",
+            "invalid_mobile_app",
+            "verified_google_account_required"
+          ]
+        },
+        "409": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error409",
+          "x-known-codes": [
+            "planning_source_conflict",
+            "planning_source_generation_conflict"
+          ]
+        },
+        "422": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error422",
+          "x-known-codes": [
+            "invalid_payload",
+            "planning_snapshot_limit_10_mib"
+          ]
+        },
+        "503": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error503",
+          "x-known-codes": [
+            "authentication_unavailable",
+            "planning_source_unavailable",
+            "response_too_large",
+            "service_unavailable"
+          ]
+        },
+        "413": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error413",
+          "x-known-codes": [
+            "payload_too_large"
+          ]
+        }
+      },
+      "unknown_error_policy": "Any otherwise-valid 4xx/5xx envelope is decoded as a server rejection; unknown codes do not imply reauthentication or retry.",
+      "auth": "firebase_app_check",
+      "success_nullable": false,
+      "success_204": false,
+      "operation_id_source": null,
+      "pagination": false,
+      "body_wire": "absent (empty body; not JSON null)",
+      "notes": "Status-specific schemas validate shape/status; x-known-codes enumerates current/proposed mapped codes, while unknown machine codes are intentionally supported by the default error contract.",
+      "default_error_schema": {
+        "$ref": "urn:finance:mobile-envelope:v1:proposal#/definitions/Failure"
+      }
+    },
+    {
+      "operation": "retryProjection",
+      "method": "POST",
+      "current_path": "/v1/sync/retry",
+      "proposed_path": "/mobile/v1/sync/retry",
+      "request_schema": {
+        "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/retryProjectionRequest"
+      },
+      "responses": {
+        "200": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/retryProjectionResponse"
+        },
+        "401": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error401",
+          "x-known-codes": [
+            "app_check_required",
+            "authentication_required",
+            "invalid_access_token",
+            "invalid_app_check_token",
+            "invalid_firebase_token"
+          ]
+        },
+        "403": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error403",
+          "x-known-codes": [
+            "invalid_mobile_app",
+            "verified_google_account_required"
+          ]
+        },
+        "409": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error409",
+          "x-known-codes": [
+            "planning_source_conflict",
+            "planning_source_generation_conflict"
+          ]
+        },
+        "422": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error422",
+          "x-known-codes": [
+            "invalid_payload"
+          ]
+        },
+        "503": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error503",
+          "x-known-codes": [
+            "authentication_unavailable",
+            "planning_source_unavailable",
+            "response_too_large",
+            "service_unavailable"
+          ]
+        },
+        "413": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error413",
+          "x-known-codes": [
+            "payload_too_large"
+          ]
+        }
+      },
+      "unknown_error_policy": "Any otherwise-valid 4xx/5xx envelope is decoded as a server rejection; unknown codes do not imply reauthentication or retry.",
+      "auth": "firebase_app_check",
+      "success_nullable": false,
+      "success_204": false,
+      "operation_id_source": null,
+      "pagination": false,
+      "body_wire": "absent (empty body; not JSON null)",
+      "notes": "Status-specific schemas validate shape/status; x-known-codes enumerates current/proposed mapped codes, while unknown machine codes are intentionally supported by the default error contract.",
+      "default_error_schema": {
+        "$ref": "urn:finance:mobile-envelope:v1:proposal#/definitions/Failure"
+      }
+    },
+    {
+      "operation": "reconcile",
+      "method": "POST",
+      "current_path": "/v1/sheets/reconcile",
+      "proposed_path": "/mobile/v1/sheets/reconcile",
+      "request_schema": {
+        "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/reconcileRequest"
+      },
+      "responses": {
+        "200": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/reconcileResponse"
+        },
+        "401": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error401",
+          "x-known-codes": [
+            "app_check_required",
+            "authentication_required",
+            "invalid_access_token",
+            "invalid_app_check_token",
+            "invalid_firebase_token"
+          ]
+        },
+        "403": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error403",
+          "x-known-codes": [
+            "admin_required",
+            "invalid_mobile_app",
+            "verified_google_account_required"
+          ]
+        },
+        "409": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error409",
+          "x-known-codes": [
+            "planning_source_conflict",
+            "planning_source_generation_conflict"
+          ]
+        },
+        "422": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error422",
+          "x-known-codes": [
+            "invalid_payload"
+          ]
+        },
+        "503": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error503",
+          "x-known-codes": [
+            "authentication_unavailable",
+            "planning_source_unavailable",
+            "response_too_large",
+            "service_unavailable"
+          ]
+        },
+        "413": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error413",
+          "x-known-codes": [
+            "payload_too_large"
+          ]
+        }
+      },
+      "unknown_error_policy": "Any otherwise-valid 4xx/5xx envelope is decoded as a server rejection; unknown codes do not imply reauthentication or retry.",
+      "auth": "firebase_app_check",
+      "success_nullable": false,
+      "success_204": false,
+      "operation_id_source": null,
+      "pagination": false,
+      "body_wire": "absent (empty body; not JSON null)",
+      "notes": "Status-specific schemas validate shape/status; x-known-codes enumerates current/proposed mapped codes, while unknown machine codes are intentionally supported by the default error contract.",
+      "default_error_schema": {
+        "$ref": "urn:finance:mobile-envelope:v1:proposal#/definitions/Failure"
+      }
+    },
+    {
+      "operation": "upload",
+      "method": "POST",
+      "current_path": "/v1/sync/batches",
+      "proposed_path": "/mobile/v1/sync/batches",
+      "request_schema": {
+        "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/uploadRequest"
+      },
+      "responses": {
+        "200": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/uploadResponse"
+        },
+        "401": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error401",
+          "x-known-codes": [
+            "app_check_required",
+            "authentication_required",
+            "invalid_access_token",
+            "invalid_app_check_token",
+            "invalid_firebase_token"
+          ]
+        },
+        "403": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error403",
+          "x-known-codes": [
+            "invalid_mobile_app",
+            "verified_google_account_required"
+          ]
+        },
+        "409": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error409",
+          "x-known-codes": [
+            "batch_id_payload_conflict",
+            "linked_planning_intent_missing",
+            "planning_source_conflict",
+            "planning_source_generation_conflict",
+            "source_version_conflict",
+            "unknown_planning_source"
+          ]
+        },
+        "422": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error422",
+          "x-known-codes": [
+            "duplicate_record_in_batch",
+            "firestore_batch_limit_100_records",
+            "invalid_payload"
+          ]
+        },
+        "503": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error503",
+          "x-known-codes": [
+            "authentication_unavailable",
+            "planning_source_unavailable",
+            "response_too_large",
+            "service_unavailable"
+          ]
+        },
+        "413": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error413",
+          "x-known-codes": [
+            "payload_too_large"
+          ]
+        }
+      },
+      "unknown_error_policy": "Any otherwise-valid 4xx/5xx envelope is decoded as a server rejection; unknown codes do not imply reauthentication or retry.",
+      "auth": "firebase_app_check",
+      "success_nullable": false,
+      "success_204": false,
+      "operation_id_source": "body.batch_id",
+      "pagination": false,
+      "body_wire": "JSON object",
+      "notes": "Status-specific schemas validate shape/status; x-known-codes enumerates current/proposed mapped codes, while unknown machine codes are intentionally supported by the default error contract.",
+      "default_error_schema": {
+        "$ref": "urn:finance:mobile-envelope:v1:proposal#/definitions/Failure"
+      }
+    },
+    {
+      "operation": "placedOrder",
+      "method": "POST",
+      "current_path": "/v1/orders/placed",
+      "proposed_path": "/mobile/v1/legacy/orders/placed",
+      "request_schema": {
+        "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/placedOrderRequest"
+      },
+      "responses": {
+        "200": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/placedOrderResponse"
+        },
+        "401": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error401",
+          "x-known-codes": [
+            "app_check_required",
+            "authentication_required",
+            "invalid_access_token",
+            "invalid_app_check_token",
+            "invalid_firebase_token"
+          ]
+        },
+        "403": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error403",
+          "x-known-codes": [
+            "invalid_mobile_app",
+            "verified_google_account_required"
+          ]
+        },
+        "409": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error409",
+          "x-known-codes": [
+            "batch_id_payload_conflict",
+            "legacy_report_read_only",
+            "planning_source_conflict",
+            "planning_source_generation_conflict",
+            "source_version_conflict"
+          ]
+        },
+        "422": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error422",
+          "x-known-codes": [
+            "invalid_payload"
+          ]
+        },
+        "503": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error503",
+          "x-known-codes": [
+            "authentication_unavailable",
+            "planning_source_unavailable",
+            "response_too_large",
+            "service_unavailable",
+            "sheet_update_failed"
+          ]
+        },
+        "413": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error413",
+          "x-known-codes": [
+            "payload_too_large"
+          ]
+        }
+      },
+      "unknown_error_policy": "Any otherwise-valid 4xx/5xx envelope is decoded as a server rejection; unknown codes do not imply reauthentication or retry.",
+      "auth": "firebase_app_check",
+      "success_nullable": false,
+      "success_204": false,
+      "operation_id_source": "body.request_id",
+      "pagination": false,
+      "body_wire": "JSON object",
+      "notes": "Status-specific schemas validate shape/status; x-known-codes enumerates current/proposed mapped codes, while unknown machine codes are intentionally supported by the default error contract.",
+      "default_error_schema": {
+        "$ref": "urn:finance:mobile-envelope:v1:proposal#/definitions/Failure"
+      }
+    },
+    {
+      "operation": "placedOrderV2",
+      "method": "POST",
+      "current_path": "/v2/orders/placed",
+      "proposed_path": "/mobile/v1/orders/placed",
+      "request_schema": {
+        "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/placedOrderV2Request"
+      },
+      "responses": {
+        "200": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/placedOrderV2Response"
+        },
+        "401": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error401",
+          "x-known-codes": [
+            "app_check_required",
+            "authentication_required",
+            "invalid_access_token",
+            "invalid_app_check_token",
+            "invalid_firebase_token"
+          ]
+        },
+        "403": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error403",
+          "x-known-codes": [
+            "invalid_mobile_app",
+            "placed_report_requires_user",
+            "verified_google_account_required"
+          ]
+        },
+        "409": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error409",
+          "x-known-codes": [
+            "batch_id_payload_conflict",
+            "broker_order_intent_conflict",
+            "planning_source_conflict",
+            "planning_source_generation_conflict",
+            "preflight_already_reported",
+            "preflight_context_conflict",
+            "request_id_payload_conflict",
+            "source_version_conflict",
+            "valid_preflight_required"
+          ]
+        },
+        "422": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error422",
+          "x-known-codes": [
+            "invalid_payload"
+          ]
+        },
+        "503": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error503",
+          "x-known-codes": [
+            "authentication_unavailable",
+            "planning_source_unavailable",
+            "response_too_large",
+            "service_unavailable"
+          ]
+        },
+        "404": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error404",
+          "x-known-codes": [
+            "planning_intent_not_found"
+          ]
+        },
+        "413": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error413",
+          "x-known-codes": [
+            "payload_too_large"
+          ]
+        }
+      },
+      "unknown_error_policy": "Any otherwise-valid 4xx/5xx envelope is decoded as a server rejection; unknown codes do not imply reauthentication or retry.",
+      "auth": "firebase_app_check",
+      "success_nullable": false,
+      "success_204": false,
+      "operation_id_source": "body.request_id",
+      "pagination": false,
+      "body_wire": "JSON object",
+      "notes": "Status-specific schemas validate shape/status; x-known-codes enumerates current/proposed mapped codes, while unknown machine codes are intentionally supported by the default error contract.",
+      "default_error_schema": {
+        "$ref": "urn:finance:mobile-envelope:v1:proposal#/definitions/Failure"
+      }
+    },
+    {
+      "operation": "batches",
+      "method": "GET",
+      "current_path": "/v1/sync/batches",
+      "proposed_path": "/mobile/v1/sync/batches",
+      "request_schema": {
+        "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/batchesRequest"
+      },
+      "responses": {
+        "200": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/batchesResponse"
+        },
+        "401": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error401",
+          "x-known-codes": [
+            "app_check_required",
+            "authentication_required",
+            "invalid_access_token",
+            "invalid_app_check_token",
+            "invalid_firebase_token"
+          ]
+        },
+        "403": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error403",
+          "x-known-codes": [
+            "admin_required",
+            "invalid_mobile_app",
+            "verified_google_account_required"
+          ]
+        },
+        "409": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error409",
+          "x-known-codes": [
+            "planning_source_conflict",
+            "planning_source_generation_conflict"
+          ]
+        },
+        "422": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error422",
+          "x-known-codes": [
+            "invalid_payload"
+          ]
+        },
+        "503": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error503",
+          "x-known-codes": [
+            "authentication_unavailable",
+            "planning_source_unavailable",
+            "response_too_large",
+            "service_unavailable"
+          ]
+        },
+        "404": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error404",
+          "x-known-codes": [
+            "source_not_found"
+          ]
+        }
+      },
+      "unknown_error_policy": "Any otherwise-valid 4xx/5xx envelope is decoded as a server rejection; unknown codes do not imply reauthentication or retry.",
+      "auth": "firebase_app_check",
+      "success_nullable": false,
+      "success_204": false,
+      "operation_id_source": null,
+      "pagination": true,
+      "body_wire": "absent (empty body; not JSON null)",
+      "notes": "Status-specific schemas validate shape/status; x-known-codes enumerates current/proposed mapped codes, while unknown machine codes are intentionally supported by the default error contract.",
+      "default_error_schema": {
+        "$ref": "urn:finance:mobile-envelope:v1:proposal#/definitions/Failure"
+      }
+    },
+    {
+      "operation": "batch",
+      "method": "GET",
+      "current_path": "/v1/sync/batches/{batch_id}",
+      "proposed_path": "/mobile/v1/sync/batches/{batch_id}",
+      "request_schema": {
+        "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/batchRequest"
+      },
+      "responses": {
+        "200": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/batchResponse"
+        },
+        "401": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error401",
+          "x-known-codes": [
+            "app_check_required",
+            "authentication_required",
+            "invalid_access_token",
+            "invalid_app_check_token",
+            "invalid_firebase_token"
+          ]
+        },
+        "403": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error403",
+          "x-known-codes": [
+            "admin_required",
+            "invalid_mobile_app",
+            "verified_google_account_required"
+          ]
+        },
+        "409": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error409",
+          "x-known-codes": [
+            "planning_source_conflict",
+            "planning_source_generation_conflict"
+          ]
+        },
+        "422": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error422",
+          "x-known-codes": [
+            "invalid_payload"
+          ]
+        },
+        "503": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error503",
+          "x-known-codes": [
+            "authentication_unavailable",
+            "planning_source_unavailable",
+            "response_too_large",
+            "service_unavailable"
+          ]
+        },
+        "404": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error404",
+          "x-known-codes": [
+            "batch_not_found",
+            "source_not_found"
+          ]
+        }
+      },
+      "unknown_error_policy": "Any otherwise-valid 4xx/5xx envelope is decoded as a server rejection; unknown codes do not imply reauthentication or retry.",
+      "auth": "firebase_app_check",
+      "success_nullable": false,
+      "success_204": false,
+      "operation_id_source": null,
+      "pagination": false,
+      "body_wire": "absent (empty body; not JSON null)",
+      "notes": "Status-specific schemas validate shape/status; x-known-codes enumerates current/proposed mapped codes, while unknown machine codes are intentionally supported by the default error contract.",
+      "default_error_schema": {
+        "$ref": "urn:finance:mobile-envelope:v1:proposal#/definitions/Failure"
+      }
+    },
+    {
+      "operation": "orders",
+      "method": "GET",
+      "current_path": "/v1/orders",
+      "proposed_path": "/mobile/v1/orders",
+      "request_schema": {
+        "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/ordersRequest"
+      },
+      "responses": {
+        "200": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/ordersResponse"
+        },
+        "401": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error401",
+          "x-known-codes": [
+            "app_check_required",
+            "authentication_required",
+            "invalid_access_token",
+            "invalid_app_check_token",
+            "invalid_firebase_token"
+          ]
+        },
+        "403": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error403",
+          "x-known-codes": [
+            "admin_required",
+            "invalid_mobile_app",
+            "verified_google_account_required"
+          ]
+        },
+        "409": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error409",
+          "x-known-codes": [
+            "planning_source_conflict",
+            "planning_source_generation_conflict"
+          ]
+        },
+        "422": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error422",
+          "x-known-codes": [
+            "invalid_payload"
+          ]
+        },
+        "503": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error503",
+          "x-known-codes": [
+            "authentication_unavailable",
+            "planning_source_unavailable",
+            "response_too_large",
+            "service_unavailable"
+          ]
+        },
+        "404": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error404",
+          "x-known-codes": [
+            "source_not_found"
+          ]
+        }
+      },
+      "unknown_error_policy": "Any otherwise-valid 4xx/5xx envelope is decoded as a server rejection; unknown codes do not imply reauthentication or retry.",
+      "auth": "firebase_app_check",
+      "success_nullable": false,
+      "success_204": false,
+      "operation_id_source": null,
+      "pagination": true,
+      "body_wire": "absent (empty body; not JSON null)",
+      "notes": "Status-specific schemas validate shape/status; x-known-codes enumerates current/proposed mapped codes, while unknown machine codes are intentionally supported by the default error contract.",
+      "default_error_schema": {
+        "$ref": "urn:finance:mobile-envelope:v1:proposal#/definitions/Failure"
+      }
+    },
+    {
+      "operation": "order",
+      "method": "GET",
+      "current_path": "/v1/orders/{account}/{order_id}",
+      "proposed_path": "/mobile/v1/orders/{account}/{order_id}",
+      "request_schema": {
+        "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/orderRequest"
+      },
+      "responses": {
+        "200": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/orderResponse"
+        },
+        "401": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error401",
+          "x-known-codes": [
+            "app_check_required",
+            "authentication_required",
+            "invalid_access_token",
+            "invalid_app_check_token",
+            "invalid_firebase_token"
+          ]
+        },
+        "403": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error403",
+          "x-known-codes": [
+            "admin_required",
+            "invalid_mobile_app",
+            "verified_google_account_required"
+          ]
+        },
+        "409": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error409",
+          "x-known-codes": [
+            "planning_source_conflict",
+            "planning_source_generation_conflict"
+          ]
+        },
+        "422": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error422",
+          "x-known-codes": [
+            "invalid_payload"
+          ]
+        },
+        "503": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error503",
+          "x-known-codes": [
+            "authentication_unavailable",
+            "planning_source_unavailable",
+            "response_too_large",
+            "service_unavailable"
+          ]
+        },
+        "404": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error404",
+          "x-known-codes": [
+            "order_not_found",
+            "source_not_found"
+          ]
+        }
+      },
+      "unknown_error_policy": "Any otherwise-valid 4xx/5xx envelope is decoded as a server rejection; unknown codes do not imply reauthentication or retry.",
+      "auth": "firebase_app_check",
+      "success_nullable": false,
+      "success_204": false,
+      "operation_id_source": null,
+      "pagination": false,
+      "body_wire": "absent (empty body; not JSON null)",
+      "notes": "Status-specific schemas validate shape/status; x-known-codes enumerates current/proposed mapped codes, while unknown machine codes are intentionally supported by the default error contract.",
+      "default_error_schema": {
+        "$ref": "urn:finance:mobile-envelope:v1:proposal#/definitions/Failure"
+      }
+    },
+    {
+      "operation": "notifications",
+      "method": "GET",
+      "current_path": "/v1/notifications",
+      "proposed_path": "/mobile/v1/notifications",
+      "request_schema": {
+        "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/notificationsRequest"
+      },
+      "responses": {
+        "200": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/notificationsResponse"
+        },
+        "401": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error401",
+          "x-known-codes": [
+            "app_check_required",
+            "authentication_required",
+            "invalid_access_token",
+            "invalid_app_check_token",
+            "invalid_firebase_token"
+          ]
+        },
+        "403": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error403",
+          "x-known-codes": [
+            "invalid_mobile_app",
+            "verified_google_account_required"
+          ]
+        },
+        "409": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error409",
+          "x-known-codes": [
+            "planning_source_conflict",
+            "planning_source_generation_conflict"
+          ]
+        },
+        "422": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error422",
+          "x-known-codes": [
+            "invalid_payload"
+          ]
+        },
+        "503": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error503",
+          "x-known-codes": [
+            "authentication_unavailable",
+            "planning_source_unavailable",
+            "response_too_large",
+            "service_unavailable"
+          ]
+        }
+      },
+      "unknown_error_policy": "Any otherwise-valid 4xx/5xx envelope is decoded as a server rejection; unknown codes do not imply reauthentication or retry.",
+      "auth": "firebase_app_check",
+      "success_nullable": false,
+      "success_204": false,
+      "operation_id_source": null,
+      "pagination": true,
+      "body_wire": "absent (empty body; not JSON null)",
+      "notes": "Status-specific schemas validate shape/status; x-known-codes enumerates current/proposed mapped codes, while unknown machine codes are intentionally supported by the default error contract.",
+      "default_error_schema": {
+        "$ref": "urn:finance:mobile-envelope:v1:proposal#/definitions/Failure"
+      }
+    },
+    {
+      "operation": "notification",
+      "method": "GET",
+      "current_path": "/v1/notifications/{event_id}",
+      "proposed_path": "/mobile/v1/notifications/{event_id}",
+      "request_schema": {
+        "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/notificationRequest"
+      },
+      "responses": {
+        "200": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/notificationResponse"
+        },
+        "401": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error401",
+          "x-known-codes": [
+            "app_check_required",
+            "authentication_required",
+            "invalid_access_token",
+            "invalid_app_check_token",
+            "invalid_firebase_token"
+          ]
+        },
+        "403": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error403",
+          "x-known-codes": [
+            "invalid_mobile_app",
+            "verified_google_account_required"
+          ]
+        },
+        "409": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error409",
+          "x-known-codes": [
+            "planning_source_conflict",
+            "planning_source_generation_conflict"
+          ]
+        },
+        "422": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error422",
+          "x-known-codes": [
+            "invalid_payload"
+          ]
+        },
+        "503": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error503",
+          "x-known-codes": [
+            "authentication_unavailable",
+            "planning_source_unavailable",
+            "response_too_large",
+            "service_unavailable"
+          ]
+        },
+        "404": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error404",
+          "x-known-codes": [
+            "notification_not_found"
+          ]
+        }
+      },
+      "unknown_error_policy": "Any otherwise-valid 4xx/5xx envelope is decoded as a server rejection; unknown codes do not imply reauthentication or retry.",
+      "auth": "firebase_app_check",
+      "success_nullable": false,
+      "success_204": false,
+      "operation_id_source": null,
+      "pagination": false,
+      "body_wire": "absent (empty body; not JSON null)",
+      "notes": "Status-specific schemas validate shape/status; x-known-codes enumerates current/proposed mapped codes, while unknown machine codes are intentionally supported by the default error contract.",
+      "default_error_schema": {
+        "$ref": "urn:finance:mobile-envelope:v1:proposal#/definitions/Failure"
+      }
+    },
+    {
+      "operation": "notificationPlan",
+      "method": "GET",
+      "current_path": "/v1/notification-plans/{plan_id}",
+      "proposed_path": "/mobile/v1/notification-plans/{plan_id}",
+      "request_schema": {
+        "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/notificationPlanRequest"
+      },
+      "responses": {
+        "200": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/notificationPlanResponse"
+        },
+        "401": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error401",
+          "x-known-codes": [
+            "app_check_required",
+            "authentication_required",
+            "invalid_access_token",
+            "invalid_app_check_token",
+            "invalid_firebase_token"
+          ]
+        },
+        "403": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error403",
+          "x-known-codes": [
+            "invalid_mobile_app",
+            "verified_google_account_required"
+          ]
+        },
+        "409": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error409",
+          "x-known-codes": [
+            "planning_source_conflict",
+            "planning_source_generation_conflict"
+          ]
+        },
+        "422": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error422",
+          "x-known-codes": [
+            "invalid_payload"
+          ]
+        },
+        "503": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error503",
+          "x-known-codes": [
+            "authentication_unavailable",
+            "planning_source_unavailable",
+            "response_too_large",
+            "service_unavailable"
+          ]
+        },
+        "404": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error404",
+          "x-known-codes": [
+            "notification_not_found"
+          ]
+        }
+      },
+      "unknown_error_policy": "Any otherwise-valid 4xx/5xx envelope is decoded as a server rejection; unknown codes do not imply reauthentication or retry.",
+      "auth": "firebase_app_check",
+      "success_nullable": false,
+      "success_204": false,
+      "operation_id_source": null,
+      "pagination": false,
+      "body_wire": "absent (empty body; not JSON null)",
+      "notes": "Status-specific schemas validate shape/status; x-known-codes enumerates current/proposed mapped codes, while unknown machine codes are intentionally supported by the default error contract.",
+      "default_error_schema": {
+        "$ref": "urn:finance:mobile-envelope:v1:proposal#/definitions/Failure"
+      }
+    },
+    {
+      "operation": "registerDevice",
+      "method": "PUT",
+      "current_path": "/v1/devices/{device_id}",
+      "proposed_path": "/mobile/v1/devices/{device_id}",
+      "request_schema": {
+        "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/registerDeviceRequest"
+      },
+      "responses": {
+        "200": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/registerDeviceResponse"
+        },
+        "401": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error401",
+          "x-known-codes": [
+            "app_check_required",
+            "authentication_required",
+            "invalid_access_token",
+            "invalid_app_check_token",
+            "invalid_firebase_token"
+          ]
+        },
+        "403": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error403",
+          "x-known-codes": [
+            "invalid_mobile_app",
+            "verified_google_account_required"
+          ]
+        },
+        "409": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error409",
+          "x-known-codes": [
+            "device_limit_10",
+            "device_owned_by_another_user",
+            "planning_source_conflict",
+            "planning_source_generation_conflict",
+            "token_owned_by_another_user"
+          ]
+        },
+        "422": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error422",
+          "x-known-codes": [
+            "invalid_payload"
+          ]
+        },
+        "503": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error503",
+          "x-known-codes": [
+            "authentication_unavailable",
+            "planning_source_unavailable",
+            "response_too_large",
+            "service_unavailable"
+          ]
+        },
+        "413": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error413",
+          "x-known-codes": [
+            "payload_too_large"
+          ]
+        }
+      },
+      "unknown_error_policy": "Any otherwise-valid 4xx/5xx envelope is decoded as a server rejection; unknown codes do not imply reauthentication or retry.",
+      "auth": "firebase_app_check",
+      "success_nullable": false,
+      "success_204": false,
+      "operation_id_source": null,
+      "pagination": false,
+      "body_wire": "JSON object",
+      "notes": "Status-specific schemas validate shape/status; x-known-codes enumerates current/proposed mapped codes, while unknown machine codes are intentionally supported by the default error contract.",
+      "default_error_schema": {
+        "$ref": "urn:finance:mobile-envelope:v1:proposal#/definitions/Failure"
+      }
+    },
+    {
+      "operation": "removeDevice",
+      "method": "DELETE",
+      "current_path": "/v1/devices/{device_id}",
+      "proposed_path": "/mobile/v1/devices/{device_id}",
+      "request_schema": {
+        "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/removeDeviceRequest"
+      },
+      "responses": {
+        "200": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/removeDeviceResponse"
+        },
+        "401": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error401",
+          "x-known-codes": [
+            "app_check_required",
+            "authentication_required",
+            "invalid_access_token",
+            "invalid_app_check_token",
+            "invalid_firebase_token"
+          ]
+        },
+        "403": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error403",
+          "x-known-codes": [
+            "invalid_mobile_app",
+            "verified_google_account_required"
+          ]
+        },
+        "409": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error409",
+          "x-known-codes": [
+            "planning_source_conflict",
+            "planning_source_generation_conflict"
+          ]
+        },
+        "422": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error422",
+          "x-known-codes": [
+            "invalid_payload"
+          ]
+        },
+        "503": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error503",
+          "x-known-codes": [
+            "authentication_unavailable",
+            "planning_source_unavailable",
+            "response_too_large",
+            "service_unavailable"
+          ]
+        },
+        "404": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error404",
+          "x-known-codes": [
+            "device_not_registered"
+          ]
+        }
+      },
+      "unknown_error_policy": "Any otherwise-valid 4xx/5xx envelope is decoded as a server rejection; unknown codes do not imply reauthentication or retry.",
+      "auth": "firebase_app_check",
+      "success_nullable": false,
+      "success_204": false,
+      "operation_id_source": null,
+      "pagination": false,
+      "body_wire": "absent (empty body; not JSON null)",
+      "notes": "Status-specific schemas validate shape/status; x-known-codes enumerates current/proposed mapped codes, while unknown machine codes are intentionally supported by the default error contract.",
+      "default_error_schema": {
+        "$ref": "urn:finance:mobile-envelope:v1:proposal#/definitions/Failure"
+      }
+    },
+    {
+      "operation": "receipt",
+      "method": "POST",
+      "current_path": "/v1/notifications/{event_id}/receipts",
+      "proposed_path": "/mobile/v1/notifications/{event_id}/receipts",
+      "request_schema": {
+        "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/receiptRequest"
+      },
+      "responses": {
+        "200": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/receiptResponse"
+        },
+        "401": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error401",
+          "x-known-codes": [
+            "app_check_required",
+            "authentication_required",
+            "invalid_access_token",
+            "invalid_app_check_token",
+            "invalid_firebase_token"
+          ]
+        },
+        "403": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error403",
+          "x-known-codes": [
+            "invalid_mobile_app",
+            "verified_google_account_required"
+          ]
+        },
+        "409": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error409",
+          "x-known-codes": [
+            "planning_source_conflict",
+            "planning_source_generation_conflict"
+          ]
+        },
+        "422": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error422",
+          "x-known-codes": [
+            "invalid_payload"
+          ]
+        },
+        "503": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error503",
+          "x-known-codes": [
+            "authentication_unavailable",
+            "planning_source_unavailable",
+            "response_too_large",
+            "service_unavailable"
+          ]
+        },
+        "404": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error404",
+          "x-known-codes": [
+            "device_not_registered",
+            "notification_not_found"
+          ]
+        },
+        "413": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error413",
+          "x-known-codes": [
+            "payload_too_large"
+          ]
+        }
+      },
+      "unknown_error_policy": "Any otherwise-valid 4xx/5xx envelope is decoded as a server rejection; unknown codes do not imply reauthentication or retry.",
+      "auth": "firebase_app_check",
+      "success_nullable": false,
+      "success_204": false,
+      "operation_id_source": null,
+      "pagination": false,
+      "body_wire": "JSON object",
+      "notes": "Status-specific schemas validate shape/status; x-known-codes enumerates current/proposed mapped codes, while unknown machine codes are intentionally supported by the default error contract.",
+      "default_error_schema": {
+        "$ref": "urn:finance:mobile-envelope:v1:proposal#/definitions/Failure"
+      }
+    },
+    {
+      "operation": "publishInstruction",
+      "method": "POST",
+      "current_path": "/v1/notifications",
+      "proposed_path": "/mobile/v1/notifications",
+      "request_schema": {
+        "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/publishInstructionRequest"
+      },
+      "responses": {
+        "200": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/publishInstructionResponse"
+        },
+        "401": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error401",
+          "x-known-codes": [
+            "app_check_required",
+            "authentication_required",
+            "invalid_access_token",
+            "invalid_app_check_token",
+            "invalid_firebase_token"
+          ]
+        },
+        "403": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error403",
+          "x-known-codes": [
+            "admin_required",
+            "invalid_mobile_app",
+            "verified_google_account_required"
+          ]
+        },
+        "409": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error409",
+          "x-known-codes": [
+            "event_id_payload_conflict",
+            "plan_target_conflict",
+            "plan_version_conflict",
+            "planning_revision_is_not_current",
+            "planning_source_conflict",
+            "planning_source_generation_conflict"
+          ]
+        },
+        "422": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error422",
+          "x-known-codes": [
+            "invalid_payload",
+            "notification_already_expired",
+            "planning_item_not_found_in_revision"
+          ]
+        },
+        "503": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error503",
+          "x-known-codes": [
+            "authentication_unavailable",
+            "planning_source_unavailable",
+            "response_too_large",
+            "service_unavailable"
+          ]
+        },
+        "413": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error413",
+          "x-known-codes": [
+            "payload_too_large"
+          ]
+        }
+      },
+      "unknown_error_policy": "Any otherwise-valid 4xx/5xx envelope is decoded as a server rejection; unknown codes do not imply reauthentication or retry.",
+      "auth": "firebase_app_check",
+      "success_nullable": false,
+      "success_204": false,
+      "operation_id_source": "body.event_id",
+      "pagination": false,
+      "body_wire": "JSON object",
+      "notes": "Status-specific schemas validate shape/status; x-known-codes enumerates current/proposed mapped codes, while unknown machine codes are intentionally supported by the default error contract.",
+      "default_error_schema": {
+        "$ref": "urn:finance:mobile-envelope:v1:proposal#/definitions/Failure"
+      }
+    },
+    {
+      "operation": "previewNotification",
+      "method": "POST",
+      "current_path": "/v1/notification-preview",
+      "proposed_path": "/mobile/v1/notification-preview",
+      "request_schema": {
+        "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/previewNotificationRequest"
+      },
+      "responses": {
+        "200": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/previewNotificationResponse"
+        },
+        "401": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error401",
+          "x-known-codes": [
+            "app_check_required",
+            "authentication_required",
+            "invalid_access_token",
+            "invalid_app_check_token",
+            "invalid_firebase_token"
+          ]
+        },
+        "403": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error403",
+          "x-known-codes": [
+            "admin_required",
+            "invalid_mobile_app",
+            "verified_google_account_required"
+          ]
+        },
+        "409": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error409",
+          "x-known-codes": [
+            "planning_source_conflict",
+            "planning_source_generation_conflict",
+            "test_event_conflict"
+          ]
+        },
+        "422": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error422",
+          "x-known-codes": [
+            "invalid_payload",
+            "notification_already_expired"
+          ]
+        },
+        "503": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error503",
+          "x-known-codes": [
+            "authentication_unavailable",
+            "calendar_test_storage_unavailable",
+            "planning_source_unavailable",
+            "response_too_large",
+            "service_unavailable"
+          ]
+        },
+        "404": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error404",
+          "x-known-codes": [
+            "route_not_enabled"
+          ]
+        },
+        "413": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/Error413",
+          "x-known-codes": [
+            "payload_too_large"
+          ]
+        }
+      },
+      "unknown_error_policy": "Any otherwise-valid 4xx/5xx envelope is decoded as a server rejection; unknown codes do not imply reauthentication or retry.",
+      "auth": "firebase_app_check",
+      "success_nullable": false,
+      "success_204": false,
+      "operation_id_source": null,
+      "pagination": false,
+      "body_wire": "JSON object",
+      "notes": "Optional admin-only route. Disabled route is a 404; new router uses sanitized route_not_enabled. Not evidence of missing envelope support. Calendar test branch has no independent operation ID; event_id is resource identity. Status-specific schemas validate shape/status; x-known-codes enumerates current/proposed mapped codes, while unknown machine codes are intentionally supported by the default error contract.",
+      "default_error_schema": {
+        "$ref": "urn:finance:mobile-envelope:v1:proposal#/definitions/Failure"
+      }
+    },
+    {
+      "operation": "health",
+      "method": "GET",
+      "current_path": "/health",
+      "proposed_path": "/health",
+      "request_schema": {
+        "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/healthRequest"
+      },
+      "responses": {
+        "200": {
+          "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/HealthDto"
+        }
+      },
+      "auth": "none",
+      "envelope": false,
+      "success_204": false,
+      "notes": "Unchanged unwrapped health; edge errors may be non-JSON. Not a capability/auth check."
+    }
+  ],
+  "request_headers_schema": {
+    "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/AuthHeaders"
+  },
+  "common_protocol_errors": {
+    "404": "not_found",
+    "405": "method_not_allowed",
+    "413": "payload_too_large",
+    "422": "invalid_payload",
+    "503": "response_too_large"
+  },
+  "semantic_constraints": "Original Pydantic/business validators remain mandatory: timestamp ordering, Decimal precision/positivity, consistent accounts, action/reference relationships, source/version/ownership and sum of batch records <=100. JSON Schema alone cannot establish these cross-field/economic conditions."
+}

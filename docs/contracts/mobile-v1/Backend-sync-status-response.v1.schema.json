@@ -1,0 +1,9 @@
+{
+  "$schema": "http://json-schema.org/draft-04/schema#",
+  "id": "urn:finance:mobile-sync-status:v1:proposal",
+  "allOf": [
+    {
+      "$ref": "urn:finance:mobile-endpoints:v1:proposal#/definitions/syncStatusResponse"
+    }
+  ]
+}
