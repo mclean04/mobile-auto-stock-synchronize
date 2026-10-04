@@ -1,5 +1,68 @@
 # Finance Android roadmap
 
+## System Sprint 2 — Android mới, Stock API và Notifications
+
+**PLANNED — NOT STARTED.** Authority: CTO-approved PO roadmap v2026-10-04.7, supplied through the BA-scoped handoff on 2026-10-04. This repository records that handoff only; no private PO folder was accessed or exported. BA accepted the documentation consistency/link/scope review on 2026-10-04; current assignment is publication of the isolated three-file package only. Approval of this plan does not start implementation, design execution, tests, builds, runtime changes, cloud work, schedule enabling, deployment, sends, trades, a test framework or paid infrastructure.
+
+Baselines supplied by BA: remote.py implementation `a2347a2`, guidance `89d262c`; current Android UI `af11e7149834be2f7029cec77baf55b89e0e9eb5` has scoped CTO acceptance and verified publication. These are references, not a claim that a compatible Sprint 2 integration already exists. Pin compatible Backend/API, Android source/app/test artifacts, candidate route and environment versions at future authorized execution. Keep the TEST model and its results visibly labeled TEST. System Sprint 2 does not renumber historical Backend sprints, replace their evidence, or declare System Sprint 1 closed.
+
+For prospective Sprint 2 scope, this plan supersedes older local-only, Telegram-only/eligible-Signal-only, no-scheduled-prediction and old-navigation directions. Dated results, prior runtime limits, acceptance exceptions and paused checkpoints below remain history; they are not new execution authority. Existing services and consumers stay unchanged until the relevant start/cutover gates are approved.
+
+### Planned sequence, ownership and acceptance
+
+| Item | Status | Owner and dependency | Required outcome / acceptance gate |
+| --- | --- | --- | --- |
+| S2-01 — Backend contract first | PLANNED — NOT STARTED | Backend owns concrete Python/Pydantic mobile contracts; Android reviews DTO/nullability/error, pagination, auth and lifecycle implications through BA. Separate start authorization required. | Accepted operation/object mapping and compatible readiness handoff before Android typed integration. Keep remote.py compatibility; no speculative mobile wire contract. |
+| S2-02 — Android design | PLANNED — NOT STARTED | Android owns Compose screens and state design; may proceed in parallel with S2-01 only after separate design-start authorization. | Review the required navigation, phone/tablet layouts, VI/EN, light/dark and loading/empty/error/stale/TEST states. Visual design review is not permission to call an unaccepted API. |
+| S2-03 — Android typed integration | PLANNED — NOT STARTED | Android owns Retrofit/Gson DTOs, repository mapping and ViewModels; depends on accepted S2-01 contract/readiness and reviewed S2-02 UI. | Implement the explicit parity flows below with authorized auth, save/no-save, durable saved-operation identity and safe recovery; no lifecycle-triggered mutation replay. |
+| S2-04 — Scheduled Telegram + FCM | PLANNED — NOT STARTED | Backend owns durable scheduling/delivery; Android owns registration lifecycle, reception, inbox and navigation after accepted device/event contract. | Every successful scheduled result, including HOLD/no Signal, persists and reaches the independent Telegram/FCM delivery paths. Manual flows retain Telegram and have no manual FCM. Candidate routing and bounded delivery-test authority precede execution. |
+| S2-05 — Candidate integration QA | PLANNED — NOT STARTED | System QA, coordinated by BA, after BOTH compatible developer handoffs and UI review. | Pin candidate versions/routing and authorized phone/tablet/account prerequisites; cover the bounded acceptance cases below. Reuse QA memory; retain actual PASS/FAIL/BLOCKED/NOT RUN and distinguish provider acceptance, device receipt and user open. |
+| S2-06 — Legacy retirement | PLANNED — NOT STARTED | Backend + Android, coordinated by BA/PO, after replacement acceptance, explicit production cutover and verified consumer migration. | Inventory and migrate dependencies first; remove only obsolete Android/Planning paths and exclusively old resources, preserve shared services/data/history/rollback evidence. No deletion is authorized by this plan. |
+
+### Android functional parity and UI
+
+Match the approved remote.py capabilities through the future mobile contract: health and model listing; saved Runs, Predictions and Signals; manual model selection and execution; model-execution/Telegram TEST with save or no-save; supplied planning-JSON TEST; Schedule set/pause/resume/off/on; saved-Run status, resume and explicit resend. Manual model selection must not silently change the scheduled model. Choose save/no-save before sending. The normal flow uses a simple model form; raw JSON, planning TEST and recovery controls belong in Advanced.
+
+Run, Prediction and Signal are distinct records. A failed Run or a supplied planning-item TEST can have no model result; do not fabricate a Prediction/Signal or imply an order. No-save produces no saved history or recovery. A Signal is not a trade. Histories, filters, pagination and detail reads only read existing authorized records; zero/one/many results use a collection with a separate unresolved/loading state. Backend owns the concrete pagination and correlation contract; do not infer wire fields or routes from this plan.
+
+Navigation is Overview (initial), Predictions, History and Account, plus a notification bell. Overview shows latest results/signals, next schedule, notification status and an explicit Run prediction action. Predictions contains Predictions/Signals groups with filters, pagination and details. History distinguishes Runs, results, errors and per-channel delivery states. The bell opens a read/unread inbox and the linked Run's correct result. Account groups Google identity, connection, schedule and advanced controls. Do not add empty Portfolio or DNSE destinations.
+
+Reuse fixed navy Material 3 Compose, system light/dark, VI/EN, phone bottom navigation and tablet rail/list-detail layouts. Clearly present loading, empty, error, stale and TEST states. Keep ViewModels, repositories and typed DTOs separate; rendering or navigation must not dispatch hidden business commands. Preserve existing account/environment boundaries and accepted security protections while designing the replacement.
+
+### Contract, authentication and mutation safety
+
+Backend owns Python/Pydantic concrete `BaseResponse<T>`, real HTTP status with equal numeric top-level code, separate business error, pagination and correlation. Android uses its shared Backend Retrofit/Gson client with typed endpoint request/response data classes and domain mapping; keep DNSE signing, headers and clients separate. No generic Object/Any payloads or dynamic JSON dispatcher as a substitute for agreed DTOs. Advanced supplied JSON TEST still uses an explicitly defined, validated business operation.
+
+Use Firebase Google sign-in plus App Check for the authorized admin and accepted account/device rules. No embedded GCP or Telegram credentials, no mobile access to internal operator APIs. Inventory existing Google session, device registration/revocation, Firebase verification and FCM dependencies before migrating them; do not treat an old module boundary as proof these capabilities are dispensable.
+
+Opening, resuming, changing tabs, paging or reading status must not replay prediction, send or mutation commands. Persist idempotency identity before a saved mutation; recovery resolves the same Run. An unknown outcome is not grounds for a blind retry. Explicit Telegram resend requires a duplicate-risk confirmation and targets the existing Run; it is not an implicit new prediction. Unsaved operations cannot claim durable history/recovery.
+
+### Notifications, scheduling and Android lifecycle
+
+A successful scheduled prediction persists its result and sends BOTH Telegram and FCM for EVERY result, including HOLD or no eligible Signal. Use one summary event per Run/device covering that Run's results; do not restrict notifications to eligible Signals. Preserve authorized-account, device-slot and logout rules in the accepted contract. Track Telegram and each device independently: failure in one must not block another or resend an already completed channel. Model failure records a failed Run, not a fabricated result-ready notification. Manual execution retains Telegram; NO manual FCM.
+
+Use `STOCK_PREDICTION_READY` with stable event, Run and account identity, never a fake Planning ID. Android deduplicates reception, maintains read/unread inbox state and fetches canonical authorized detail before opening the correct result. Handle foreground/background/open and account/device lifecycle against the accepted contract. Distinguish provider acceptance, device receipt and user open; do not promise exactly-once delivery.
+
+Candidate scheduling must target the approved candidate route URL and, if required, a distinct OIDC audience. Never accidentally target production. Preserve remote.py compatibility. Any future schedule changes, activation and delivery tests require separately bounded authorization and pinned routing; no schedule or cloud changes occur in this documentation cycle.
+
+### Replacement and retirement boundaries
+
+Inventory Android, CLI, Scheduler, auth and notification dependencies. Preserve or migrate Google login/session, device registration/revocation, Firebase verification and FCM BEFORE removing the Planning module. Only after replacement acceptance, approved production cutover and verified consumer migration may owners remove old Android endpoints/DTOs/repositories/calls, Backend Drive Planning routes/module/runtime dependencies and EXCLUSIVELY old GCP resources. NEVER delete a shared Cloud Run service hosting the new Backend.
+
+Preserve Drive files, databases, history and rollback evidence. If required, provide a separate read-only legacy-history path; no silent Drive fallback. DNSE trading, single-stock research and Drive-planning model-provider import belong to later separately authorized phases, not System Sprint 2 implementation scope.
+
+### Future QA gates and next action
+
+After both compatible handoffs and UI review, QA covers auth, saved/unsaved flows, valid/invalid supplied JSON, distinct histories/paging, schedule/candidate routing, Telegram plus FCM receipt/open on phone/tablet, HOLD, offline/invalid-token behavior, independent-channel failure and safe same-Run recovery. Read and reuse [QA memory](../../Test/TestProject/qa-memory.md), and rerun only cases with a concrete affected change, environment/evidence issue or explicit retest direction. A new chat or documentation change does not justify repeating successful tests. These are future acceptance criteria; no new test execution is authorized now.
+
+Current evidence is limited to plan consistency, links and scope review. [Existing UI publication receipt](../../Planning/Android-current-ui-publication-20261004.json), [remote CLI QA](../../Planning/System-QA-remote-cli-gcp-test-20261004.md) and [remote history guidance QA](../../Planning/System-QA-remote-history-guide-20261004.md) retain their exact historical limits; they do not accept Sprint 2 implementation.
+
+BA accepted this exact three-file documentation package against the authorized plan and matching Backend draft on 2026-10-04. Next action: publish only the isolated reviewed document hunks on the existing branch and verify the remote, then await separate product-start authorization. [Publication receipt](../../Planning/Android-System-Sprint-2-doc-publication-20261004.json). Product execution still needs separate start authorization. Read AGENTS/roadmap/tracker at start, resume and every pull; update both docs before pause, handoff or completion with owner, dependencies, evidence, gates and next action. Report a safety rejection verbatim; no bypass.
+
+## Historical checkpoints — retained with their original evidence limits
+
+The sections below preserve earlier assignments and outcomes. Their use of “current”, “next” or “paused” is dated history; the System Sprint 2 plan above controls prospective scope and does not retroactively change those results.
+
 ## Current-app UI accepted by CTO — 2026-10-04
 
 CTO explicitly accepted the handed-off current-app UI candidate and authorized Android publication, superseding the earlier pause and pending acceptance gate for this increment. Acceptance is based on the CTO's own phone functional checks the previous evening and tablet functional checks this morning, together with the existing independent QA evidence. CTO explicitly accepts the absence of protected screenshot evidence and requests no further tests, builds, device operations or screenshots. This is human product acceptance, not a claim that QA executed every case.
