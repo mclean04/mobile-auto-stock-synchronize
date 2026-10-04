@@ -16,6 +16,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.res.stringResource as text
 import androidx.compose.ui.unit.dp
+import com.example.finance_planning.ui.current.DetailGrid
 import com.example.finance_planning.R
 import com.example.finance_planning.core.*
 import org.json.JSONObject
@@ -40,13 +41,12 @@ fun PlanningOrderCard(row: JSONObject, snapshot: JSONObject?, upcoming: Boolean,
     val intent = decision.intent
     val fields = PlanningFunds.fields(row)
     val cancelled = PlanningFunds.cancelled(row)
-    // Explicit foreground/background pairs remain readable in either system theme.
-    val background = when { !upcoming -> Color(0xFF30343B); cancelled -> Color(0xFF40242A); else -> Color(0xFF12382C) }
-    val panel = when { !upcoming -> Color(0xFF3C424A); cancelled -> Color(0xFF503139); else -> Color(0xFF1B4939) }
-    val foreground = Color(0xFFF4F7F5)
-    val secondary = Color(0xFFCDD8D2)
-    val accent = when { cancelled -> Color(0xFFFFCBD1); !upcoming -> foreground; else -> Color(0xFFB0E5C7) }
-    val warning = Color(0xFFFFBAC3)
+    val background = MaterialTheme.colorScheme.surface
+    val panel = MaterialTheme.colorScheme.surfaceContainerLow
+    val foreground = MaterialTheme.colorScheme.onSurface
+    val secondary = MaterialTheme.colorScheme.onSurfaceVariant
+    val accent = if (cancelled) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
+    val warning = MaterialTheme.colorScheme.error
     val side = PlanningFunds.side(row)
     val required = PlanningFunds.required(row)
     val balances = PlanningFunds.balances(snapshot)
@@ -65,15 +65,16 @@ fun PlanningOrderCard(row: JSONObject, snapshot: JSONObject?, upcoming: Boolean,
         .clickable(onClickLabel = expansionLabel, onClick = toggleExpanded)
         .semantics { stateDescription = expansionLabel }
     Card(modifier = Modifier.fillMaxWidth().testTag("planning-card-" + row.optString("intent_id"))
-        .then(expansionModifier), shape = RoundedCornerShape(22.dp),
+        .then(expansionModifier), shape = RoundedCornerShape(16.dp),
+        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
         colors = CardDefaults.cardColors(containerColor = background, contentColor = foreground)) {
-        Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 Column(Modifier.weight(1f)) {
-                    Text(symbol, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold, color = accent)
+                    Text(symbol, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, color = accent)
                     Text(planned, style = MaterialTheme.typography.titleSmall, color = secondary)
                 }
-                Surface(color = panel, contentColor = foreground, shape = RoundedCornerShape(50)) {
+                Surface(color = panel, contentColor = foreground, shape = RoundedCornerShape(16.dp)) {
                     Text(text(when { cancelled -> R.string.plan_cancel_badge; side == "NB" -> R.string.plan_buy_badge; side == "NS" -> R.string.plan_sell_badge; else -> R.string.plan }),
                         Modifier.padding(horizontal = 14.dp, vertical = 8.dp), color = accent, fontWeight = FontWeight.Bold)
                 }
@@ -89,16 +90,15 @@ fun PlanningOrderCard(row: JSONObject, snapshot: JSONObject?, upcoming: Boolean,
                     .filter { it.isNotBlank() }.joinToString(" · "),
                     style = MaterialTheme.typography.labelLarge, color = accent)
             }
-            if (toggleExpanded != null) Text(expansionLabel, style = MaterialTheme.typography.labelMedium, color = secondary)
+            DetailGrid(listOf(
+                text(R.string.trade_quantity) to (intent?.quantity?.toString()
+                    ?: displayValue("quantity", fields.optString("Số lượng").takeIf { it.isNotBlank() }
+                        ?: text(R.string.no_data_available))),
+                text(R.string.trade_price_vnd) to OrderContent.money(PlanningFunds.price(row))))
+            if (toggleExpanded != null) Text(expansionLabel, style = MaterialTheme.typography.labelMedium, color = secondary,
+                modifier = Modifier.heightIn(min = 48.dp).wrapContentHeight())
             if (expanded) {
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    PlanMetric(text(R.string.trade_quantity), intent?.quantity?.toString()
-                        ?: displayValue("quantity", fields.optString("Số lượng").takeIf { it.isNotBlank() }
-                            ?: text(R.string.no_data_available)),
-                        Modifier.weight(1f), panel, foreground, secondary)
-                    PlanMetric(text(R.string.trade_price_vnd), OrderContent.money(PlanningFunds.price(row)), Modifier.weight(1f), panel, foreground, secondary)
-                }
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     PlanMetric(text(R.string.plan_principal), OrderContent.money(PlanningFunds.principal(row)), Modifier.weight(1f), panel, foreground, secondary)
                     PlanMetric(text(R.string.plan_required), OrderContent.money(required), Modifier.weight(1f), panel, foreground, secondary)
                 }
@@ -111,7 +111,7 @@ fun PlanningOrderCard(row: JSONObject, snapshot: JSONObject?, upcoming: Boolean,
                         style = MaterialTheme.typography.bodySmall, color = secondary)
                 }
                 Surface(color = panel, contentColor = foreground, shape = RoundedCornerShape(16.dp)) {
-                    Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text(text(R.string.planning_gate_heading), style = MaterialTheme.typography.titleSmall,
                             fontWeight = FontWeight.Bold)
                         Text(when {
@@ -127,7 +127,7 @@ fun PlanningOrderCard(row: JSONObject, snapshot: JSONObject?, upcoming: Boolean,
                 }
                 if (upcoming && side == "NB" && !cancelled) {
                     Surface(color = panel, contentColor = foreground, shape = RoundedCornerShape(16.dp)) {
-                        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             Text(text(R.string.plan_funds_heading), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                             if (balances.isEmpty()) Text(text(R.string.plan_funds_sync_required), style = MaterialTheme.typography.bodySmall, fontStyle = FontStyle.Italic, color = secondary)
                             balances.forEach { (account, cash) ->
@@ -150,14 +150,13 @@ fun PlanningOrderCard(row: JSONObject, snapshot: JSONObject?, upcoming: Boolean,
                     }
                 }
                 if (upcoming && gateReady && PlanningFunds.affordable(snapshot, row)) Button(onClick = place, enabled = enabled,
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFB0E5C7), contentColor = Color(0xFF103426),
-                        disabledContainerColor = Color(0xFF355947), disabledContentColor = Color(0xFFD1DDD7))) { Text(text(R.string.trade_title)) }
+                    modifier = Modifier.heightIn(min = 48.dp)) { Text(text(R.string.trade_title)) }
                 val primary = setOf("Mã", "Ngày dự kiến", "Số lượng", "Giá LO tối đa", "Giá LO", "Giá LO (VND)", "Giá trị kế hoạch", "Tổng chi ngân sách", "Mua/Bán", "Trạng thái")
                 val extra = if (row.optString("record_kind") == "CANONICAL" || intent != null) listOf("thesis", "conditions").filter {
                     row.optString(it).isNotBlank()
                 } else fields.keys().asSequence().filter { it !in primary && !fields.isNull(it) && fields.optString(it).isNotBlank() }.toList()
                 extra.filter { fields.optString(it).length <= 100 }.chunked(2).forEach { pair ->
-                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                         pair.forEach { key -> PlanMetric(key, fields.optString(key), Modifier.weight(1f), panel, foreground, secondary) }
                         if (pair.size == 1) Spacer(Modifier.weight(1f))
                     }
@@ -175,8 +174,8 @@ fun PlanningOrderCard(row: JSONObject, snapshot: JSONObject?, upcoming: Boolean,
 
 @Composable
 private fun PlanMetric(label: String, value: String, modifier: Modifier, background: Color, foreground: Color, secondary: Color) {
-    Surface(modifier, color = background, contentColor = foreground, shape = RoundedCornerShape(14.dp)) {
-        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+    Surface(modifier, color = background, contentColor = foreground, shape = RoundedCornerShape(16.dp)) {
+        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(label, style = MaterialTheme.typography.labelMedium, color = secondary)
             Text(value, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = foreground)
         }

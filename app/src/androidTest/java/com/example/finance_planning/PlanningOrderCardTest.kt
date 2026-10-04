@@ -34,7 +34,8 @@ class PlanningOrderCardTest {
     private fun card() = compose.onNodeWithTag("planning-card-" + row.getString("intent_id"))
     private fun collapsed() {
         card().assert(SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, label(R.string.planning_card_expand)))
-        compose.onNodeWithText(label(R.string.trade_quantity)).assertDoesNotExist()
+        compose.onNodeWithText(label(R.string.trade_quantity)).assertExists()
+        compose.onNodeWithText(label(R.string.trade_price_vnd)).assertExists()
     }
     private fun expanded() = card().assert(SemanticsMatcher.expectValue(
         SemanticsProperties.StateDescription, label(R.string.planning_card_collapse)))

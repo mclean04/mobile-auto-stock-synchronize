@@ -499,4 +499,20 @@
     <string name="local_planning_health_http">Máy chủ %1$s trả HTTP %2$d cho kiểm tra sức khỏe. Kiểm tra đúng dịch vụ Planning và cổng; chưa kiểm tra hoặc gửi lại phiên.</string>
     <string name="local_planning_health_incompatible">Phản hồi từ %1$s không khớp định dạng sức khỏe Planning/Firestore. Kiểm tra local.py đã bật toàn bộ Backend tích hợp, không chỉ dịch vụ Stock. Chưa gửi lại phiên.</string>
     <string name="local_planning_health_connection">Không hoàn tất được kiểm tra máy chủ %1$s. Kiểm tra Backend tích hợp trên máy tính và đường USB của thiết bị. Đây chưa phải bằng chứng sai thông tin đăng nhập; chưa gửi lại phiên.</string>
+    <string name="current_ui_help">Hướng dẫn</string>
+    <string name="current_ui_show">Xem</string>
+    <string name="current_ui_hide">Ẩn</string>
+    <string name="current_ui_connection">Kết nối</string>
+    <string name="current_ui_technical">Thông tin kỹ thuật</string>
+    <string name="current_ui_logout">Đăng xuất</string>
+    <string name="current_ui_time">Thời gian</string>
+    <string name="current_ui_symbol">Mã chứng khoán</string>
+    <string name="current_ui_side">Loại lệnh</string>
+    <string name="current_ui_total">Giá trị dự kiến</string>
+    <string name="current_ui_filled">Đã khớp</string>
+    <string name="current_ui_remaining">Còn lại</string>
+    <string name="current_ui_filled_value">Giá trị đã khớp</string>
+    <string name="current_ui_plan_details">Chi tiết kế hoạch</string>
+    <string name="current_ui_shares">%1$d cổ phiếu</string>
+    <string name="current_ui_fees_note">Giá trị dự kiến chưa bao gồm phí.</string>
 </resources>

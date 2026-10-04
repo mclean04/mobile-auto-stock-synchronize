@@ -9,6 +9,7 @@ import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.test.platform.app.InstrumentationRegistry
 import com.example.finance_planning.core.*
+import com.example.finance_planning.ui.current.Orders
 import com.example.finance_planning.ui.ScreenState
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking

@@ -20,6 +20,10 @@ val qaStartupIsolation = providers.gradleProperty("qaStartupIsolation").orElse("
 }
 android {
     namespace = "com.example.finance_planning"
+    // Allows bounded UI instrumentation against localDebug without changing the default QA variant.
+    testBuildType = providers.gradleProperty("uiTestBuildType").orElse("debug").get().also {
+        require(it in setOf("debug", "localDebug"))
+    }
     compileSdk { version = release(37) }
     defaultConfig {
         applicationId = "com.example.finance_planning"
@@ -97,4 +101,11 @@ dependencies {
     androidTestImplementation("androidx.room:room-testing:2.8.5")
     debugImplementation(libs.androidx.compose.ui.test.manifest)
     debugImplementation(libs.androidx.compose.ui.tooling)
+}
+
+// Reuse existing debug Compose test tooling for optional localDebug instrumentation.
+if (providers.gradleProperty("uiTestBuildType").orNull == "localDebug") {
+    configurations.named("localDebugImplementation") {
+        extendsFrom(configurations.getByName("debugImplementation"))
+    }
 }

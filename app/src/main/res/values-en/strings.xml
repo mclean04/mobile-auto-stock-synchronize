@@ -499,4 +499,20 @@
     <string name="local_planning_health_http">Server %1$s returned HTTP %2$d for the health check. Verify the Planning service and port; no session was checked or resent.</string>
     <string name="local_planning_health_incompatible">The response from %1$s does not match the Planning/Firestore health format. Check that local.py started the full integrated Backend, not only the Stock service; no session was resent.</string>
     <string name="local_planning_health_connection">Could not complete the server check at %1$s. Check the integrated Backend on the computer and the USB route for this device. This does not establish an authentication failure; no session was resent.</string>
+    <string name="current_ui_help">Help</string>
+    <string name="current_ui_show">Show</string>
+    <string name="current_ui_hide">Hide</string>
+    <string name="current_ui_connection">Connection</string>
+    <string name="current_ui_technical">Technical details</string>
+    <string name="current_ui_logout">Sign out</string>
+    <string name="current_ui_time">Time</string>
+    <string name="current_ui_symbol">Symbol</string>
+    <string name="current_ui_side">Side</string>
+    <string name="current_ui_total">Estimated value</string>
+    <string name="current_ui_filled">Filled</string>
+    <string name="current_ui_remaining">Remaining</string>
+    <string name="current_ui_filled_value">Filled value</string>
+    <string name="current_ui_plan_details">Plan details</string>
+    <string name="current_ui_shares">%1$d shares</string>
+    <string name="current_ui_fees_note">Estimated value excludes fees.</string>
 </resources>

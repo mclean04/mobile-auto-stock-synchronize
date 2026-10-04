@@ -73,7 +73,7 @@ private fun SandboxTradeContent(session: PlanningRepository.SandboxTradeSession,
     AlertDialog(onDismissRequest = { if (!busy) dismiss() }, title = { Text(text(R.string.sandbox_test_title)) },
         text = {
             Column(Modifier.heightIn(max = 640.dp).verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Surface(color = MaterialTheme.colorScheme.secondaryContainer, shape = MaterialTheme.shapes.medium) {
                     Text(text(R.string.sandbox_test_note), Modifier.padding(12.dp), style = MaterialTheme.typography.bodySmall,
                         fontStyle = FontStyle.Italic)
@@ -105,14 +105,14 @@ private fun SandboxTradeContent(session: PlanningRepository.SandboxTradeSession,
                         val id = row.optLong("id", -1)
                         val selected = packageId == id
                         Surface(Modifier.fillMaxWidth().clickable(enabled = !busy && id > 0) { packageId = id },
-                            shape = RoundedCornerShape(14.dp),
+                            shape = RoundedCornerShape(16.dp),
                             color = if (selected) MaterialTheme.colorScheme.primaryContainer
                                 else MaterialTheme.colorScheme.surfaceContainerHigh,
                             border = androidx.compose.foundation.BorderStroke(1.dp,
                                 if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant)) {
                             Row(Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
                                 verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                                horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                                 RadioButton(selected = selected, onClick = { packageId = id },
                                     enabled = !busy && id > 0)
                                 Column {
@@ -137,7 +137,7 @@ private fun SandboxTradeContent(session: PlanningRepository.SandboxTradeSession,
                         color = if (draft != null && account.isNotBlank()) MaterialTheme.colorScheme.primary
                             else MaterialTheme.colorScheme.error)
                     Surface(color = MaterialTheme.colorScheme.secondaryContainer,
-                        shape = RoundedCornerShape(14.dp)) {
+                        shape = RoundedCornerShape(16.dp)) {
                         Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
                             verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
                             Column(Modifier.weight(1f)) {
@@ -175,7 +175,7 @@ private fun SandboxTradeContent(session: PlanningRepository.SandboxTradeSession,
                 if (responses.isEmpty()) Text(text(R.string.sandbox_no_response), style = MaterialTheme.typography.bodySmall)
                 responses.asReversed().forEach { result ->
                     Surface(shape = MaterialTheme.shapes.medium, color = MaterialTheme.colorScheme.surfaceContainerHigh) {
-                        Column(Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Column(Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             Text("HTTP ${result.status} • ${result.method}", style = MaterialTheme.typography.titleSmall,
                                 color = if (result.status in 200..299) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error)
                             Text(result.path, style = MaterialTheme.typography.bodySmall)

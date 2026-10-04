@@ -15,17 +15,26 @@ import androidx.compose.ui.res.stringResource as text
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.example.finance_planning.ui.current.HelpDisclosure
 import com.example.finance_planning.R
 import com.example.finance_planning.core.*
 import org.json.JSONObject
 
+internal data class AdminActions(val refresh: () -> Unit, val source: (String) -> Unit,
+    val moreSources: () -> Unit, val moreRecords: () -> Unit, val reconcile: () -> Unit)
+
 @Composable
 fun AdminDashboard(s: ScreenState, model: PlanningViewModel, importPlanning: () -> Unit) {
+    AdminDashboardContent(s, model.repo.identity.uid(), AdminActions(model::refresh, model::source,
+        model::moreSources, model::moreRecords, model::reconcile), importPlanning)
+}
+
+@Composable
+internal fun AdminDashboardContent(s: ScreenState, ownUid: String?, actions: AdminActions, importPlanning: () -> Unit) {
     var section by rememberSaveable { mutableIntStateOf(0) }
     var recordKind by rememberSaveable { mutableStateOf("all") }
     val plans = s.planning?.objects("items").orEmpty()
     val selected = s.sources.firstOrNull { it.optString("id") == s.selectedSource }
-    val ownUid = model.repo.identity.uid()
     val sourceTitle = when {
         s.selectedSource == null -> text(R.string.admin_no_account_selected)
         s.selectedSource == "legacy" -> text(R.string.shared_historical_data)
@@ -40,14 +49,14 @@ fun AdminDashboard(s: ScreenState, model: PlanningViewModel, importPlanning: () 
             }
         }
         LazyVerticalGrid(columns = GridCells.Adaptive(if (LocalAdaptiveLayout.current.tablet) 340.dp else 1000.dp),
-            horizontalArrangement = Arrangement.spacedBy(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp),
+            horizontalArrangement = Arrangement.spacedBy(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp),
             contentPadding = PaddingValues(top = 12.dp, bottom = 24.dp)) {
             if (section == 0) {
                 item { Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Surface(color = Color(0xFF244866), contentColor = Color.White, shape = RoundedCornerShape(22.dp)) {
-                        Column(Modifier.fillMaxWidth().padding(20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Surface(color = MaterialTheme.colorScheme.primaryContainer, contentColor = MaterialTheme.colorScheme.onPrimaryContainer, shape = RoundedCornerShape(16.dp)) {
+                        Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             Text(text(R.string.admin_role_title), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                            Text(text(R.string.admin_role_note), style = MaterialTheme.typography.bodySmall, fontStyle = FontStyle.Italic, color = Color(0xFFD5E4EE))
+                            Text(text(R.string.admin_role_note), style = MaterialTheme.typography.bodySmall, fontStyle = FontStyle.Italic, color = MaterialTheme.colorScheme.onPrimaryContainer)
                         }
                     }
                  } }
@@ -77,7 +86,7 @@ fun AdminDashboard(s: ScreenState, model: PlanningViewModel, importPlanning: () 
                         FilledTonalButton({ section = 1 }, Modifier.weight(1f)) { Text(text(R.string.admin_view_account_data)) }
                         FilledTonalButton({ section = 2 }, Modifier.weight(1f)) { Text(text(R.string.admin_manage_plans)) }
                     }
-                    Button(model::refresh, Modifier.fillMaxWidth().padding(top = 10.dp), enabled = !s.busy) { Text(text(R.string.admin_refresh_dashboard)) }
+                    Button(actions.refresh, Modifier.fillMaxWidth().padding(top = 10.dp), enabled = !s.busy) { Text(text(R.string.admin_refresh_dashboard)) }
                     AdminNote(text(R.string.admin_refresh_dashboard_note))
                  } }
             } else if (section == 1) {
@@ -86,11 +95,11 @@ fun AdminDashboard(s: ScreenState, model: PlanningViewModel, importPlanning: () 
                     val id = source.getString("id")
                     val isOwn = source.optString("uid") == ownUid
                     val active = s.selectedSource == id
-                    Card(onClick = { recordKind = "all"; model.source(id) }, enabled = !s.busy,
-                        modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp),
+                    Card(onClick = { recordKind = "all"; actions.source(id) }, enabled = !s.busy,
+                        modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp),
                         colors = CardDefaults.cardColors(containerColor = if (active) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerHigh,
                             contentColor = if (active) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface)) {
-                        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             Text(when { id == "legacy" -> text(R.string.shared_historical_data); isOwn -> text(R.string.admin_your_account); else -> text(R.string.admin_google_data_account) },
                                 style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                             if (isOwn) Text(s.email, style = MaterialTheme.typography.bodyLarge)
@@ -99,7 +108,7 @@ fun AdminDashboard(s: ScreenState, model: PlanningViewModel, importPlanning: () 
                         }
                     }
                 }
-                if (s.sourceCursor != null) item(span = { GridItemSpan(maxLineSpan) }) { Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {  FilledTonalButton(model::moreSources, enabled = !s.busy) { Text(text(R.string.more_accounts)) }  } }
+                if (s.sourceCursor != null) item(span = { GridItemSpan(maxLineSpan) }) { Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {  FilledTonalButton(actions.moreSources, enabled = !s.busy) { Text(text(R.string.more_accounts)) }  } }
                 item(span = { GridItemSpan(maxLineSpan) }) { Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     AdminSection(text(R.string.admin_account_records_title), text(R.string.admin_account_records_note))
                     if (s.selectedSource == null) AdminNote(text(R.string.admin_no_account_selected))
@@ -117,12 +126,12 @@ fun AdminDashboard(s: ScreenState, model: PlanningViewModel, importPlanning: () 
                 items(s.adminRecords.filter { recordKind == "all" || it.optString("kind") == recordKind }) { AdminRecord(it) }
                 if (s.selectedSource != null && !s.busy && s.adminRecords.none { recordKind == "all" || it.optString("kind") == recordKind })
                     item { Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {  AdminNote(text(R.string.admin_no_loaded_records))  } }
-                if (s.recordCursor != null) item(span = { GridItemSpan(maxLineSpan) }) { Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {  FilledTonalButton(model::moreRecords, enabled = !s.busy) { Text(text(R.string.more_records)) }  } }
+                if (s.recordCursor != null) item(span = { GridItemSpan(maxLineSpan) }) { Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {  FilledTonalButton(actions.moreRecords, enabled = !s.busy) { Text(text(R.string.more_records)) }  } }
             } else {
                 item(span = { GridItemSpan(maxLineSpan) }) { Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {  AdminSection(text(R.string.admin_plan_tools_title), text(R.string.admin_plan_tools_note))  } }
                 item { Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(20.dp)) {
-                        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp)) {
+                        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                             Text(text(R.string.admin_read_plans_title), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                             Button(importPlanning, Modifier.fillMaxWidth(), enabled = !s.busy) { Text(text(R.string.admin_read_plans_button)) }
                             AdminNote(text(R.string.admin_read_plans_note))
@@ -130,10 +139,10 @@ fun AdminDashboard(s: ScreenState, model: PlanningViewModel, importPlanning: () 
                     }
                  } }
                 item { Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(20.dp)) {
-                        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp)) {
+                        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                             Text(text(R.string.admin_write_sheet_title), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                            FilledTonalButton(model::reconcile, Modifier.fillMaxWidth(), enabled = !s.busy) { Text(text(R.string.admin_write_sheet_button)) }
+                            FilledTonalButton(actions.reconcile, Modifier.fillMaxWidth(), enabled = !s.busy) { Text(text(R.string.admin_write_sheet_button)) }
                             AdminNote(text(R.string.admin_write_sheet_note))
                             if (sheetEnabled == false) Text(text(R.string.admin_sheet_disabled_notice), color = MaterialTheme.colorScheme.error,
                                 style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
@@ -169,15 +178,15 @@ private fun AdminRecord(row: JSONObject) {
             text(R.string.admin_trading_fee) to OrderContent.money(OrderContent.number(p, "fee_vnd")))
         else -> emptyList()
     }
-    Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(20.dp)) {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+    Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp)) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Text(title + p.optString("symbol").takeIf { it.isNotBlank() }?.let { " · $it" }.orEmpty(),
                 style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
             if (kind == "order") Text(text(if (p.optString("side") == "BUY") R.string.buy else R.string.sell),
                 style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
             Text(text(R.string.account, p.optString("account")), style = MaterialTheme.typography.bodyMedium)
             data.chunked(2).forEach { pair ->
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     pair.forEach { (label, value) -> AdminMetric(label, value, Modifier.weight(1f)) }
                     if (pair.size == 1) Spacer(Modifier.weight(1f))
                 }
@@ -194,7 +203,7 @@ private fun AdminRecord(row: JSONObject) {
 private fun AdminMetric(label: String, value: String, modifier: Modifier) {
     Surface(modifier, color = MaterialTheme.colorScheme.surfaceContainerHigh, contentColor = MaterialTheme.colorScheme.onSurface,
         shape = RoundedCornerShape(14.dp)) {
-        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Text(value, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
         }
@@ -202,9 +211,9 @@ private fun AdminMetric(label: String, value: String, modifier: Modifier) {
 }
 @Composable
 private fun AdminSection(title: String, note: String) {
-    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text(title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-        AdminNote(note)
+        HelpDisclosure { AdminNote(note) }
     }
 }
 @Composable

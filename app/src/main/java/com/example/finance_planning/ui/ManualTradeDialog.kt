@@ -10,6 +10,7 @@ import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.res.stringResource as text
 import androidx.compose.ui.unit.dp
+import com.example.finance_planning.ui.current.TradeReviewContent
 import com.example.finance_planning.R
 import com.example.finance_planning.core.AppFailure
 import com.example.finance_planning.core.AppText
@@ -136,10 +137,7 @@ fun ManualTradeDialog(plan: JSONObject, repo: PlanningRepository, section: Plann
                 Text(text(R.string.trade_package_note), style = MaterialTheme.typography.bodySmall, fontStyle = FontStyle.Italic)
             } else {
                 val d = draft!!
-                Text(text(R.string.trade_review, account, d.symbol, text(if (d.side == "NB") R.string.buy else R.string.sell),
-                    d.quantity, OrderContent.money(BigDecimal(d.price)),
-                    OrderContent.money(BigDecimal(d.price).multiply(BigDecimal(d.quantity))), selectedPackage!!.optString("name", d.packageId.toString())),
-                    style = MaterialTheme.typography.titleMedium)
+                TradeReviewContent(account, d, selectedPackage!!.optString("name", d.packageId.toString()))
                 if (d.side == "NB") {
                     Text(text(R.string.plan_account_cash, account, OrderContent.money(PlanningFunds.cash(funds, account))), fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
                     Text(text(R.string.plan_required_value, OrderContent.money(PlanningFunds.required(plan, BigDecimal(d.price).multiply(BigDecimal(d.quantity))))))
